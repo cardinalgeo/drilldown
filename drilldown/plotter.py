@@ -341,23 +341,6 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         super(pn.Row, self).__init__(self.ctrls, self.iframe(sizing_mode="stretch_both"), height=800, width=1200)
 
-    def iframe(self, sizing_mode="fixed", w=800, h=400, **params): 
-        _iframe = super(DrillDownPanelPlotter, self).iframe()
-        src = _iframe.src
-
-        if sizing_mode == "stretch_width": 
-            w = '100%'
-        elif sizing_mode == "stretch_height": 
-            h = '100%'
-        elif sizing_mode == "stretch_both": 
-            w = '100%'
-            h = '100%'
-
-        html = f"""<iframe frameborder="0" title="panel app" style="width: {w};height: {h};flex-grow: 1" src="{src}"></iframe>"""
-        _iframe = pn.pane.HTML(html, sizing_mode=sizing_mode, **params)
-
-        return pn.Column(pn.panel(_iframe, sizing_mode=sizing_mode), sizing_mode=sizing_mode)
-
     def add_mesh(self, mesh, name, color="grey", opacity=1, *args, **kwargs): 
         actor = super(DrillDownPanelPlotter, self).add_mesh(mesh, name, color=color, opacity=opacity, *args, **kwargs)
 
@@ -498,6 +481,22 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def get_assay_data(self): 
         return super(DrillDownPanelPlotter, self).get_assay_data()
     
+    def iframe(self, sizing_mode="fixed", w=800, h=400): 
+        _iframe = super(DrillDownPanelPlotter, self).iframe()
+        _src = _iframe.src
+
+        if sizing_mode == "stretch_width":
+            w = '100%'
+        elif sizing_mode == "stretch_height":
+            h = '100%'
+        elif sizing_mode == "stretch_both":
+            w = '100%'
+            h = '100%'
+
+        html = f"""<iframe frameborder="0" title="panel app" style="width: {w};height: {h};flex-grow: 1" src="{_src}"></iframe>"""
+        _iframe = pn.pane.HTML(html, sizing_mode=sizing_mode)
+
+        return pn.Column(pn.panel(_iframe, sizing_mode=sizing_mode), sizing_mode=sizing_mode)
 
 
 
