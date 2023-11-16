@@ -80,39 +80,48 @@ class DrillDownPlotter(Plotter):
             n_sides=20, 
             capping=True, 
             active_var="Co_ppm",
+            cmap="blues",
+            cmap_range=None, 
             color_on_selection="#000000", 
             opacity_on_selection=0.95,
             accelerated_selection=False,
             *args, 
             **kwargs
             ):
+        name = "drillhole intervals"
         self.n_sides = n_sides
         self._faces_per_interval = self.n_sides + 2
         filter = dataset.tube(radius=radius, n_sides=self.n_sides, capping=capping)
+        self._filters[name] = filter
 
         self._hole_vars = []
         for var in filter.array_names: 
             array = filter[var]
             if array.IsNumeric(): 
                 self._hole_vars.append(var)
-        name = "drillhole intervals"
+        self._cmaps = plt.colormaps()
         actor = self.add_mesh(filter, name=name, scalars=active_var, show_scalar_bar=False, *args, **kwargs)
         self.reset_camera()
-        self._filters[name] = filter
+
+        self.update_cmap(cmap)
+        if cmap_range != None: 
+            self.update_cmap_range(cmap_range)
 
         if selectable==True: 
-
             self._make_selectable(
                 actor, 
                 color_on_selection=color_on_selection, 
                 opacity_on_selection=opacity_on_selection, 
                 accelerated_selection=accelerated_selection
                 )
-
     @property
     def hole_vars(self): 
         return self._hole_vars
-    
+        
+    @property
+    def cmaps(self): 
+        return self._cmaps
+
     @property
     def faces_per_interval(self):
         return self._faces_per_interval
@@ -371,6 +380,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             n_sides=20, 
             capping=True, 
             active_var="Co_ppm",
+            cmap="blues", 
+            cmap_range=None,
             color_on_selection="#000000", 
             opacity_on_selection=0.95,
             accelerated_selection=False,
@@ -384,47 +395,63 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             n_sides=n_sides, 
             capping=capping, 
             active_var=active_var,
+            cmap=cmap,
+            cmap_range=cmap_range,
             color_on_selection=color_on_selection, 
             opacity_on_selection=opacity_on_selection,
             accelerated_selection=accelerated_selection,
             *args, 
             **kwargs
             )
-        
+
+        self._make_hole_ctrl_card(active_var, cmap, cmap_range)
         # set up widget to show and hide mesh
-        self._make_hole_ctrl_card()
+        self.update_active_var(active_var)
+        self.update_cmap(cmap)
+        if cmap_range != None: 
+            self.update_cmap_range(cmap_range)
 
-    def _make_active_var_widget(self): 
-        self.active_var_widget = pn.widgets.Select(name="active variable", options=self.hole_vars, width=int(0.9*self.ctrl_widget_width))
-        self.active_var_widget.param.watch(self._on_active_var_change, 'value')
-        return self.active_var_widget
+    def _make_active_var_widget(self, value=None): 
+        widget = pn.widgets.Select(name="active variable", options=self.hole_vars, value=value, width=int(0.9*self.ctrl_widget_width))
+        widget.param.watch(self._on_active_var_change, 'value')
 
-    def _make_cmap_widget(self): 
-        self.cmap_widget = pn.widgets.Select(name="color map", options=plt.colormaps(), width=int(0.9*self.ctrl_widget_width))
-        self.cmap_widget.param.watch(self._on_cmap_change, 'value')
-        return self.cmap_widget
+        self.active_var_widget = widget
+        return widget
 
-    def _make_cmap_range_widget(self): 
+    def _make_cmap_widget(self, value=None): 
+        widget = pn.widgets.Select(name="color map", options=self.cmaps, value=value, width=int(0.9*self.ctrl_widget_width))
+        widget.param.watch(self._on_cmap_change, 'value')
+
+        self.cmap_widget = widget
+        return widget
+
+    def _make_cmap_range_widget(self, value=None): 
         min = self._actors["drillhole intervals"].mapper.dataset.active_scalars.min()
         max = self._actors["drillhole intervals"].mapper.dataset.active_scalars.max()
-        self.cmap_range_widget = pn.widgets.RangeSlider(
+        if value == None: 
+            value = (min, max)
+        widget = pn.widgets.RangeSlider(
             name="color map range", 
             start=min, 
             end=max, 
             step=min-max/1000, 
-            value=(min, max), 
+            value=value,
             width=int(0.9*self.ctrl_widget_width)
             )
-        self.cmap_range_widget.param.watch(self._on_cmap_range_change, 'value')
-        return self.cmap_range_widget
+        widget.param.watch(self._on_cmap_range_change, 'value')
+        widget.param.default = value
+
+        self.cmap_range_widget = widget
+        return widget
     
-    def _make_hole_ctrl_card(self):
+    def _make_hole_ctrl_card(self, active_var=None, cmap=None, cmap_range=None):
+
         self.hole_ctrl_card = pn.Column(
             width=self.ctrl_widget_width,
             )
-        self.hole_ctrl_card.append(self._make_active_var_widget())
-        self.hole_ctrl_card.append(self._make_cmap_widget())
-        self.hole_ctrl_card.append(self._make_cmap_range_widget())
+        self.hole_ctrl_card.append(self._make_active_var_widget(value=active_var))
+        self.hole_ctrl_card.append(self._make_cmap_widget(value=cmap))
+        self.hole_ctrl_card.append(self._make_cmap_range_widget(value=cmap_range))
 
         self.ctrls.append(("hole controls", self.hole_ctrl_card))
         return self.hole_ctrl_card
@@ -456,6 +483,21 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         return self.mesh_visibility_card
     
+    def update_active_var(self, active_var): 
+        super(DrillDownPanelPlotter, self).update_active_var(active_var)
+        if hasattr(self, "active_var_widget"): 
+            self.active_var_widget.value=active_var
+
+    def update_cmap(self, cmap): 
+        super(DrillDownPanelPlotter, self).update_cmap(cmap)
+        if hasattr(self, "cmap_widget"): 
+            self.cmap_widget.value=cmap
+
+    def update_cmap_range(self, cmap_range): 
+        super(DrillDownPanelPlotter, self).update_cmap_range(cmap_range)
+        if hasattr(self, "cmap_range_widget"): 
+            self.cmap_range_widget.value=cmap_range
+
     def _on_active_var_change(self, event): 
         active_var = event.new
         self.update_active_var(active_var)
@@ -467,6 +509,10 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def _on_cmap_change(self, event): 
         cmap = event.new
         self.update_cmap(cmap)
+
+        active_scalars = self._actors["drillhole intervals"].mapper.dataset.active_scalars
+        self.cmap_range_widget.start = active_scalars.min()
+        self.cmap_range_widget.end = active_scalars.max()
     
     def _on_cmap_range_change(self, event):
         cmap_range = event.new
