@@ -265,6 +265,19 @@ class DrillDownPlotter(Plotter):
         self._actors["drillhole intervals"].mapper.SetUseLookupTableScalarRange(True)
         self.render()
 
+    def update_visibility(self, visible): 
+        if visible == True: 
+            self._actors["drillhole intervals"].prop.opacity = 1
+        else: 
+            self._actors["drillhole intervals"].prop.opacity = 0
+
+        self.render()
+
+    def update_opacity(self, opacity): 
+        self._actors["drillhole intervals"].prop.opacity = opacity
+
+        self.render()
+
     def get_assay_data(self): 
         intervals = self._selected_intervals
 
@@ -360,7 +373,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         show_widget.param.watch(self._on_mesh_show_change, 'value')
 
         # set up widget to control mesh opacity
-        opacity_widget = pn.widgets.FloatSlider(start=0, end=1, step=0.1, value=1, show_value = False, width=int(2*self.ctrl_widget_width/3))
+        opacity_widget = pn.widgets.FloatSlider(start=0, end=1, step=0.01, value=1, show_value = False, width=int(2*self.ctrl_widget_width/3))
         self.opacity_widgets[name] = opacity_widget
         # self.mesh_opacity_widgets.append(opacity_widget)
         opacity_widget.param.watch(self._on_mesh_opacity_change, 'value')
@@ -498,6 +511,16 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         if hasattr(self, "cmap_range_widget"): 
             self.cmap_range_widget.value=cmap_range
 
+    def update_visibility(self, visible): 
+        super(DrillDownPanelPlotter, self).update_visibility(visible)
+        if hasattr(self, "show_widgets"):
+            self.show_widgets["drillhole intervals"].value = visible
+
+    def update_opacity(self, opacity): 
+        super(DrillDownPanelPlotter, self).update_opacity(opacity)
+        if hasattr(self, "opacity_widgets"): 
+            self.opacity_widgets["drillhole intervals"].value=opacity
+
     def _on_active_var_change(self, event): 
         active_var = event.new
         self.update_active_var(active_var)
@@ -519,10 +542,12 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         self.update_cmap_range(cmap_range)
 
     def _on_mesh_show_change(self, event):
-        event.name
+        visible = event.new
+        self.update_visibility(visible)
 
     def _on_mesh_opacity_change(self, event):
-        event.name
+        opacity = event.new
+        self.update_opacity(opacity)
 
     def get_assay_data(self): 
         return super(DrillDownPanelPlotter, self).get_assay_data()
