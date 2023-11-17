@@ -12,50 +12,12 @@ from pyvista.trame.jupyter import show_trame
 
 
 class DrillDownPlotter(Plotter): 
-    def __init__(
-            self, 
-            off_screen=None,
-            notebook=None,
-            shape=(1, 1),
-            groups=None,
-            row_weights=None,
-            col_weights=None,
-            border=None,
-            border_color='k',
-            border_width=2.0,
-            window_size=None,
-            multi_samples=None,
-            line_smoothing=False,
-            point_smoothing=False,
-            polygon_smoothing=False,
-            splitting_position=None,
-            title=None,
-            lighting='light kit',
-            theme=None,
-            image_scale=None,
-            ): 
-        
-        super().__init__(
-            off_screen=off_screen,
-            notebook=notebook,
-            shape=shape,
-            groups=groups,
-            row_weights=row_weights,
-            col_weights=col_weights,
-            border=border,
-            border_color=border_color,
-            border_width=border_width,
-            window_size=window_size,
-            multi_samples=multi_samples,
-            line_smoothing=line_smoothing,
-            point_smoothing=point_smoothing,
-            polygon_smoothing=polygon_smoothing,
-            splitting_position=splitting_position,
-            title=title,
-            lighting=lighting,
-            theme=theme,
-            image_scale=image_scale,
-        )
+    """Plotting object for displaying drillholes and related datasets."""
+
+    def __init__(self, *args, **kwargs): 
+        """Initialize plotter."""
+
+        super().__init__(*args, **kwargs)
 
         self.set_background("white")
         self.enable_trackball_style()
@@ -64,8 +26,30 @@ class DrillDownPlotter(Plotter):
         self._filters = {}
         self.selection_extracts = {}
 
-    def add_mesh(self, mesh, name, color="grey", opacity=1, *args, **kwargs): 
-        actor = super(DrillDownPlotter, self).add_mesh(mesh, color=color, opacity=opacity, *args, **kwargs)
+    def add_mesh(self, mesh, name, *args, **kwargs): 
+        """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene.
+
+        Parameters
+        ----------
+        mesh : pyvista.DataSet or pyvista.MultiBlock or vtk.vtkAlgorithm
+            Any PyVista or VTK mesh is supported. Also, any dataset 
+            that pyvista.wrap() can handle including NumPy arrays of XYZ points. 
+            Plotting also supports VTK algorithm objects (vtk.vtkAlgorithm 
+            and vtk.vtkAlgorithmOutput). When passing an algorithm, the 
+            rendering pipeline will be connected to the passed algorithm 
+            to dynamically update the scene.
+
+        name : str, optional
+            Name assigned to mesh
+
+        Returns
+        -------
+        pyvista.plotting.actor.Actor
+            Actor of the mesh.
+
+        """
+
+        actor = super(DrillDownPlotter, self).add_mesh(mesh, *args, **kwargs)
         actor.SetPickable=0
         self._actors[name] = actor
         # self.reset_camera()
@@ -88,6 +72,38 @@ class DrillDownPlotter(Plotter):
             *args, 
             **kwargs
             ):
+        """Add a PyVista mesh/VTK dataset representing drillhole(s) to the scene. 
+
+        Parameters
+        ----------
+        dataset : pyvista.PolyData or vtk.vtkPolyData
+            PyVista mesh/VTK dataset representing drillhole(s). 
+        selectable : bool, optional
+            Make the mesh available for selection. By default True
+        radius : float, optional
+            Minimum hole radius (minimum because the radius may vary). By default 1.5
+        n_sides : int, optional
+            Number of sides for the hole. By default 20
+        capping : bool, optional
+            Enable or disable capping of each hole interval. By default True
+        active_var : str, optional
+            Variable corresponding to default scalar array used to color hole intervals. By default "Co_ppm". 
+        cmap : str, optional
+            Matplotlib color map used to color interval data. By default "blues"
+        cmap_range : tuple, optional
+            Minimum and maximum value between which color map is applied. By default None
+        color_on_selection : ColorLike, optional
+            Color used to color the selection object. By default "#000000"
+        opacity_on_selection : float, optional
+            Opacity used for the selection object. By default 0.95
+        accelerated_selection : bool, optional
+            When True, accelerates selection using two methods: 
+            1.) adding a vtkCellLocator object to the vtkCellPicker object
+            2.) using hardware selection. 
+            The latter is less accurate than normal picking. Thus, activating accelerated selection 
+            increases selection speed but decreases selection accuracy. By default False
+        """
+
         name = "drillhole intervals"
         self.n_sides = n_sides
         self._faces_per_interval = self.n_sides + 2
@@ -116,6 +132,13 @@ class DrillDownPlotter(Plotter):
                 )
     @property
     def hole_vars(self): 
+        """Return the variables corresponding to the scalar data attached to the hole interval cells.
+
+        Returns
+        -------
+        list[str]
+            List of variable names
+        """
         return self._hole_vars
         
     @property
@@ -333,7 +356,7 @@ class DrillDownPlotter(Plotter):
     #     self._filter_intervals(self._filtered_interval_cells)
 
     # def reset_filter(self): 
-    #     self.remove_actor(self._actor["drillhole intervals"])
+    #     self.remove_actor(self._actor["drillhole intervals"]);;.;l,;.
     #     self.add_holes(self._unfiltered_mesh)
 
     def iframe(self, w=800, h=400): 
@@ -348,7 +371,11 @@ class DrillDownPlotter(Plotter):
         
 
 class DrillDownPanelPlotter(DrillDownPlotter, pn.Row): 
-    def __init__(self): 
+    """Plotting object for displaying drillholes and related datasets with simple GUI."""
+
+    def __init__(self, *args, **kwargs): 
+        """Initialize plotter."""
+
         self.ctrl_widget_width=300
         self.show_widgets = {}
         self.opacity_widgets = {}
@@ -359,12 +386,34 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             width=300
             )
 
-        super(DrillDownPanelPlotter, self).__init__()
+        super(DrillDownPanelPlotter, self).__init__(*args, **kwargs)
 
         super(pn.Row, self).__init__(self.ctrls, self.iframe(sizing_mode="stretch_both"), height=800, width=1200)
 
-    def add_mesh(self, mesh, name, color="grey", opacity=1, *args, **kwargs): 
-        actor = super(DrillDownPanelPlotter, self).add_mesh(mesh, name, color=color, opacity=opacity, *args, **kwargs)
+    def add_mesh(self, mesh, name, *args, **kwargs): 
+        """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene and corresponding widgets to the GUI.
+
+        Parameters
+        ----------
+        mesh : pyvista.DataSet or pyvista.MultiBlock or vtk.vtkAlgorithm
+            Any PyVista or VTK mesh is supported. Also, any dataset 
+            that pyvista.wrap() can handle including NumPy arrays of XYZ points. 
+            Plotting also supports VTK algorithm objects (vtk.vtkAlgorithm 
+            and vtk.vtkAlgorithmOutput). When passing an algorithm, the 
+            rendering pipeline will be connected to the passed algorithm 
+            to dynamically update the scene.
+
+        name : str, optional
+            Name assigned to mesh
+
+        Returns
+        -------
+        pyvista.plotting.actor.Actor
+            Actor of the mesh.
+
+        """
+        
+        actor = super(DrillDownPanelPlotter, self).add_mesh(mesh, name, *args, **kwargs)
 
         # set up widget to show and hide mesh
         show_widget = pn.widgets.Checkbox(value=True)
@@ -388,31 +437,31 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def add_holes(
             self, 
             dataset, 
-            selectable=True, 
-            radius=1.5, 
-            n_sides=20, 
-            capping=True, 
             active_var="Co_ppm",
             cmap="blues", 
             cmap_range=None,
-            color_on_selection="#000000", 
-            opacity_on_selection=0.95,
-            accelerated_selection=False,
             *args,
             **kwargs
             ):
+        """Add a PyVista mesh/VTK dataset representing drillhole(s) to the scene. Add corresponding widgets to GUI. 
+
+        Parameters
+        ----------
+        dataset : pyvista.PolyData or vtk.vtkPolyData
+            PyVista mesh/VTK dataset representing drillhole(s). 
+        active_var : str, optional
+            Variable corresponding to default scalar array used to color hole intervals. By default "Co_ppm". 
+        cmap : str, optional
+            Matplotlib color map used to color interval data. By default "blues"
+        cmap_range : tuple, optional
+            Minimum and maximum value between which color map is applied. By default None
+        """
+
         super(DrillDownPanelPlotter, self).add_holes(
             dataset, 
-            selectable=selectable, 
-            radius=radius, 
-            n_sides=n_sides, 
-            capping=capping, 
             active_var=active_var,
             cmap=cmap,
             cmap_range=cmap_range,
-            color_on_selection=color_on_selection, 
-            opacity_on_selection=opacity_on_selection,
-            accelerated_selection=accelerated_selection,
             *args, 
             **kwargs
             )
@@ -470,29 +519,10 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         return self.hole_ctrl_card
 
     def _make_mesh_visibility_card(self):
-        # self.mesh_show_widgets = []
-        # self.mesh_opacity_widgets = [] 
         self.mesh_visibility_card = pn.Column(
             scroll=True, 
             width=self.ctrl_widget_width
             )
-
-        # for mesh in self._actors.keys():
-        #     # set up widget to show and hide mesh
-        #     self.mesh_show_widgets.append(pn.widgets.Checkbox(value=True))
-        #     self.mesh_show_widgets[-1].param.watch(self._on_mesh_show_change, 'value')
-
-        #     # set up widget to control mesh opacity
-        #     self.mesh_opacity_widgets.append(pn.widgets.FloatSlider(start=0, end=1, step=0.1, value=1, show_value = False, width=int(2*self.ctrl_widget_width/3)))
-        #     self.mesh_opacity_widgets[-1].param.watch(self._on_mesh_opacity_change, 'value')
-
-        #     # situate show and opacity widgets; add to mesh visibility widget
-        #     widget = pn.Column(
-        #         pn.pane.Markdown(f'{mesh}'), 
-        #         pn.Row(self.mesh_show_widgets[-1], self.mesh_opacity_widgets[-1]),
-        #         pn.layout.Divider()
-        #     )
-        #     self.mesh_visibility_card.append(widget)
 
         return self.mesh_visibility_card
     
