@@ -3,6 +3,7 @@ from geoh5py.workspace import Workspace
 from geoh5py.groups import DrillholeGroup
 from geoh5py.objects import Drillhole
 import numpy as np
+from plotter import DrillDownPlotter
 
 
 class DrillHoleGroup:
@@ -63,6 +64,18 @@ class DrillHoleGroup:
 
         return self.polydata
 
+    def show_collars(self):
+        return
+
+    def show_surveys(self):
+        return
+
+    def show_intervals(self):
+        return
+
+    def show_points(self):
+        return
+
 
 class DrillHole:
     def __init__(self, name, workspace=None):
@@ -95,6 +108,21 @@ class DrillHole:
 
         return self.from_to
 
+    def make_from_to(self, depths, connected=True):
+        if connected == True:
+            from_depths = depths[:-1]
+            to_depths = depths[1:]
+
+            if depths.ndim == 1:
+                depths = np.empty([from_depths.shape[0], 2])
+            else:
+                depths = np.empty([from_depths.shape[0], 2, from_depths.shape[1]])
+
+            depths[:, 0] = from_depths
+            depths[:, 1] = to_depths
+
+            return depths
+
     def add_data(self, name, data):
         self.vars.append(name)
         data_added = self._hole.add_data(
@@ -103,10 +131,9 @@ class DrillHole:
         return data_added
 
     def desurvey(self, depths=None):
-        if depths == None:
-            return self._hole.desurvey(self.from_to[:, 0]), self._hole.desurvey(
-                self.from_to[:, 1]
-            )
+        if depths is None:
+            # return desurveyed survey depths if no depths passed
+            return self._hole.desurvey(self.survey[:, 0])
         else:
             return self._hole.desurvey(depths)
 
@@ -127,3 +154,63 @@ class DrillHole:
             mesh.cell_data[var] = self._hole.get_data(var)[0].values
 
         return mesh
+
+    def _make_line_mesh(self, from_depth, to_depth):
+        """Make a mesh consisting of line segments for which a connected topology is assumed."""
+        depths = np.empty((from_depth.shape[0] + to_depth.shape[0], 3))
+        depths[0::2, :] = from_depth
+        depths[1::2, :] = to_depth
+        n_connected = np.ones(int(depths.shape[0] / 2), dtype="int") * 2
+        from_positions = np.arange(0, depths.shape[0] - 1, 2)
+        to_positions = np.arange(1, depths.shape[0], 2)
+        depth_connectivity = np.hstack(
+            np.stack([n_connected, from_positions, to_positions], axis=1)
+        )
+        mesh = pv.PolyData(depths, lines=depth_connectivity)
+
+        return mesh
+
+    def make_collar_mesh(self):
+        mesh = pv.PolyData(self.collar)
+
+        return mesh
+
+    def make_survey_mesh(self):
+        depths = self.desurvey()
+        from_to = self.make_from_to(depths)
+        mesh = self._make_line_mesh(from_to[0], from_to[1])
+
+        return mesh
+
+    def make_intervals_mesh(self, name):
+        from_depths = self.desurvey(self.from_to[:,0])
+        to_depths = self.desurvey(self.from_to[:,1])
+        mesh = self._make_line_mesh(from_depths, to_depths)
+
+        for var in self.vars:
+            mesh.cell_data[var] = self._hole.get_data(var)[0].values
+
+        return mesh
+
+    def make_point_mesh(self, name):
+        pass
+
+    def show_collar(self):
+        mesh = self.make_collar_mesh()
+
+        return mesh.plot()
+
+    def show_survey(self):
+        mesh = self.make_survey_mesh()
+
+        return mesh.plot()
+
+    def show_intervals(self, name=None):
+        mesh = self.make_intervals_mesh(name)
+
+        return mesh.plot()
+
+    def show_points(self, name=None):
+        mesh = self.make_survey_mesh(name)
+
+        return mesh.plot()
