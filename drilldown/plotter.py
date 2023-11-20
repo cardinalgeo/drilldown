@@ -67,9 +67,24 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_holes(
+    def add_collars(self, mesh, *args, **kwargs):
+        name = "collars"
+        self.add_mesh(
+            mesh,
+            name,
+            render_points_as_spheres=True,
+            point_size=10,
+            *args,
+            **kwargs,
+        )
+
+    def add_surveys(self, mesh, *args, **kwargs):
+        name = "surveys"
+        self.add_mesh(mesh, name, *args, **kwargs)
+
+    def add_intervals(
         self,
-        dataset,
+        mesh,
         selectable=True,
         radius=1.5,
         n_sides=20,
@@ -83,12 +98,12 @@ class DrillDownPlotter(Plotter):
         *args,
         **kwargs,
     ):
-        """Add a PyVista mesh/VTK dataset representing drillhole(s) to the scene.
+        """Add a PyVista mesh/VTK dataset representing drillhole intervals to the scene.
 
         Parameters
         ----------
-        dataset : pyvista.PolyData or vtk.vtkPolyData
-            PyVista mesh/VTK dataset representing drillhole(s).
+        mesh : pyvista.PolyData or vtk.vtkPolyData
+            PyVista mesh/VTK dataset representing drillhole intervals.
         selectable : bool, optional
             Make the mesh available for selection. By default True
         radius : float, optional
@@ -118,7 +133,7 @@ class DrillDownPlotter(Plotter):
         name = "drillhole intervals"
         self.n_sides = n_sides
         self._faces_per_interval = self.n_sides + 2
-        filter = dataset.tube(radius=radius, n_sides=self.n_sides, capping=capping)
+        filter = mesh.tube(radius=radius, n_sides=self.n_sides, capping=capping)
         self._filters[name] = filter
 
         self._hole_vars = []
@@ -148,6 +163,19 @@ class DrillDownPlotter(Plotter):
                 opacity_on_selection=opacity_on_selection,
                 accelerated_selection=accelerated_selection,
             )
+
+    def add_holes(self, holes, *args, **kwargs): 
+        # make and add collars mesh
+        collars_mesh = holes.make_collars_mesh()
+        self.add_collars(collars_mesh)
+
+        # make and add surveys mesh
+        surveys_mesh = holes.make_surveys_mesh()
+        self.add_surveys(surveys_mesh)
+
+        # make and add intervals mesh
+        intervals_mesh = holes.make_intervals_mesh("intervals")
+        self.add_intervals(intervals_mesh, *args, **kwargs)
 
     @property
     def hole_vars(self):
@@ -515,21 +543,21 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         return actor
 
-    def add_holes(
+    def add_intervals(
         self,
-        dataset,
+        mesh,
         active_var="Co_ppm",
         cmap="blues",
         cmap_range=None,
         *args,
         **kwargs,
     ):
-        """Add a PyVista mesh/VTK dataset representing drillhole(s) to the scene. Add corresponding widgets to GUI.
+        """Add a PyVista mesh/VTK dataset representing drillhole intervals to the scene. Add corresponding widgets to GUI.
 
         Parameters
         ----------
-        dataset : pyvista.PolyData or vtk.vtkPolyData
-            PyVista mesh/VTK dataset representing drillhole(s).
+        mesh : pyvista.PolyData or vtk.vtkPolyData
+            PyVista mesh/VTK dataset representing drillhole intervals.
         active_var : str, optional
             Variable corresponding to default scalar array used to color hole intervals. By default "Co_ppm".
         cmap : str, optional
@@ -538,8 +566,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             Minimum and maximum value between which color map is applied. By default None
         """
 
-        super(DrillDownPanelPlotter, self).add_holes(
-            dataset,
+        super(DrillDownPanelPlotter, self).add_intervals(
+            mesh,
             active_var=active_var,
             cmap=cmap,
             cmap_range=cmap_range,
