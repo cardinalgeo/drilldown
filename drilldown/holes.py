@@ -21,7 +21,10 @@ class DrillHoleGroup:
     def add_surveys(self, hole_id, dist, azm, dip):
         self.surveys = np.c_[hole_id, dist, azm, dip]
 
-    def create_holes(self):
+        if self.collars is not None:
+            self._create_holes()
+
+    def _create_holes(self):
         for hole_id in self.hole_ids:
             hole = DrillHole(hole_id, workspace=self.workspace)
 
@@ -116,7 +119,7 @@ class DrillHoleGroup:
         return mesh.plot()
 
     def show_intervals(self, name=None):
-        mesh = self.make_intervals_mesh()
+        mesh = self.make_intervals_mesh(name)
 
         return mesh.plot()
 
@@ -142,8 +145,9 @@ class DrillHole:
 
     def add_survey(self, dist, azm, dip):
         self.survey = np.c_[dist, azm, dip]
+        self._create_hole()
 
-    def create_hole(self):
+    def _create_hole(self):
         self._hole = Drillhole.create(
             self.workspace,
             collar=self.collar,
@@ -185,24 +189,6 @@ class DrillHole:
             return self._hole.desurvey(self.survey[:, 0])
         else:
             return self._hole.desurvey(depths)
-
-    def create_polydata(self):
-        from_depth, to_depth = self.desurvey()
-        depths = np.empty((from_depth.shape[0] + to_depth.shape[0], 3))
-        depths[0::2, :] = from_depth
-        depths[1::2, :] = to_depth
-        n_connected = np.ones(int(depths.shape[0] / 2), dtype="int") * 2
-        from_positions = np.arange(0, depths.shape[0] - 1, 2)
-        to_positions = np.arange(1, depths.shape[0], 2)
-        depth_connectivity = np.hstack(
-            np.stack([n_connected, from_positions, to_positions], axis=1)
-        )
-        mesh = pv.PolyData(depths, lines=depth_connectivity)
-
-        for var in self.vars:
-            mesh.cell_data[var] = self._hole.get_data(var)[0].values
-
-        return mesh
 
     def _make_line_mesh(self, from_depth, to_depth):
         """Make a mesh consisting of line segments for which a connected topology is assumed."""
