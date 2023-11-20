@@ -126,16 +126,18 @@ class DrillHole:
 
         return p.show()
 
-    def show_intervals(self, show_collar=True, show_survey=True, name=None, *args, **kwargs):
+    def show_intervals(
+        self, show_collar=True, show_survey=True, name=None, *args, **kwargs
+    ):
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
         p.add_intervals(intervals_mesh, *args, **kwargs)
 
-        if show_collar == True: 
+        if show_collar == True:
             collar_mesh = self.make_collar_mesh()
             p.add_collars(collar_mesh)
 
-        if show_survey == True: 
+        if show_survey == True:
             survey_mesh = self.make_survey_mesh()
             p.add_surveys(survey_mesh)
 
@@ -145,8 +147,8 @@ class DrillHole:
         mesh = self.make_survey_mesh(name)
 
         return mesh.plot()
-    
-    def show(self): 
+
+    def show(self):
         collar_mesh = self.make_collar_mesh()
         survey_mesh = self.make_survey_mesh()
         intervals_mesh = self.make_intervals_mesh(None)
@@ -213,13 +215,6 @@ class DrillHoleGroup:
 
     def desurvey(self, hole_id, depths=None):
         return self._holes[hole_id].desurvey(depths=depths)
-
-    def create_polydata(self):
-        self.polydata = self._holes[self.hole_ids_with_data[0]].create_polydata()
-        for hole_id in self.hole_ids_with_data[1:]:
-            self.polydata += self._holes[hole_id].create_polydata()
-
-        return self.polydata
 
     def make_collars_mesh(self):
         mesh = pv.PolyData(np.asarray(self.collars[:, 1:], dtype="float"))
@@ -298,22 +293,24 @@ class DrillHoleGroup:
 
         return p.show()
 
-    def show_intervals(self, show_collars=True, show_surveys=True, name=None, *args, **kwargs):
+    def show_intervals(
+        self, show_collars=True, show_surveys=True, name=None, *args, **kwargs
+    ):
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
         p.add_intervals(intervals_mesh, *args, **kwargs)
 
-        if show_collars == True: 
+        if show_collars == True:
             collars_mesh = self.make_collars_mesh()
             p.add_collars(collars_mesh)
 
-        if show_surveys == True: 
+        if show_surveys == True:
             surveys_mesh = self.make_surveys_mesh()
             p.add_surveys(surveys_mesh)
 
         return p.show()
-    
-    def show(self): 
+
+    def show(self):
         collars_mesh = self.make_collars_mesh()
         surveys_mesh = self.make_surveys_mesh()
         intervals_mesh = self.make_intervals_mesh(None)
