@@ -94,7 +94,7 @@ class DrillDownPlotter(Plotter):
         cmap="blues",
         cmap_range=None,
         color_on_selection="#000000",
-        opacity_on_selection=0.95,
+        opacity_on_selection=1,
         accelerated_selection=False,
         *args,
         **kwargs,
@@ -122,7 +122,7 @@ class DrillDownPlotter(Plotter):
         color_on_selection : ColorLike, optional
             Color used to color the selection object. By default "#000000"
         opacity_on_selection : float, optional
-            Opacity used for the selection object. By default 0.95
+            Opacity used for the selection object. By default 1
         accelerated_selection : bool, optional
             When True, accelerates selection using two methods:
             1.) adding a vtkCellLocator object to the vtkCellPicker object
@@ -201,7 +201,7 @@ class DrillDownPlotter(Plotter):
         self,
         actor,
         color_on_selection="#000000",
-        opacity_on_selection=0.95,
+        opacity_on_selection=1,
         accelerated_selection=False,
     ):
         # make pickable
