@@ -194,3 +194,6 @@ class DrillLog:
             self.depth_range[0] = depths.min()
         if depths.max() < self.depth_range[1]:
             self.depth_range[1] = depths.max()
+
+    def show(self):
+        return self.fig.show()

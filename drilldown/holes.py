@@ -5,6 +5,7 @@ from geoh5py.objects import Drillhole
 import numpy as np
 
 from .plotter import DrillDownPlotter
+from .drill_log import DrillLog
 
 
 class DrillHole:
@@ -159,6 +160,17 @@ class DrillHole:
         p.add_intervals(intervals_mesh, active_var="NI", radius=10)
 
         return p.show()
+
+    def drill_log(self):
+        log = DrillLog()
+        depths = self.from_to
+        for var in self.vars:
+            values = self._hole.get_data(var)[0].values
+            log.add_continuous_interval_data(depths, values, var)
+
+        log.create_figure(y_axis_label="Depth (m)", title=self.name)
+
+        return log.fig
 
 
 class DrillHoleGroup:
