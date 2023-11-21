@@ -20,6 +20,7 @@ import panel as pn
 from matplotlib import pyplot as plt
 
 from pyvista.trame.jupyter import show_trame
+from .drill_log import DrillLog
 
 
 class DrillDownPlotter(Plotter):
@@ -458,6 +459,19 @@ class DrillDownPlotter(Plotter):
     # def reset_filter(self):
     #     self.remove_actor(self._actor["drillhole intervals"]);;.;l,;.
     #     self.add_holes(self._unfiltered_mesh)
+
+    def selected_drill_log(self): 
+        data = self.selected_intervals
+        log = DrillLog()
+        depths = data[["from", "to"]].values
+        vars = [var for var in data.columns if var not in ["from", "to", "vtkOriginalPointIds", "vtkOriginalCellIds", "hole ID"]]
+        for var in vars: 
+            values = data[var].values
+            log.add_continuous_interval_data(depths, values, var)
+
+        log.create_figure()
+
+        return log.fig
 
     def iframe(self, w=800, h=400):
         self._pv_viewer = show_trame(self, mode="server")

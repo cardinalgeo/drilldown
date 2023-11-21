@@ -101,6 +101,9 @@ class DrillHole:
         to_depths = self.desurvey(self.from_to[:, 1])
         mesh = self._make_line_mesh(from_depths, to_depths)
 
+        mesh.cell_data["from"] = self.from_to[:, 0]
+        mesh.cell_data["to"] = self.from_to[:, 1]
+        mesh.cell_data["hole ID"] = [self.name] * self.from_to.shape[0]
         for var in self.vars:
             mesh.cell_data[var] = self._hole.get_data(var)[0].values
 
@@ -255,6 +258,9 @@ class DrillHoleGroup:
             to_depths = hole.desurvey(hole.from_to[:, 1])
             if from_depths.shape[0] > 0:
                 mesh = hole._make_line_mesh(from_depths, to_depths)
+                mesh.cell_data["from"] = hole.from_to[:, 0]
+                mesh.cell_data["to"] = hole.from_to[:, 1]
+                mesh.cell_data["hole ID"] = [hole_id] * hole.from_to.shape[0]
                 for var in self.vars:
                     mesh.cell_data[var] = hole._hole.get_data(var)[0].values
                 if meshes is None:
