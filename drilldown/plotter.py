@@ -165,7 +165,7 @@ class DrillDownPlotter(Plotter):
                 accelerated_selection=accelerated_selection,
             )
 
-    def add_holes(self, holes, *args, **kwargs): 
+    def add_holes(self, holes, *args, **kwargs):
         # make and add collars mesh
         collars_mesh = holes.make_collars_mesh()
         self.add_collars(collars_mesh)
@@ -460,12 +460,23 @@ class DrillDownPlotter(Plotter):
     #     self.remove_actor(self._actor["drillhole intervals"]);;.;l,;.
     #     self.add_holes(self._unfiltered_mesh)
 
-    def selected_drill_log(self): 
+    def selected_drill_log(self):
         data = self.selected_intervals
         log = DrillLog()
         depths = data[["from", "to"]].values
-        vars = [var for var in data.columns if var not in ["from", "to", "vtkOriginalPointIds", "vtkOriginalCellIds", "hole ID"]]
-        for var in vars: 
+        vars = [
+            var
+            for var in data.columns
+            if var
+            not in [
+                "from",
+                "to",
+                "vtkOriginalPointIds",
+                "vtkOriginalCellIds",
+                "hole ID",
+            ]
+        ]
+        for var in vars:
             values = data[var].values
             log.add_continuous_interval_data(depths, values, var)
 
