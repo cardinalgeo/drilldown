@@ -154,7 +154,7 @@ class DrillHole:
         survey_mesh = self.make_survey_mesh()
         intervals_mesh = self.make_intervals_mesh(None)
 
-        p = DrillDownPlotter
+        p = DrillDownPlotter()
         p.add_collars(collar_mesh)
         p.add_surveys(survey_mesh)
         p.add_intervals(intervals_mesh, active_var="NI", radius=10)
@@ -333,3 +333,15 @@ class DrillHoleGroup:
         p.add_intervals(intervals_mesh, active_var="NI", radius=10)
 
         return p.show()
+
+    def drill_log(self, hole_id):
+        hole = self._holes[hole_id]
+        log = DrillLog()
+        depths = hole.from_to
+        for var in self.vars:
+            values = hole._hole.get_data(var)[0].values
+            log.add_continuous_interval_data(depths, values, var)
+
+        log.create_figure(y_axis_label="Depth (m)", title=hole_id)
+
+        return log.fig
