@@ -3,6 +3,7 @@ from geoh5py.workspace import Workspace
 from geoh5py.groups import DrillholeGroup
 from geoh5py.objects import Drillhole
 import numpy as np
+import pandas as pd
 
 from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
@@ -20,9 +21,19 @@ class DrillHole:
         self.vars = []
 
     def add_collar(self, collar):
+        if isinstance(collar, pd.core.series.Series):
+            collar = collar.values
+
         self.collar = collar
 
     def add_survey(self, dist, azm, dip):
+        if isinstance(dist, pd.core.series.Series):
+            dist = dist.values
+        if isinstance(azm, pd.core.series.Series):
+            azm = azm.values
+        if isinstance(dip, pd.core.series.Series):
+            dip = dip.values
+
         self.survey = np.c_[dist, azm, dip]
         self._create_hole()
 
@@ -56,6 +67,9 @@ class DrillHole:
             return depths
 
     def add_data(self, name, data):
+        if isinstance(data, pd.core.series.Series):
+            data = data.values
+
         self.vars.append(name)
         data_added = self._hole.add_data(
             {name: {"values": data.astype(np.float64), "from-to": self.from_to}}
@@ -184,10 +198,28 @@ class DrillHoleGroup:
         self.workspace = Workspace()
 
     def add_collars(self, hole_id, collars):
+        if isinstance(hole_id, pd.core.series.Series):
+            hole_id = hole_id.values
+
+        if isinstance(collars, pd.core.frame.DataFrame):
+            collars = collars.values
+
         self.hole_ids = np.unique(hole_id)
         self.collars = np.c_[hole_id, collars]
 
     def add_surveys(self, hole_id, dist, azm, dip):
+        if isinstance(hole_id, pd.core.series.Series):
+            hole_id = hole_id.values
+
+        if isinstance(dist, pd.core.series.Series):
+            dist = dist.values
+
+        if isinstance(azm, pd.core.series.Series):
+            azm = azm.values
+
+        if isinstance(dip, pd.core.series.Series):
+            dip = dip.values
+
         self.surveys = np.c_[hole_id, dist, azm, dip]
 
         if self.collars is not None:
@@ -208,6 +240,12 @@ class DrillHoleGroup:
                 self._holes[hole_id] = hole
 
     def add_from_to(self, hole_ids, from_to):
+        if isinstance(hole_ids, pd.core.series.Series):
+            hole_ids = hole_ids.values
+
+        if isinstance(from_to, pd.core.frame.DataFrame):
+            from_to = from_to.values
+
         self.from_to = np.c_[hole_ids, from_to]
         hole_ids = [id for id in np.unique(hole_ids) if id in self._holes.keys()]
         for id in hole_ids:
@@ -216,6 +254,12 @@ class DrillHoleGroup:
         return self.from_to
 
     def add_data(self, name, hole_ids, data):
+        if isinstance(hole_ids, pd.core.series.Series):
+            hole_ids = hole_ids.values
+
+        if isinstance(data, pd.core.series.Series):
+            data = data.values
+
         self.hole_ids_with_data = np.unique(hole_ids)
         data = np.c_[hole_ids, data]
         self.vars.append(name)
