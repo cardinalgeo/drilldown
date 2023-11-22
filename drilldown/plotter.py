@@ -607,7 +607,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         self._make_hole_ctrl_card(active_var, cmap, cmap_range)
         # set up widget to show and hide mesh
-        if active_var is not None: 
+        if active_var is not None:
             self.update_active_var(active_var)
         self.update_cmap(cmap)
         if cmap_range != None:

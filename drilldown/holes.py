@@ -174,7 +174,7 @@ class DrillHole:
         p = DrillDownPlotter()
         p.add_collars(collar_mesh)
         p.add_surveys(survey_mesh)
-        p.add_intervals(intervals_mesh, active_var="NI", radius=10)
+        p.add_intervals(intervals_mesh, radius=10)
 
         return p.show()
 
@@ -196,6 +196,7 @@ class DrillHoleGroup:
         self._holes = {}
         self.vars = []
         self.workspace = Workspace()
+        self.hole_ids_with_data = []
 
     def add_collars(self, hole_id, collars):
         if isinstance(hole_id, pd.core.series.Series):
@@ -249,7 +250,10 @@ class DrillHoleGroup:
         self.from_to = np.c_[hole_ids, from_to]
         hole_ids = [id for id in np.unique(hole_ids) if id in self._holes.keys()]
         for id in hole_ids:
-            self._holes[id].add_from_to(self.from_to[self.from_to[:, 0] == id, 1:])
+            dataset = self.from_to[self.from_to[:, 0] == id, 1:]
+            if dataset.shape[0] > 0:
+                self.hole_ids_with_data.append(id)
+                self._holes[id].add_from_to(dataset)
 
         return self.from_to
 
@@ -260,16 +264,16 @@ class DrillHoleGroup:
         if isinstance(data, pd.core.series.Series):
             data = data.values
 
-        self.hole_ids_with_data = np.unique(hole_ids)
         data = np.c_[hole_ids, data]
         self.vars.append(name)
 
-        hole_ids = [id for id in np.unique(hole_ids) if id in self._holes.keys()]
         data_added = {}
-        for id in hole_ids:
-            data_added[id] = self._holes[id].add_data(
-                name, data[:, 1][data[:, 0] == id]
-            )
+        for id in self.hole_ids_with_data:
+            dataset = data[:, 1][data[:, 0] == id]
+            if dataset.shape[0] > 0:
+                data_added[id] = self._holes[id].add_data(
+                    name, data[:, 1][data[:, 0] == id]
+                )
         return data_added
 
     def desurvey(self, hole_id, depths=None):
@@ -296,7 +300,7 @@ class DrillHoleGroup:
 
     def make_intervals_mesh(self, name):
         meshes = None
-        for hole_id in self._holes.keys():
+        for hole_id in self.hole_ids_with_data:
             hole = self._holes[hole_id]
             from_depths = hole.desurvey(hole.from_to[:, 0])
             to_depths = hole.desurvey(hole.from_to[:, 1])
@@ -380,7 +384,7 @@ class DrillHoleGroup:
         p = DrillDownPlotter()
         p.add_collars(collars_mesh)
         p.add_surveys(surveys_mesh)
-        p.add_intervals(intervals_mesh, active_var="NI", radius=10)
+        p.add_intervals(intervals_mesh, radius=10)
 
         return p.show()
 
