@@ -18,6 +18,7 @@ import pandas as pd
 from IPython.display import IFrame
 import panel as pn
 from matplotlib import pyplot as plt
+from functools import partial
 
 from pyvista.trame.jupyter import show_trame
 from .drill_log import DrillLog
@@ -386,16 +387,16 @@ class DrillDownPlotter(Plotter):
         self._actors["drillhole intervals"].mapper.SetUseLookupTableScalarRange(True)
         self.render()
 
-    def update_visibility(self, visible):
+    def update_visibility(self, visible, actor_name):
         if visible == True:
-            self._actors["drillhole intervals"].prop.opacity = 1
+            self._actors[actor_name].prop.opacity = 1
         else:
-            self._actors["drillhole intervals"].prop.opacity = 0
+            self._actors[actor_name].prop.opacity = 0
 
         self.render()
 
-    def update_opacity(self, opacity):
-        self._actors["drillhole intervals"].prop.opacity = opacity
+    def update_opacity(self, opacity, actor_name):
+        self._actors[actor_name].prop.opacity = opacity
 
         self.render()
 
@@ -546,7 +547,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         show_widget = pn.widgets.Checkbox(value=True)
         self.show_widgets[name] = show_widget
         # self.show_widgets.append(show_widget)
-        show_widget.param.watch(self._on_mesh_show_change, "value")
+        show_widget.param.watch(partial(self._on_mesh_show_change, name), "value")
 
         # set up widget to control mesh opacity
         opacity_widget = pn.widgets.FloatSlider(
@@ -559,7 +560,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         )
         self.opacity_widgets[name] = opacity_widget
         # self.mesh_opacity_widgets.append(opacity_widget)
-        opacity_widget.param.watch(self._on_mesh_opacity_change, "value")
+        opacity_widget.param.watch(partial(self._on_mesh_opacity_change, name), "value")
 
         # situate show and opacity widgets; add to mesh visibility widget
         self.mesh_visibility_card.append(pn.pane.Markdown(f"{name}"))
@@ -681,15 +682,15 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         if hasattr(self, "cmap_range_widget"):
             self.cmap_range_widget.value = cmap_range
 
-    def update_visibility(self, visible):
-        super(DrillDownPanelPlotter, self).update_visibility(visible)
+    def update_visibility(self, visible, actor_name):
+        super(DrillDownPanelPlotter, self).update_visibility(visible, actor_name)
         if hasattr(self, "show_widgets"):
-            self.show_widgets["drillhole intervals"].value = visible
+            self.show_widgets[actor_name].value = visible
 
-    def update_opacity(self, opacity):
-        super(DrillDownPanelPlotter, self).update_opacity(opacity)
+    def update_opacity(self, opacity, actor_name):
+        super(DrillDownPanelPlotter, self).update_opacity(opacity, actor_name)
         if hasattr(self, "opacity_widgets"):
-            self.opacity_widgets["drillhole intervals"].value = opacity
+            self.opacity_widgets[actor_name].value = opacity
 
     def _on_active_var_change(self, event):
         active_var = event.new
@@ -715,13 +716,13 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         cmap_range = event.new
         self.update_cmap_range(cmap_range)
 
-    def _on_mesh_show_change(self, event):
+    def _on_mesh_show_change(self, actor_name, event):
         visible = event.new
-        self.update_visibility(visible)
+        self.update_visibility(visible, actor_name=actor_name)
 
-    def _on_mesh_opacity_change(self, event):
+    def _on_mesh_opacity_change(self, actor_name, event):
         opacity = event.new
-        self.update_opacity(opacity)
+        self.update_opacity(opacity, actor_name=actor_name)
 
     def get_assay_data(self):
         return super(DrillDownPanelPlotter, self).get_assay_data()
