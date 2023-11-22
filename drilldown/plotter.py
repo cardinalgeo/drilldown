@@ -134,7 +134,11 @@ class DrillDownPlotter(Plotter):
 
         name = "drillhole intervals"
         self.n_sides = n_sides
-        self._faces_per_interval = self.n_sides + 2
+        if capping == True:
+            self._faces_per_interval = self.n_sides + 2
+        else:
+            self._faces_per_interval = self.n_sides
+
         filter = mesh.tube(radius=radius, n_sides=self.n_sides, capping=capping)
         self._filters[name] = filter
 
@@ -344,7 +348,7 @@ class DrillDownPlotter(Plotter):
 
         sel_mapper = pv.DataSetMapper(sel_mesh)
         sel_mapper.SetResolveCoincidentTopologyToPolygonOffset()
-        sel_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(0.0, -1)
+        sel_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(0.0, -0.5)
 
         sel_actor = pv.Actor(mapper=sel_mapper)
         sel_actor.prop.color = "magenta"
