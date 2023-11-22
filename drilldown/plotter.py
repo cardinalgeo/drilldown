@@ -91,7 +91,7 @@ class DrillDownPlotter(Plotter):
         radius=1.5,
         n_sides=20,
         capping=True,
-        active_var="Co_ppm",
+        active_var=None,
         cmap="blues",
         cmap_range=None,
         color_on_selection="#000000",
@@ -115,7 +115,7 @@ class DrillDownPlotter(Plotter):
         capping : bool, optional
             Enable or disable capping of each hole interval. By default True
         active_var : str, optional
-            Variable corresponding to default scalar array used to color hole intervals. By default "Co_ppm".
+            Variable corresponding to default scalar array used to color hole intervals. By default None.
         cmap : str, optional
             Matplotlib color map used to color interval data. By default "blues"
         cmap_range : tuple, optional
@@ -576,7 +576,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def add_intervals(
         self,
         mesh,
-        active_var="Co_ppm",
+        active_var=None,
         cmap="blues",
         cmap_range=None,
         *args,
@@ -589,7 +589,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         mesh : pyvista.PolyData or vtk.vtkPolyData
             PyVista mesh/VTK dataset representing drillhole intervals.
         active_var : str, optional
-            Variable corresponding to default scalar array used to color hole intervals. By default "Co_ppm".
+            Variable corresponding to default scalar array used to color hole intervals. By default None.
         cmap : str, optional
             Matplotlib color map used to color interval data. By default "blues"
         cmap_range : tuple, optional
@@ -607,7 +607,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         self._make_hole_ctrl_card(active_var, cmap, cmap_range)
         # set up widget to show and hide mesh
-        self.update_active_var(active_var)
+        if active_var is not None: 
+            self.update_active_var(active_var)
         self.update_cmap(cmap)
         if cmap_range != None:
             self.update_cmap_range(cmap_range)
@@ -685,6 +686,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         super(DrillDownPanelPlotter, self).update_cmap_range(cmap_range)
         if hasattr(self, "cmap_range_widget"):
             self.cmap_range_widget.value = cmap_range
+            self.cmap_range_widget.step = (cmap_range[1] - cmap_range[0]) / 1000
 
     def update_visibility(self, visible, actor_name):
         super(DrillDownPanelPlotter, self).update_visibility(visible, actor_name)
