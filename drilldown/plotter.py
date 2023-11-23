@@ -259,13 +259,9 @@ class DrillDownPlotter(Plotter):
                     ctrl_pressed = self.iren.interactor.GetControlKey()
 
                     if shift_pressed == True:
-                        self._make_multi_selection(
-                            picked_interval_cell, continuous=True
-                        )
+                        self._make_continuous_multi_selection(picked_interval_cell)
                     elif ctrl_pressed == True:
-                        self._make_multi_selection(
-                            picked_interval_cell, continuous=False
-                        )
+                        self._make_discontinuous_multi_selection(picked_interval_cell)
                     else:
                         self._make_single_selection(picked_interval_cell)
 
@@ -315,7 +311,10 @@ class DrillDownPlotter(Plotter):
             (selected_interval + 1) * self.faces_per_interval,
         ).tolist()
 
-        return [selected_interval], selected_interval_cells
+        self._selected_intervals += [selected_interval]
+        self._selected_interval_cells += selected_interval_cells
+
+        return self._selected_intervals, self._selected_interval_cells
 
     def _make_continuous_multi_selection(self, picked_interval_cell):
         if (
@@ -330,6 +329,8 @@ class DrillDownPlotter(Plotter):
                 (selected_intervals[-1] + 1) * self.faces_per_interval,
             ).tolist()
 
+            self._selected_intervals += selected_intervals
+            self._selected_interval_cells += selected_interval_cells
         else:  # reverse direction (up the hole)
             selected_intervals = np.arange(
                 int(np.floor(picked_interval_cell / self.faces_per_interval)),
@@ -340,7 +341,12 @@ class DrillDownPlotter(Plotter):
                 (selected_intervals[-1] + 1) * self.faces_per_interval,
             ).tolist()
 
-        return selected_intervals, selected_interval_cells
+            self._selected_intervals = selected_intervals + self._selected_intervals
+            self._selected_interval_cells = (
+                selected_interval_cells + self._selected_interval_cells
+            )
+
+        return self._selected_intervals, self._selected_interval_cells
 
     def _update_selection_object(self, interval_or_sample, selected_cells):
         mesh = self._filters["drillhole intervals"]
