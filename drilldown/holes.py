@@ -21,8 +21,10 @@ class DrillHole:
         self.vars = []
 
     def add_collar(self, collar):
-        if isinstance(collar, pd.core.series.Series):
-            collar = collar.values
+        if isinstance(collar, pd.core.series.Series) | isinstance(
+            collar, pd.core.frame.DataFrame
+        ):
+            collar = collar.values[0]
 
         self.collar = collar
 
@@ -47,6 +49,8 @@ class DrillHole:
         )
 
     def add_from_to(self, from_to):
+        if isinstance(from_to, pd.core.frame.DataFrame):
+            from_to = from_to.values
         self.from_to = from_to.astype(np.float64)
 
         return self.from_to
