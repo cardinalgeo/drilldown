@@ -489,7 +489,7 @@ class DrillDownPlotter(Plotter):
 
         return log.fig
 
-    def iframe(self, w=800, h=400):
+    def iframe(self, w="100%", h="500px"):
         self._pv_viewer = show_trame(self, mode="server")
         self._trame_viewer = self._pv_viewer.viewer
         self._src = self._pv_viewer.src
@@ -519,7 +519,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         super(DrillDownPanelPlotter, self).__init__(*args, **kwargs)
 
         super(pn.Row, self).__init__(
-            self.ctrls, self.iframe(sizing_mode="stretch_both"), height=800, width=1200
+            self.ctrls, self.iframe(sizing_mode="stretch_both"), height=500
         )
 
     def add_mesh(self, mesh, name, *args, **kwargs):
@@ -733,7 +733,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def get_assay_data(self):
         return super(DrillDownPanelPlotter, self).get_assay_data()
 
-    def iframe(self, sizing_mode="fixed", w=800, h=400):
+    def iframe(self, sizing_mode="fixed", w="100%", h="500px"):
         _iframe = super(DrillDownPanelPlotter, self).iframe()
         _src = _iframe.src
 
@@ -747,6 +747,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         html = f"""<iframe frameborder="0" title="panel app" style="width: {w};height: {h};flex-grow: 1" src="{_src}"></iframe>"""
         _iframe = pn.pane.HTML(html, sizing_mode=sizing_mode)
+        self._iframe = _iframe
 
         return pn.Column(
             pn.panel(_iframe, sizing_mode=sizing_mode), sizing_mode=sizing_mode
