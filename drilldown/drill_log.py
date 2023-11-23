@@ -1,6 +1,7 @@
 from plotly.subplots import make_subplots
 from plotly import graph_objects as go
 import numpy as np
+import pandas as pd
 
 
 def interleave_intervals(depths, values=None, connected=True):
@@ -20,6 +21,25 @@ def interleave_intervals(depths, values=None, connected=True):
 
         else:
             return depths_new
+
+
+def clean_missing_intervals(depths, values):
+    if isinstance(depths, pd.core.frame.DataFrame):
+        depths = depths.values
+
+    if (isinstance(values, pd.core.frame.DataFrame)) | (
+        isinstance(values, pd.core.series.Series)
+    ):
+        values = values.values
+
+    from_depth = depths[:, 0]
+    to_depth = depths[:, 1]
+    missing_interval_ind = np.not_equal(from_depth[1:], to_depth[:-1]).nonzero()[0]
+    for i in reversed(missing_interval_ind):
+        from_depth = np.insert(from_depth, i + 1, to_depth[i])
+        to_depth = np.insert(to_depth, i + 1, from_depth[i + 2])
+        values = np.insert(values, i + 1, np.nan, axis=0)
+    return np.stack([from_depth, to_depth], axis=1), values
 
 
 class DrillLog:
@@ -151,6 +171,9 @@ class DrillLog:
 
             # create new figure
             self._create_figure()
+
+        # clean missing intervals
+        depths, values = clean_missing_intervals(depths, values)
 
         # duplicate depths and values for plotting
         depths, values = interleave_intervals(depths, values)
