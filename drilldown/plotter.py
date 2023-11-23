@@ -32,6 +32,7 @@ class DrillDownPlotter(Plotter):
 
         super().__init__(*args, **kwargs)
 
+        self.height = 500
         self.set_background("white")
         self.enable_trackball_style()
 
@@ -495,7 +496,10 @@ class DrillDownPlotter(Plotter):
 
         return log.fig
 
-    def iframe(self, w="100%", h="500px"):
+    def iframe(self, w="100%", h=None):
+        if h is None:
+            h = self.height
+
         self._pv_viewer = show_trame(self, mode="server")
         self._trame_viewer = self._pv_viewer.viewer
         self._src = self._pv_viewer.src
@@ -511,7 +515,6 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def __init__(self, *args, **kwargs):
         """Initialize plotter."""
-
         self.ctrl_widget_width = 300
         self.show_widgets = {}
         self.opacity_widgets = {}
@@ -519,13 +522,14 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         self.ctrls = pn.Accordion(
             ("mesh visibility", self._make_mesh_visibility_card()),
             toggle=True,
-            width=300,
+            width=self.ctrl_widget_width,
+            height=self.height,
         )
 
         super(DrillDownPanelPlotter, self).__init__(*args, **kwargs)
 
         super(pn.Row, self).__init__(
-            self.ctrls, self.iframe(sizing_mode="stretch_both"), height=500
+            self.ctrls, self.iframe(sizing_mode="stretch_both"), height=self.height
         )
 
     def add_mesh(self, mesh, name, *args, **kwargs):
@@ -739,10 +743,11 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def get_assay_data(self):
         return super(DrillDownPanelPlotter, self).get_assay_data()
 
-    def iframe(self, sizing_mode="fixed", w="100%", h="500px"):
+    def iframe(self, sizing_mode="fixed", w="100%", h=None):
         _iframe = super(DrillDownPanelPlotter, self).iframe()
         _src = _iframe.src
-
+        if h is None:
+            h = self.height
         if sizing_mode == "stretch_width":
             w = "100%"
         elif sizing_mode == "stretch_height":
