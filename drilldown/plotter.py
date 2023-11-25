@@ -9,10 +9,14 @@ from vtk import (
     vtkHardwareSelector,
     vtkDataObject,
     vtkCoordinate,
+    vtkMapper,
 )
 import vtk.util.numpy_support as vtknumpy
 import pyvista as pv
 from pyvista import Plotter
+
+# from pyvista._vtk import vtkMapper
+
 import numpy as np
 import pandas as pd
 from IPython.display import IFrame
@@ -33,12 +37,15 @@ class DrillDownPlotter(Plotter):
         super().__init__(*args, **kwargs)
 
         self.height = 500
+        self.translate_by = None
         self.set_background("white")
         self.enable_trackball_style()
 
         self._actors = {}
         self._filters = {}
         self.selection_extracts = {}
+        vtkMapper.SetResolveCoincidentTopologyToPolygonOffset()
+        # vtkMapper.SetResolveCoincidentTopologyPolygonOffsetParameters(0, -0.5)
 
     def add_mesh(self, mesh, name, *args, **kwargs):
         """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene.
@@ -62,8 +69,11 @@ class DrillDownPlotter(Plotter):
             Actor of the mesh.
 
         """
+        if self.translate_by is None:
+            self.translate_by = [-1 * val for val in mesh.center]
+        mesh = mesh.translate(self.translate_by)
 
-        actor = super(DrillDownPlotter, self).add_mesh(mesh, *args, **kwargs)
+        actor = super(DrillDownPlotter, self).add_mesh(mesh, name=name, *args, **kwargs)
         actor.SetPickable = 0
         self._actors[name] = actor
         # self.reset_camera()
@@ -95,8 +105,7 @@ class DrillDownPlotter(Plotter):
         active_var=None,
         cmap="blues",
         cmap_range=None,
-        color_on_selection="#000000",
-        opacity_on_selection=1,
+        selection_color="magenta",
         accelerated_selection=False,
         *args,
         **kwargs,
@@ -121,10 +130,8 @@ class DrillDownPlotter(Plotter):
             Matplotlib color map used to color interval data. By default "blues"
         cmap_range : tuple, optional
             Minimum and maximum value between which color map is applied. By default None
-        color_on_selection : ColorLike, optional
+        selection_color : ColorLike, optional
             Color used to color the selection object. By default "#000000"
-        opacity_on_selection : float, optional
-            Opacity used for the selection object. By default 1
         accelerated_selection : bool, optional
             When True, accelerates selection using two methods:
             1.) adding a vtkCellLocator object to the vtkCellPicker object
@@ -132,7 +139,6 @@ class DrillDownPlotter(Plotter):
             The latter is less accurate than normal picking. Thus, activating accelerated selection
             increases selection speed but decreases selection accuracy. By default False
         """
-
         name = "drillhole intervals"
         self.n_sides = n_sides
         if capping == True:
@@ -166,8 +172,7 @@ class DrillDownPlotter(Plotter):
         if selectable == True:
             self._make_selectable(
                 actor,
-                color_on_selection=color_on_selection,
-                opacity_on_selection=opacity_on_selection,
+                selection_color=selection_color,
                 accelerated_selection=accelerated_selection,
             )
 
@@ -206,10 +211,10 @@ class DrillDownPlotter(Plotter):
     def _make_selectable(
         self,
         actor,
-        color_on_selection="#000000",
-        opacity_on_selection=1,
+        selection_color="magenta",
         accelerated_selection=False,
     ):
+        self.selection_color = selection_color
         # make pickable
         actor.SetPickable = 0
 
@@ -352,23 +357,17 @@ class DrillDownPlotter(Plotter):
     def _update_selection_object(self, interval_or_sample, selected_cells):
         mesh = self._filters["drillhole intervals"]
         sel_mesh = mesh.extract_cells(selected_cells)
-
-        sel_mapper = pv.DataSetMapper(sel_mesh)
-        sel_mapper.SetResolveCoincidentTopologyToPolygonOffset()
-        sel_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(0.0, -0.5)
-
-        sel_actor = pv.Actor(mapper=sel_mapper)
-        sel_actor.prop.color = "magenta"
-
-        if self.selection_actor:
-            self.remove_actor(self.selection_actor)
-
-        self.selection_actor, _ = self.add_actor(
-            sel_actor,
+        self.selection_actor = self.add_mesh(
+            sel_mesh,
             name="drillhole intervals selection",
+            color=self.selection_color,
             reset_camera=False,
             pickable=False,
         )
+        self.selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
+            0, -5
+        )
+
         self.render()
 
     # def _filter_intervals(self, filtered_cells):
@@ -606,7 +605,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             Minimum and maximum value between which color map is applied. By default None
         """
 
-        super(DrillDownPanelPlotter, self).add_intervals(
+        tube_mesh = super(DrillDownPanelPlotter, self).add_intervals(
             mesh,
             active_var=active_var,
             cmap=cmap,
