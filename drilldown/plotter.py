@@ -36,7 +36,7 @@ class DrillDownPlotter(Plotter):
 
         super().__init__(*args, **kwargs)
 
-        self.height = 500
+        self.height = 600
         self.translate_by = None
         self.set_background("white")
         self.enable_trackball_style()
@@ -363,11 +363,11 @@ class DrillDownPlotter(Plotter):
             color=self.selection_color,
             reset_camera=False,
             pickable=False,
+            add_show_widgets=False,
         )
         self.selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
             0, -5
         )
-
         self.render()
 
     # def _filter_intervals(self, filtered_cells):
@@ -531,7 +531,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             self.ctrls, self.iframe(sizing_mode="stretch_both"), height=self.height
         )
 
-    def add_mesh(self, mesh, name, *args, **kwargs):
+    def add_mesh(self, mesh, name, add_show_widgets=True, *args, **kwargs):
         """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene and corresponding widgets to the GUI.
 
         Parameters
@@ -555,30 +555,32 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         """
 
         actor = super(DrillDownPanelPlotter, self).add_mesh(mesh, name, *args, **kwargs)
+        if add_show_widgets == True:
+            # set up widget to show and hide mesh
+            show_widget = pn.widgets.Checkbox(value=True)
+            self.show_widgets[name] = show_widget
+            # self.show_widgets.append(show_widget)
+            show_widget.param.watch(partial(self._on_mesh_show_change, name), "value")
 
-        # set up widget to show and hide mesh
-        show_widget = pn.widgets.Checkbox(value=True)
-        self.show_widgets[name] = show_widget
-        # self.show_widgets.append(show_widget)
-        show_widget.param.watch(partial(self._on_mesh_show_change, name), "value")
+            # set up widget to control mesh opacity
+            opacity_widget = pn.widgets.FloatSlider(
+                start=0,
+                end=1,
+                step=0.01,
+                value=1,
+                show_value=False,
+                width=int(2 * self.ctrl_widget_width / 3),
+            )
+            self.opacity_widgets[name] = opacity_widget
+            # self.mesh_opacity_widgets.append(opacity_widget)
+            opacity_widget.param.watch(
+                partial(self._on_mesh_opacity_change, name), "value"
+            )
 
-        # set up widget to control mesh opacity
-        opacity_widget = pn.widgets.FloatSlider(
-            start=0,
-            end=1,
-            step=0.01,
-            value=1,
-            show_value=False,
-            width=int(2 * self.ctrl_widget_width / 3),
-        )
-        self.opacity_widgets[name] = opacity_widget
-        # self.mesh_opacity_widgets.append(opacity_widget)
-        opacity_widget.param.watch(partial(self._on_mesh_opacity_change, name), "value")
-
-        # situate show and opacity widgets; add to mesh visibility widget
-        self.mesh_visibility_card.append(pn.pane.Markdown(f"{name}"))
-        self.mesh_visibility_card.append(pn.Row(show_widget, opacity_widget))
-        self.mesh_visibility_card.append(pn.layout.Divider())
+            # situate show and opacity widgets; add to mesh visibility widget
+            self.mesh_visibility_card.append(pn.pane.Markdown(f"{name}"))
+            self.mesh_visibility_card.append(pn.Row(show_widget, opacity_widget))
+            self.mesh_visibility_card.append(pn.layout.Divider())
 
         return actor
 
