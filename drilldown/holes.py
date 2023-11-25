@@ -9,6 +9,20 @@ from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
 
 
+def convert_array_type(arr, return_type=False):
+    try:
+        arr = arr.astype("float")
+        _type = "float"
+    except ValueError:
+        arr = arr.astype("str")
+        _type = "str"
+
+    if return_type == True:
+        return arr, _type
+    else:
+        return arr
+
+
 class DrillHole:
     def __init__(self, name, workspace=None):
         self.name = name
@@ -19,6 +33,7 @@ class DrillHole:
 
         self.hole_group = DrillholeGroup.create(self.workspace)
         self.vars = []
+        self.intervals = {}
 
     def add_collar(self, collar):
         if isinstance(collar, pd.core.series.Series) | isinstance(
@@ -70,15 +85,13 @@ class DrillHole:
 
             return depths
 
-    def add_data(self, name, data):
+    def add_intervals(self, name, data):
         if isinstance(data, pd.core.series.Series):
             data = data.values
-
+        data, _type = convert_array_type(data, return_type=True)
         self.vars.append(name)
-        data_added = self._hole.add_data(
-            {name: {"values": data.astype(np.float64), "from-to": self.from_to}}
-        )
-        return data_added
+        self.intervals[name] = {"values": data, "type": _type, "from-to": self.from_to}
+        return self.intervals[name]
 
     def desurvey(self, depths=None):
         if depths is None:
@@ -117,13 +130,25 @@ class DrillHole:
     def make_intervals_mesh(self, name):
         from_depths = self.desurvey(self.from_to[:, 0])
         to_depths = self.desurvey(self.from_to[:, 1])
+        intermediate_depths = np.mean([from_depths, to_depths], axis=0)
+
         mesh = self._make_line_mesh(from_depths, to_depths)
 
         mesh.cell_data["from"] = self.from_to[:, 0]
         mesh.cell_data["to"] = self.from_to[:, 1]
         mesh.cell_data["hole ID"] = [self.name] * self.from_to.shape[0]
+        mesh.cell_data["x"] = intermediate_depths[:, 0]
+        mesh.cell_data["y"] = intermediate_depths[:, 1]
+        mesh.cell_data["z"] = intermediate_depths[:, 2]
         for var in self.vars:
-            mesh.cell_data[var] = self._hole.get_data(var)[0].values
+            data = self.intervals[var]["values"]
+            _type = self.intervals[var]["type"]
+            print(_type)
+            if _type == "str":
+                print(f"adding {var}")
+                mesh[var] = data
+            else:
+                mesh.cell_data[var] = data
 
         return mesh
 
@@ -199,6 +224,7 @@ class DrillHoleGroup:
         self.name = name
         self._holes = {}
         self.vars = []
+        self.intervals = {}
         self.workspace = Workspace()
         self.hole_ids_with_data = []
 
@@ -261,24 +287,28 @@ class DrillHoleGroup:
 
         return self.from_to
 
-    def add_data(self, name, hole_ids, data):
+    def add_intervals(self, name, hole_ids, data):
         if isinstance(hole_ids, pd.core.series.Series):
             hole_ids = hole_ids.values
 
         if isinstance(data, pd.core.series.Series):
             data = data.values
 
-        data = np.c_[hole_ids, data]
+        hole_ids = convert_array_type(hole_ids)
+        data, _type = convert_array_type(data, return_type=True)
         self.vars.append(name)
 
-        data_added = {}
         for id in self.hole_ids_with_data:
-            dataset = data[:, 1][data[:, 0] == id]
+            if id not in self.intervals.keys():
+                self.intervals[id] = {}
+            dataset = data[hole_ids == id]
             if dataset.shape[0] > 0:
-                data_added[id] = self._holes[id].add_data(
-                    name, data[:, 1][data[:, 0] == id]
-                )
-        return data_added
+                self.intervals[id][name] = {
+                    "values": dataset,
+                    "type": _type,
+                    "from-to": self._holes[id].from_to,
+                }
+        return self.intervals
 
     def desurvey(self, hole_id, depths=None):
         return self._holes[hole_id].desurvey(depths=depths)
@@ -308,17 +338,29 @@ class DrillHoleGroup:
             hole = self._holes[hole_id]
             from_depths = hole.desurvey(hole.from_to[:, 0])
             to_depths = hole.desurvey(hole.from_to[:, 1])
+            intermediate_depths = np.mean([from_depths, to_depths], axis=0)
             if from_depths.shape[0] > 0:
                 mesh = hole._make_line_mesh(from_depths, to_depths)
                 mesh.cell_data["from"] = hole.from_to[:, 0]
                 mesh.cell_data["to"] = hole.from_to[:, 1]
                 mesh.cell_data["hole ID"] = [hole_id] * hole.from_to.shape[0]
+                mesh.cell_data["x"] = intermediate_depths[:, 0]
+                mesh.cell_data["y"] = intermediate_depths[:, 1]
+                mesh.cell_data["z"] = intermediate_depths[:, 2]
+
                 for var in self.vars:
-                    mesh.cell_data[var] = hole._hole.get_data(var)[0].values
+                    data = self.intervals[hole_id][var]["values"]
+                    _type = self.intervals[hole_id][var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.cell_data[var] = data
+                print(mesh["Stratigraphy"])
                 if meshes is None:
                     meshes = mesh
                 else:
                     meshes += mesh
+        print(len(meshes["Stratigraphy"]))
 
         return meshes
 
