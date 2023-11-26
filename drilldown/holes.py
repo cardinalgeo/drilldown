@@ -4,9 +4,12 @@ from geoh5py.groups import DrillholeGroup
 from geoh5py.objects import Drillhole
 import numpy as np
 import pandas as pd
+import distinctipy
 
 from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
+
+from matplotlib.colors import ListedColormap
 
 
 def convert_array_type(arr, return_type=False):
@@ -23,6 +26,16 @@ def convert_array_type(arr, return_type=False):
         return arr
 
 
+def categorical_color_map(colors):
+    mapping = np.linspace(0, len(colors) - 1, 256)
+    new_colors = np.empty((256, 3))
+    i_pre = -np.inf
+    for i, color in enumerate(colors):
+        new_colors[(mapping > i_pre) & (mapping <= i)] = list(color)
+        i_pre = i
+    return ListedColormap(new_colors)
+
+
 class DrillHole:
     def __init__(self, name, workspace=None):
         self.name = name
@@ -33,7 +46,11 @@ class DrillHole:
 
         self.hole_group = DrillholeGroup.create(self.workspace)
         self.vars = []
+        self.categorical_vars = []
+        self.continuous_vars = []
         self.intervals = {}
+        self.categorical_mapping = {}
+        self.categorical_color_map = {}
 
     def add_collar(self, collar):
         if isinstance(collar, pd.core.series.Series) | isinstance(
@@ -89,6 +106,18 @@ class DrillHole:
         if isinstance(data, pd.core.series.Series):
             data = data.values
         data, _type = convert_array_type(data, return_type=True)
+        if _type == "str":
+            data, unique_values = pd.factorize(data)
+            colors = distinctipy.get_colors(len(unique_values))
+            self.categorical_mapping[name] = {
+                index: {"name": value, "color": color}
+                for index, (value, color) in enumerate(zip(unique_values, colors))
+            }
+            self.categorical_color_map[name] = categorical_color_map(colors)
+            self.categorical_vars.append(name)
+        else:
+            self.continuous_vars.append(name)
+
         self.vars.append(name)
         self.intervals[name] = {"values": data, "type": _type, "from-to": self.from_to}
         return self.intervals[name]
@@ -143,9 +172,9 @@ class DrillHole:
         for var in self.vars:
             data = self.intervals[var]["values"]
             _type = self.intervals[var]["type"]
-            print(_type)
+            # print(_type)
             if _type == "str":
-                print(f"adding {var}")
+                # print(f"adding {var}")
                 mesh[var] = data
             else:
                 mesh.cell_data[var] = data
@@ -224,7 +253,11 @@ class DrillHoleGroup:
         self.name = name
         self._holes = {}
         self.vars = []
+        self.categorical_vars = []
+        self.continuous_vars = []
         self.intervals = {}
+        self.categorical_mapping = {}
+        self.categorical_color_map = {}
         self.workspace = Workspace()
         self.hole_ids_with_data = []
 
@@ -298,6 +331,17 @@ class DrillHoleGroup:
         data, _type = convert_array_type(data, return_type=True)
         self.vars.append(name)
 
+        if _type == "str":
+            data, unique_values = pd.factorize(data)
+            colors = distinctipy.get_colors(len(unique_values))
+            self.categorical_mapping[name] = {
+                index: {"name": value, "color": color}
+                for index, (value, color) in enumerate(zip(unique_values, colors))
+            }
+            self.categorical_color_map[name] = categorical_color_map(colors)
+            self.categorical_vars.append(name)
+        else:
+            self.continuous_vars.append(name)
         for id in self.hole_ids_with_data:
             if id not in self.intervals.keys():
                 self.intervals[id] = {}
@@ -355,12 +399,12 @@ class DrillHoleGroup:
                         mesh[var] = data
                     else:
                         mesh.cell_data[var] = data
-                print(mesh["Stratigraphy"])
+                # print(mesh["Stratigraphy"])
                 if meshes is None:
                     meshes = mesh
                 else:
                     meshes += mesh
-        print(len(meshes["Stratigraphy"]))
+        # print(len(meshes["Stratigraphy"]))
 
         return meshes
 
