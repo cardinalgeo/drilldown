@@ -375,7 +375,6 @@ class DrillDownPlotter(Plotter):
             color=self.selection_color,
             reset_camera=False,
             pickable=False,
-            add_show_widgets=False,
         )
         self.selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
             0, -5
@@ -593,8 +592,11 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             Actor of the mesh.
 
         """
-
         actor = super(DrillDownPanelPlotter, self).add_mesh(mesh, name, *args, **kwargs)
+
+        if name == "drillhole intervals selection":
+            add_show_widgets = False
+
         if add_show_widgets == True:
             # set up widget to show and hide mesh
             show_widget = pn.widgets.Checkbox(value=True)
