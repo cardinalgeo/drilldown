@@ -168,13 +168,16 @@ class DrillDownPlotter(Plotter):
         )
         self.reset_camera()
 
+        self._active_var = active_var
+        self._cmap = cmap
+        self._cmap_range = cmap_range
+
         self.active_var = active_var
-        self.prev_active_var = active_var
-        if self.active_var in self.continuous_vars:
+        self.cmap = cmap
+        if self._active_var in self.continuous_vars:
             self.continuous_map = cmap
-        self.update_cmap(cmap)
         if cmap_range != None:
-            self.update_cmap_range(cmap_range)
+            self.cmap_range = cmap_range
 
         if selectable == True:
             self._make_selectable(
@@ -391,26 +394,39 @@ class DrillDownPlotter(Plotter):
     #     self.filtered_mesh = filt_mesh
     #     self.add_holes(filt_mesh)
 
-    def update_active_var(self, active_var):
-        self.prev_active_var = self.active_var
-        self.active_var = active_var
+    @property
+    def active_var(self):
+        return self._active_var
+
+    @active_var.setter
+    def active_var(self, active_var):
+        if hasattr(self, "_prev_active_var"):
+            self._prev_active_var = self.active_var
+        else:
+            self._prev_active_var = None
+
+        self._active_var = active_var
         self._actors["drillhole intervals"].mapper.dataset.set_active_scalars(
             active_var
         )
         if active_var in self.categorical_vars:
-            self.update_cmap(self.categorical_color_map[active_var])
-            self.update_cmap_range(
-                (0, list(self.categorical_mapping[active_var].keys())[-1])
-            )
+            self.cmap = self.categorical_color_map[active_var]
+            self.cmap_range = (0, list(self.categorical_mapping[active_var].keys())[-1])
         else:
-            if self.prev_active_var in self.categorical_vars:
-                self.update_cmap(self.continuous_cmap)
+            if self._prev_active_var in self.categorical_vars:
+                self.cmap = self.continuous_cmap
                 self.reset_cmap_range()
             else:
                 self.reset_cmap_range()
         self.render()
 
-    def update_cmap(self, cmap):
+    @property
+    def cmap(self):
+        return self._cmap
+
+    @cmap.setter
+    def cmap(self, cmap):
+        self._cmap = cmap
         if self.active_var in self.continuous_vars:
             self._actors["drillhole intervals"].mapper.lookup_table.cmap = cmap
             self.continuous_cmap = cmap
@@ -421,7 +437,13 @@ class DrillDownPlotter(Plotter):
             )
         self.render()
 
-    def update_cmap_range(self, cmap_range):
+    @property
+    def cmap_range(self):
+        return self._cmap_range
+
+    @cmap_range.setter
+    def cmap_range(self, cmap_range):
+        self._cmap_range = cmap_range
         self._actors[
             "drillhole intervals"
         ].mapper.lookup_table.scalar_range = cmap_range
@@ -432,9 +454,9 @@ class DrillDownPlotter(Plotter):
         mesh = self._filters["drillhole intervals"]
         array = mesh.cell_data[self.active_var]
         min, max = array.min(), array.max()
-        self.update_cmap_range((min, max))
+        self.cmap_range = (min, max)
 
-        return (min, max)
+        return self.cmap_range
 
     def update_visibility(self, visible, actor_name):
         if visible == True:
@@ -660,10 +682,10 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         self._make_hole_ctrl_card(active_var, cmap, cmap_range)
         # set up widget to show and hide mesh
         if active_var is not None:
-            self.update_active_var(active_var)
-        self.update_cmap(cmap)
+            self.active_var = active_var
+        self.cmap = cmap
         if cmap_range != None:
-            self.update_cmap_range(cmap_range)
+            self.cmap_range = cmap_range
 
     def _make_active_var_widget(self, value=None):
         widget = pn.widgets.Select(
@@ -724,13 +746,25 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         return self.mesh_visibility_card
 
-    def update_active_var(self, active_var):
-        super(DrillDownPanelPlotter, self).update_active_var(active_var)
+    @property
+    def active_var(self):
+        return self._active_var
+
+    @active_var.setter
+    def active_var(self, active_var):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).active_var.fset(
+            self, active_var
+        )
         if hasattr(self, "active_var_widget"):
             self.active_var_widget.value = active_var
 
-    def update_cmap(self, cmap):
-        super(DrillDownPanelPlotter, self).update_cmap(cmap)
+    @property
+    def cmap(self):
+        return self._cmap
+
+    @cmap.setter
+    def cmap(self, cmap):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap.fset(self, cmap)
         if isinstance(cmap, str):
             if hasattr(self, "cmap_widget"):
                 self.cmap_widget.value = cmap
@@ -740,8 +774,15 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             self.cmap_widget.visible = False
             self.cmap_range_widget.visible = False
 
-    def update_cmap_range(self, cmap_range):
-        super(DrillDownPanelPlotter, self).update_cmap_range(cmap_range)
+    @property
+    def cmap_range(self):
+        return self._cmap_range
+
+    @cmap_range.setter
+    def cmap_range(self, cmap_range):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap_range.fset(
+            self, cmap_range
+        )
         if hasattr(self, "cmap_range_widget"):
             self.cmap_range_widget.value = cmap_range
             self.cmap_range_widget.step = (cmap_range[1] - cmap_range[0]) / 1000
@@ -758,7 +799,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def _on_active_var_change(self, event):
         active_var = event.new
-        self.update_active_var(active_var)
+        self.active_var = active_var
 
         active_scalars = self._actors[
             "drillhole intervals"
@@ -768,7 +809,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def _on_cmap_change(self, event):
         cmap = event.new
-        self.update_cmap(cmap)
+        self.cmap = cmap
 
         active_scalars = self._actors[
             "drillhole intervals"
@@ -778,7 +819,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def _on_cmap_range_change(self, event):
         cmap_range = event.new
-        self.update_cmap_range(cmap_range)
+        self.cmap_range = cmap_range
 
     def _on_mesh_show_change(self, actor_name, event):
         visible = event.new
