@@ -45,7 +45,7 @@ def clean_missing_intervals(depths, values):
 
 def convert_fractional_rgb_to_rgba_for_plotly(rgb, opacity=1):
     return "rgba({},{},{}, {})".format(
-        int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255), opacity
+        rgb[0] * 255, rgb[1] * 255, rgb[2] * 255, opacity
     )
 
 

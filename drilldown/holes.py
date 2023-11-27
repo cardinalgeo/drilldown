@@ -26,14 +26,24 @@ def convert_array_type(arr, return_type=False):
         return arr
 
 
-def categorical_color_map(colors):
+def make_matplotlib_categorical_color_map(colors):
     mapping = np.linspace(0, len(colors) - 1, 256)
     new_colors = np.empty((256, 3))
     i_pre = -np.inf
     for i, color in enumerate(colors):
         new_colors[(mapping > i_pre) & (mapping <= i)] = list(color)
         i_pre = i
-    return ListedColormap(new_colors)
+    map = ListedColormap(colors[0:-1])
+    map.set_under(colors[0])
+    map.set_over(colors[-1])
+    return map
+
+
+def make_color_map_fractional(map):
+    for name in map.keys():
+        if max(map[name]) > 1:
+            map[name] = tuple([val / 255 for val in map[name]])
+    return map
 
 
 class DrillHole:
@@ -103,23 +113,67 @@ class DrillHole:
             return depths
 
     def add_intervals(
-        self, name, data, categorical_color_rng=666, categorical_pastel_factor=0.2
+        self,
+        name,
+        data,
+        categorical_color_rng=999,
+        categorical_pastel_factor=0.2,
+        categorical_color_map=None,
     ):
         if isinstance(data, pd.core.series.Series):
             data = data.values
         data, _type = convert_array_type(data, return_type=True)
         if _type == "str":
             data, unique_values = pd.factorize(data)
-            colors = distinctipy.get_colors(
-                len(unique_values),
-                pastel_factor=categorical_pastel_factor,
-                rng=categorical_color_rng,
-            )
-            self.categorical_mapping[name] = {
-                index: {"name": value, "color": color}
-                for index, (value, color) in enumerate(zip(unique_values, colors))
-            }
-            self.categorical_color_map[name] = categorical_color_map(colors)
+            keys = np.arange(len(unique_values))
+            keys = np.array(keys, dtype="float")
+            data = np.array(data, dtype="float")
+            keys[1:-1] += 0.5
+            data[(data != data.min()) & (data != data.max())] += 0.5
+            if categorical_color_map is None:
+                colors = distinctipy.get_colors(
+                    len(unique_values),
+                    pastel_factor=categorical_pastel_factor,
+                    rng=categorical_color_rng,
+                )
+
+                self.categorical_mapping[name] = {
+                    key: {"name": value, "color": color}
+                    for (key, value, color) in zip(keys, unique_values, colors)
+                }
+                self.categorical_color_map[
+                    name
+                ] = make_matplotlib_categorical_color_map(colors)
+            else:
+                # ensure categorical color map colors are fractional
+                categorical_color_map = make_color_map_fractional(categorical_color_map)
+                colors_preset = [
+                    categorical_color_map[name] for name in categorical_color_map.keys()
+                ]
+                names_preset = [name for name in categorical_color_map.keys()]
+                n_missing_colors = len(unique_values) - len(names_preset)
+                colors_new = distinctipy.get_colors(n_missing_colors, colors_preset)
+                colors_all = colors_preset + colors_new
+                colors_final = np.empty(len(unique_values), dtype="object")
+
+                self.categorical_mapping[name] = {}
+                for key, value in zip(keys, unique_values):
+                    if value not in names_preset:
+                        color = colors_new.pop()
+                        self.categorical_mapping[name][key] = {
+                            "name": value,
+                            "color": color,
+                        }
+                    else:
+                        color = categorical_color_map[value]
+                        self.categorical_mapping[name][key] = {
+                            "name": value,
+                            "color": color,
+                        }
+                    colors_final[int(np.floor(key))] = color
+                self.categorical_color_map[
+                    name
+                ] = make_matplotlib_categorical_color_map(colors_final)
             self.categorical_vars.append(name)
         else:
             self.continuous_vars.append(name)
@@ -178,9 +232,7 @@ class DrillHole:
         for var in self.vars:
             data = self.intervals[var]["values"]
             _type = self.intervals[var]["type"]
-            # print(_type)
             if _type == "str":
-                # print(f"adding {var}")
                 mesh[var] = data
             else:
                 mesh.cell_data[var] = data
@@ -339,8 +391,9 @@ class DrillHoleGroup:
         name,
         hole_ids,
         data,
-        categorical_color_rng=666,
+        categorical_color_rng=999,
         categorical_pastel_factor=0.2,
+        categorical_color_map=None,
     ):
         if isinstance(hole_ids, pd.core.series.Series):
             hole_ids = hole_ids.values
@@ -354,16 +407,63 @@ class DrillHoleGroup:
 
         if _type == "str":
             data, unique_values = pd.factorize(data)
-            colors = distinctipy.get_colors(
-                len(unique_values),
-                pastel_factor=categorical_pastel_factor,
-                rng=categorical_color_rng,
-            )
-            self.categorical_mapping[name] = {
-                index: {"name": value, "color": color}
-                for index, (value, color) in enumerate(zip(unique_values, colors))
-            }
-            self.categorical_color_map[name] = categorical_color_map(colors)
+            keys = np.arange(len(unique_values))
+            keys = np.array(keys, dtype="float")
+            data = np.array(data, dtype="float")
+            keys[1:-1] += 0.5
+            data[(data != data.min()) & (data != data.max())] += 0.5
+            if categorical_color_map is None:
+                colors = distinctipy.get_colors(
+                    len(unique_values),
+                    pastel_factor=categorical_pastel_factor,
+                    rng=categorical_color_rng,
+                )
+                self.categorical_mapping[name] = {
+                    key: {"name": value, "color": color}
+                    for (key, value, color) in zip(keys, unique_values, colors)
+                }
+                self.categorical_color_map[
+                    name
+                ] = make_matplotlib_categorical_color_map(colors)
+            else:
+                # ensure categorical color map colors are fractional
+                categorical_color_map = make_color_map_fractional(categorical_color_map)
+                colors_preset = [
+                    categorical_color_map[name] for name in categorical_color_map.keys()
+                ]
+                names_preset = [
+                    name
+                    for name in categorical_color_map.keys()
+                    if name in unique_values
+                ]
+                names_new = [name for name in unique_values if name not in names_preset]
+                names_all = names_preset + names_new
+                n_missing_colors = len(unique_values) - len(names_preset)
+                colors_new = distinctipy.get_colors(n_missing_colors, colors_preset)
+                colors_all = colors_preset + colors_new
+                colors_final = np.empty(len(unique_values), dtype="object")
+
+                self.categorical_mapping[name] = {}
+                for key, value in zip(keys, unique_values):
+                    if value not in names_preset:
+                        color = colors_new.pop()
+                        self.categorical_mapping[name][key] = {
+                            "name": value,
+                            "color": color,
+                        }
+
+                    else:
+                        color = categorical_color_map[value]
+                        self.categorical_mapping[name][key] = {
+                            "name": value,
+                            "color": categorical_color_map[value],
+                        }
+                    colors_final[int(np.floor(key))] = color
+
+                self.categorical_color_map[
+                    name
+                ] = make_matplotlib_categorical_color_map(colors_final)
+
             self.categorical_vars.append(name)
         else:
             self.continuous_vars.append(name)
@@ -424,12 +524,10 @@ class DrillHoleGroup:
                         mesh[var] = data
                     else:
                         mesh.cell_data[var] = data
-                # print(mesh["Stratigraphy"])
                 if meshes is None:
                     meshes = mesh
                 else:
                     meshes += mesh
-        # print(len(meshes["Stratigraphy"]))
 
         return meshes
 
