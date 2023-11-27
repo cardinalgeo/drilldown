@@ -108,6 +108,7 @@ class DrillDownPlotter(Plotter):
         cmap_range=None,
         selection_color="magenta",
         accelerated_selection=False,
+        nan_opacity=0,
         *args,
         **kwargs,
     ):
@@ -157,6 +158,7 @@ class DrillDownPlotter(Plotter):
             if array.IsNumeric():
                 self._hole_vars.append(var)
 
+        self.nan_opacity = nan_opacity
         self._cmaps = plt.colormaps()
         actor = self.add_mesh(
             filter,
@@ -429,12 +431,19 @@ class DrillDownPlotter(Plotter):
         self._cmap = cmap
         if self.active_var in self.continuous_vars:
             self._actors["drillhole intervals"].mapper.lookup_table.cmap = cmap
+            self._actors[
+                "drillhole intervals"
+            ].mapper.lookup_table.nan_opacity = self.nan_opacity
             self.continuous_cmap = cmap
 
         else:
             self._actors["drillhole intervals"].mapper.lookup_table = pv.LookupTable(
                 cmap
             )
+            self._actors[
+                "drillhole intervals"
+            ].mapper.lookup_table.nan_opacity = self.nan_opacity
+
         self.render()
 
     @property
