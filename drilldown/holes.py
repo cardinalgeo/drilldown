@@ -102,13 +102,19 @@ class DrillHole:
 
             return depths
 
-    def add_intervals(self, name, data):
+    def add_intervals(
+        self, name, data, categorical_color_rng=666, categorical_pastel_factor=0.2
+    ):
         if isinstance(data, pd.core.series.Series):
             data = data.values
         data, _type = convert_array_type(data, return_type=True)
         if _type == "str":
             data, unique_values = pd.factorize(data)
-            colors = distinctipy.get_colors(len(unique_values))
+            colors = distinctipy.get_colors(
+                len(unique_values),
+                pastel_factor=categorical_pastel_factor,
+                rng=categorical_color_rng,
+            )
             self.categorical_mapping[name] = {
                 index: {"name": value, "color": color}
                 for index, (value, color) in enumerate(zip(unique_values, colors))
@@ -239,9 +245,17 @@ class DrillHole:
     def drill_log(self):
         log = DrillLog()
         depths = self.from_to
-        for var in self.vars:
-            values = self._hole.get_data(var)[0].values
-            log.add_continuous_interval_data(depths, values, var)
+
+        for var in self.categorical_vars:
+            values = self.intervals[var]["values"]
+            log.add_categorical_interval_data(
+                var, depths, values, self.categorical_mapping[var]
+            )
+
+        for var in self.continuous_vars:
+            values = self.intervals[var]["values"]
+
+            log.add_continuous_interval_data(var, depths, values)
 
         log.create_figure(y_axis_label="Depth (m)", title=self.name)
 
@@ -320,7 +334,14 @@ class DrillHoleGroup:
 
         return self.from_to
 
-    def add_intervals(self, name, hole_ids, data):
+    def add_intervals(
+        self,
+        name,
+        hole_ids,
+        data,
+        categorical_color_rng=666,
+        categorical_pastel_factor=0.2,
+    ):
         if isinstance(hole_ids, pd.core.series.Series):
             hole_ids = hole_ids.values
 
@@ -333,7 +354,11 @@ class DrillHoleGroup:
 
         if _type == "str":
             data, unique_values = pd.factorize(data)
-            colors = distinctipy.get_colors(len(unique_values))
+            colors = distinctipy.get_colors(
+                len(unique_values),
+                pastel_factor=categorical_pastel_factor,
+                rng=categorical_color_rng,
+            )
             self.categorical_mapping[name] = {
                 index: {"name": value, "color": color}
                 for index, (value, color) in enumerate(zip(unique_values, colors))
@@ -482,9 +507,15 @@ class DrillHoleGroup:
         hole = self._holes[hole_id]
         log = DrillLog()
         depths = hole.from_to
-        for var in self.vars:
-            values = hole._hole.get_data(var)[0].values
-            log.add_continuous_interval_data(depths, values, var)
+        for var in self.categorical_vars:
+            values = self.intervals[hole_id][var]["values"]
+            log.add_categorical_interval_data(
+                var, depths, values, self.categorical_mapping[var]
+            )
+
+        for var in self.continuous_vars:
+            values = self.intervals[hole_id][var]["values"]
+            log.add_continuous_interval_data(var, depths, values)
 
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 

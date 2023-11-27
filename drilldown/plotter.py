@@ -536,21 +536,15 @@ class DrillDownPlotter(Plotter):
         data = self.selected_intervals
         log = DrillLog()
         depths = data[["from", "to"]].values
-        vars = [
-            var
-            for var in data.columns
-            if var
-            not in [
-                "from",
-                "to",
-                "vtkOriginalPointIds",
-                "vtkOriginalCellIds",
-                "hole ID",
-            ]
-        ]
-        for var in vars:
+
+        for var in self.categorical_vars:
             values = data[var].values
-            log.add_continuous_interval_data(depths, values, var)
+            log.add_categorical_interval_data(
+                var, depths, values, self.categorical_mapping[var]
+            )
+        for var in self.continuous_vars:
+            values = data[var].values
+            log.add_continuous_interval_data(var, depths, values)
 
         log.create_figure()
 
