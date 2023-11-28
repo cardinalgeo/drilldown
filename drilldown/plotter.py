@@ -108,7 +108,7 @@ class DrillDownPlotter(Plotter):
         cmap_range=None,
         selection_color="magenta",
         accelerated_selection=False,
-        nan_opacity=0,
+        nan_opacity=1,
         *args,
         **kwargs,
     ):
@@ -433,7 +433,7 @@ class DrillDownPlotter(Plotter):
             self._actors["drillhole intervals"].mapper.lookup_table.cmap = cmap
             self._actors[
                 "drillhole intervals"
-            ].mapper.lookup_table.nan_opacity = self.nan_opacity
+            ].mapper.lookup_table.nan_color = "white"  # self.nan_opacity
             self.continuous_cmap = cmap
 
         else:
@@ -442,7 +442,7 @@ class DrillDownPlotter(Plotter):
             )
             self._actors[
                 "drillhole intervals"
-            ].mapper.lookup_table.nan_opacity = self.nan_opacity
+            ].mapper.lookup_table.nan_color = "white"  # self.nan_opacity
 
         self.render()
 
