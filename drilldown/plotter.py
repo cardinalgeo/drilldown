@@ -541,17 +541,25 @@ class DrillDownPlotter(Plotter):
     #     self.remove_actor(self._actor["drillhole intervals"]);;.;l,;.
     #     self.add_holes(self._unfiltered_mesh)
 
-    def selected_drill_log(self):
+    def selected_drill_log(
+        self, categorical_interval_vars=None, continuous_interval_vars=None
+    ):
         data = self.selected_intervals
+        if categorical_interval_vars is None:
+            categorical_interval_vars = self.categorical_vars
+
+        if continuous_interval_vars is None:
+            continuous_interval_vars = self.continuous_vars
+
         log = DrillLog()
         depths = data[["from", "to"]].values
 
-        for var in self.categorical_vars:
+        for var in categorical_interval_vars:
             values = data[var].values
             log.add_categorical_interval_data(
                 var, depths, values, self.categorical_mapping[var]
             )
-        for var in self.continuous_vars:
+        for var in continuous_interval_vars:
             values = data[var].values
             log.add_continuous_interval_data(var, depths, values)
 
