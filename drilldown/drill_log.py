@@ -236,7 +236,7 @@ class DrillLog:
                         opacity=1,
                         mode="none",
                         name=category,
-                        hovertext=category,
+                        hoverinfo="y+name",
                         fillcolor=color,
                         legendgroup=name,
                         legendgrouptitle_text=name,
