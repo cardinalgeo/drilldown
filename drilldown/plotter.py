@@ -75,7 +75,6 @@ class DrillDownPlotter(Plotter):
         mesh = mesh.translate(self.translate_by)
 
         actor = super(DrillDownPlotter, self).add_mesh(mesh, name=name, *args, **kwargs)
-        actor.SetPickable = 0
         self._actors[name] = actor
         # self.reset_camera()
 
@@ -88,13 +87,14 @@ class DrillDownPlotter(Plotter):
             name,
             render_points_as_spheres=True,
             point_size=10,
+            pickable=False,
             *args,
             **kwargs,
         )
 
     def add_surveys(self, mesh, *args, **kwargs):
         name = "surveys"
-        self.add_mesh(mesh, name, *args, **kwargs)
+        self.add_mesh(mesh, name, pickable=False, *args, **kwargs)
 
     def add_intervals(
         self,
@@ -237,7 +237,7 @@ class DrillDownPlotter(Plotter):
     ):
         self.selection_color = selection_color
         # make pickable
-        actor.SetPickable = 0
+        # actor.SetPickable = 0
 
         # track clicks
         self.track_click_position(side="left", callback=self._make_selection)
