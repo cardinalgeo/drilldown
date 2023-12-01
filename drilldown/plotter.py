@@ -312,23 +312,6 @@ class DrillDownPlotter(Plotter):
 
         return self._selected_intervals, self._selected_interval_cells
 
-    def _make_multi_selection(self, picked_interval_cell, continuous=False):
-        if continuous == True:
-            (
-                selected_intervals,
-                selected_interval_cells,
-            ) = self._make_continuous_multi_selection(picked_interval_cell)
-        else:
-            (
-                selected_intervals,
-                selected_interval_cells,
-            ) = self._make_discontinuous_multi_selection(picked_interval_cell)
-
-        self._selected_intervals += selected_intervals
-        self._selected_interval_cells += selected_interval_cells
-
-        return self._selected_intervals, self._selected_interval_cells
-
     def _make_discontinuous_multi_selection(self, picked_interval_cell):
         selected_interval = int(
             np.floor(picked_interval_cell / self.faces_per_interval)
