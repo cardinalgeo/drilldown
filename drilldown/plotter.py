@@ -561,7 +561,11 @@ class DrillDownPlotter(Plotter):
         for var in categorical_interval_vars:
             values = data[var].values
             log.add_categorical_interval_data(
-                var, depths, values, self.code_to_cat[var], self.code_to_color_map[var]
+                var,
+                depths,
+                values,
+                self.code_to_cat_map[var],
+                self.code_to_color_map[var],
             )
         for var in continuous_interval_vars:
             values = data[var].values
