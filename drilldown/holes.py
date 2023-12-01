@@ -46,6 +46,197 @@ def make_color_map_fractional(map):
     return map
 
 
+def encode_categorical_data(data):
+    data_encoded, categories = pd.factorize(data)
+    codes = np.arange(len(categories))
+
+    # convert codes to float to address pyvista's color mapping querks
+    codes = np.array(codes, dtype="float")
+    data_encoded = np.array(data_encoded, dtype="float")
+
+    # center numerical representation of categorical data, while maintaining range, to address pyvista's color mapping querks
+    codes[1:-1] += 0.5
+    data_encoded[
+        (data_encoded != data_encoded.min()) & (data_encoded != data_encoded.max())
+    ] += 0.5
+    code_to_cat_map = {code: cat for code, cat in zip(codes, categories)}
+
+    return code_to_cat_map, data_encoded
+
+
+class Intervals:
+    def __init__(self):
+        self.hole_ids = []
+        self.vars_all = []
+        self.categorical_vars = []
+        self.continuous_vars = []
+        self._from_to = None
+        self.data = {}
+        self.code_to_color_map = {}
+        self.cat_to_color_map = {}
+        self.code_to_cat_map = {}
+        self.cat_to_code_map = {}
+        self.matplotlib_formatted_color_maps = {}
+        self.categorical_color_rng = 999
+        self.categorical_pastel_factor = 0.2
+
+    def add_data(
+        self,
+        var_names,
+        hole_ids,
+        from_to,
+        data,
+        return_data=False,
+    ):
+        # add vars
+        self.vars_all += var_names
+
+        # add hole IDs
+        if isinstance(hole_ids, pd.core.series.Series):
+            hole_ids = hole_ids.values
+        self.hole_ids = hole_ids
+
+        # add from-to depths
+        self.from_to = from_to
+
+        # add data
+        if (isinstance(data, pd.core.series.Series)) | (
+            isinstance(data, pd.core.frame.DataFrame)
+        ):
+            data = data.values
+        for dataset, var_name in zip(data.T, var_names):
+            dataset, _type = convert_array_type(dataset, return_type=True)
+
+            if _type == "str":  # categorical data
+                self.categorical_vars.append(var_name)
+
+                # encode categorical data
+                code_to_cat_map, dataset = encode_categorical_data(dataset)
+                self.code_to_cat_map[var_name] = code_to_cat_map
+                self.cat_to_code_map[var_name] = {
+                    cat: code for code, cat in code_to_cat_map.items()
+                }
+
+            else:
+                self.continuous_vars.append(var_name)
+
+            self.data[var_name] = {
+                "values": dataset,
+                "type": _type,
+            }
+
+        if return_data == True:
+            return self.data
+
+    def _construct_categorical_cmap(self):
+        var_names = [
+            var
+            for var in self.categorical_vars
+            if var not in self.cat_to_color_map.keys()
+        ]
+        for var in var_names:
+            codes = self.code_to_cat_map[var].keys()
+            n_colors = len(codes)
+
+            colors = distinctipy.get_colors(
+                n_colors,
+                pastel_factor=self.categorical_pastel_factor,
+                rng=self.categorical_color_rng,
+            )
+
+            # create categorical color map
+            self.cat_to_color_map[var] = {
+                cat: color
+                for cat, color in zip(self.cat_to_code_map[var].values(), colors)
+            }
+
+            # create encoded categorical color map
+            self.code_to_color_map[var] = {
+                code: color for code, color in zip(codes, colors)
+            }
+
+            # create matplotlib categorical color map
+            self.matplotlib_formatted_color_maps[
+                var
+            ] = make_matplotlib_categorical_color_map(colors)
+
+    def add_categorical_cmap(self, var_name, cmap):
+        # ensure categorical color map colors are fractional
+        cmap = make_color_map_fractional(cmap)
+
+        colors = [cmap[cat] for cat in cmap.keys()]
+        n_missing_colors = len(self.cat_to_code_map[var_name].keys()) - len(colors)
+        colors = distinctipy.get_colors(
+            n_missing_colors,
+            exclude_colors=colors,
+            return_excluded=True,
+            pastel_factor=self.categorical_pastel_factor,
+            rng=self.categorical_color_rng,
+        )
+
+        # create categorical color map
+        categories = [cat for cat in cmap.keys()] + [
+            cat
+            for cat in self.cat_to_code_map[var_name].keys()
+            if cat not in cmap.keys()
+        ]
+        self.cat_to_color_map[var_name] = {
+            cat: color for cat, color in zip(categories, colors)
+        }
+
+        # create encoded categorical color map
+        codes = [self.cat_to_code_map[var_name][cat] for cat in categories]
+        self.code_to_color_map[var_name] = {
+            code: color for code, color in zip(codes, colors)
+        }
+        # create matplotlib categorical color map
+        self.matplotlib_formatted_color_maps[
+            var_name
+        ] = make_matplotlib_categorical_color_map(colors)
+
+    def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
+        # ensure that color maps exist for categorical vars
+        self._construct_categorical_cmap()
+        log = DrillLog()
+
+        if categorical_vars is None:
+            categorical_vars = self.categorical_vars
+
+        if continuous_vars is None:
+            continuous_vars = self.continuous_vars
+
+        from_to = self.from_to[self.hole_ids == hole_id]
+
+        for var in categorical_vars:
+            values = self.data[var]["values"][self.hole_ids == hole_id]
+            log.add_categorical_interval_data(
+                var,
+                from_to,
+                values,
+                self.code_to_cat_map[var],
+                self.code_to_color_map[var],
+            )
+
+        for var in continuous_vars:
+            values = self.data[var]["values"][self.hole_ids == hole_id]
+
+            log.add_continuous_interval_data(var, from_to, values)
+
+        log.create_figure(y_axis_label="Depth (m)", title=hole_id)
+
+        return log.fig
+
+    @property
+    def from_to(self):
+        return self._from_to
+
+    @from_to.setter
+    def from_to(self, from_to):
+        if isinstance(from_to, pd.core.frame.DataFrame):
+            from_to = from_to.values
+        self._from_to = from_to.astype(np.float64)
+
+
 class DrillHole:
     def __init__(self, name, workspace=None):
         self.name = name
@@ -59,8 +250,8 @@ class DrillHole:
         self.categorical_vars = []
         self.continuous_vars = []
         self.intervals = {}
-        self.categorical_mapping = {}
-        self.categorical_color_map = {}
+        # self.categorical_mapping = {}
+        # self.categorical_color_map = {}
 
     def add_collar(self, collar):
         if isinstance(collar, pd.core.series.Series) | isinstance(
@@ -90,14 +281,14 @@ class DrillHole:
             parent=self.hole_group,
         )
 
-    def add_from_to(self, from_to):
+    def _add_from_to(self, from_to):
         if isinstance(from_to, pd.core.frame.DataFrame):
             from_to = from_to.values
         self.from_to = from_to.astype(np.float64)
 
         return self.from_to
 
-    def make_from_to(self, depths, connected=True):
+    def _make_from_to(self, depths, connected=True):
         if connected == True:
             from_depths = depths[:-1]
             to_depths = depths[1:]
@@ -112,75 +303,90 @@ class DrillHole:
 
             return depths
 
-    def add_intervals(
-        self,
-        name,
-        data,
-        categorical_color_rng=999,
-        categorical_pastel_factor=0.2,
-        categorical_color_map=None,
-    ):
-        if isinstance(data, pd.core.series.Series):
-            data = data.values
-        data, _type = convert_array_type(data, return_type=True)
-        if _type == "str":
-            data, unique_values = pd.factorize(data)
-            keys = np.arange(len(unique_values))
-            keys = np.array(keys, dtype="float")
-            data = np.array(data, dtype="float")
-            keys[1:-1] += 0.5
-            data[(data != data.min()) & (data != data.max())] += 0.5
-            if categorical_color_map is None:
-                colors = distinctipy.get_colors(
-                    len(unique_values),
-                    pastel_factor=categorical_pastel_factor,
-                    rng=categorical_color_rng,
-                )
+    def add_intervals(self, name, intervals):
+        self.intervals[name] = intervals
+        self.categorical_vars += intervals.categorical_vars
+        self.continuous_vars += intervals.continuous_vars
+        self.vars += intervals.vars_all
+        self.cat_to_code_map = intervals.cat_to_code_map
+        self.code_to_cat_map = intervals.code_to_cat_map
+        self.code_to_color_map = intervals.code_to_color_map
+        self.cat_to_color_map = intervals.cat_to_color_map
+        self.matplotlib_formatted_color_maps = intervals.matplotlib_formatted_color_maps
 
-                self.categorical_mapping[name] = {
-                    key: {"name": value, "color": color}
-                    for (key, value, color) in zip(keys, unique_values, colors)
-                }
-                self.categorical_color_map[
-                    name
-                ] = make_matplotlib_categorical_color_map(colors)
-            else:
-                # ensure categorical color map colors are fractional
-                categorical_color_map = make_color_map_fractional(categorical_color_map)
-                colors_preset = [
-                    categorical_color_map[name] for name in categorical_color_map.keys()
-                ]
-                names_preset = [name for name in categorical_color_map.keys()]
-                n_missing_colors = len(unique_values) - len(names_preset)
-                colors_new = distinctipy.get_colors(n_missing_colors, colors_preset)
-                colors_all = colors_preset + colors_new
-                colors_final = np.empty(len(unique_values), dtype="object")
+    # def add_intervals_1(
+    #     self,
+    #     name,
+    #     from_to,  # from_to is a 2D array with from and to depths
+    #     data,
+    #     categorical_color_rng=999,
+    #     categorical_pastel_factor=0.2,
+    #     categorical_color_map=None,
+    # ):
+    #     # add from-to depths
+    #     self._add_from_to(from_to)
 
-                self.categorical_mapping[name] = {}
-                for key, value in zip(keys, unique_values):
-                    if value not in names_preset:
-                        color = colors_new.pop()
-                        self.categorical_mapping[name][key] = {
-                            "name": value,
-                            "color": color,
-                        }
-                    else:
-                        color = categorical_color_map[value]
-                        self.categorical_mapping[name][key] = {
-                            "name": value,
-                            "color": color,
-                        }
-                    colors_final[int(np.floor(key))] = color
-                self.categorical_color_map[
-                    name
-                ] = make_matplotlib_categorical_color_map(colors_final)
-            self.categorical_vars.append(name)
-        else:
-            self.continuous_vars.append(name)
+    #     if isinstance(data, pd.core.series.Series):
+    #         data = data.values
+    #     data, _type = convert_array_type(data, return_type=True)
+    #     if _type == "str":
+    #         data, unique_values = pd.factorize(data)
+    #         keys = np.arange(len(unique_values))
+    #         keys = np.array(keys, dtype="float")
+    #         data = np.array(data, dtype="float")
+    #         keys[1:-1] += 0.5
+    #         data[(data != data.min()) & (data != data.max())] += 0.5
+    #         if categorical_color_map is None:
+    #             colors = distinctipy.get_colors(
+    #                 len(unique_values),
+    #                 pastel_factor=categorical_pastel_factor,
+    #                 rng=categorical_color_rng,
+    #             )
 
-        self.vars.append(name)
-        self.intervals[name] = {"values": data, "type": _type, "from-to": self.from_to}
-        return self.intervals[name]
+    #             self.categorical_mapping[name] = {
+    #                 key: {"name": value, "color": color}
+    #                 for (key, value, color) in zip(keys, unique_values, colors)
+    #             }
+    #             self.categorical_color_map[
+    #                 name
+    #             ] = make_matplotlib_categorical_color_map(colors)
+    #         else:
+    #             # ensure categorical color map colors are fractional
+    #             categorical_color_map = make_color_map_fractional(categorical_color_map)
+    #             colors_preset = [
+    #                 categorical_color_map[name] for name in categorical_color_map.keys()
+    #             ]
+    #             names_preset = [name for name in categorical_color_map.keys()]
+    #             n_missing_colors = len(unique_values) - len(names_preset)
+    #             colors_new = distinctipy.get_colors(n_missing_colors, colors_preset)
+    #             colors_all = colors_preset + colors_new
+    #             colors_final = np.empty(len(unique_values), dtype="object")
+
+    #             self.categorical_mapping[name] = {}
+    #             for key, value in zip(keys, unique_values):
+    #                 if value not in names_preset:
+    #                     color = colors_new.pop()
+    #                     self.categorical_mapping[name][key] = {
+    #                         "name": value,
+    #                         "color": color,
+    #                     }
+    #                 else:
+    #                     color = categorical_color_map[value]
+    #                     self.categorical_mapping[name][key] = {
+    #                         "name": value,
+    #                         "color": color,
+    #                     }
+    #                 colors_final[int(np.floor(key))] = color
+    #             self.categorical_color_map[
+    #                 name
+    #             ] = make_matplotlib_categorical_color_map(colors_final)
+    #         self.categorical_vars.append(name)
+    #     else:
+    #         self.continuous_vars.append(name)
+
+    #     self.vars.append(name)
+    #     self.intervals[name] = {"values": data, "type": _type, "from-to": self.from_to}
+    #     return self.intervals[name]
 
     def desurvey(self, depths=None):
         if depths is None:
@@ -211,27 +417,31 @@ class DrillHole:
 
     def make_survey_mesh(self):
         depths = self.desurvey()
-        from_to = self.make_from_to(depths)
+        from_to = self._make_from_to(depths)
         mesh = self._make_line_mesh(from_to[0], from_to[1])
 
         return mesh
 
-    def make_intervals_mesh(self, name):
-        from_depths = self.desurvey(self.from_to[:, 0])
-        to_depths = self.desurvey(self.from_to[:, 1])
-        intermediate_depths = np.mean([from_depths, to_depths], axis=0)
+    def make_intervals_mesh(self, name=None):
+        if name is None:
+            name = list(self.intervals.keys())[0]
 
+        intervals = self.intervals[name]
+        from_to = intervals.from_to
+        from_depths = self.desurvey(from_to[:, 0])
+        to_depths = self.desurvey(from_to[:, 1])
+        intermediate_depths = np.mean([from_depths, to_depths], axis=0)
         mesh = self._make_line_mesh(from_depths, to_depths)
 
-        mesh.cell_data["from"] = self.from_to[:, 0]
-        mesh.cell_data["to"] = self.from_to[:, 1]
+        mesh.cell_data["from"] = from_to[:, 0]
+        mesh.cell_data["to"] = from_to[:, 1]
         mesh.cell_data["hole ID"] = [self.name] * self.from_to.shape[0]
         mesh.cell_data["x"] = intermediate_depths[:, 0]
         mesh.cell_data["y"] = intermediate_depths[:, 1]
         mesh.cell_data["z"] = intermediate_depths[:, 2]
-        for var in self.vars:
-            data = self.intervals[var]["values"]
-            _type = self.intervals[var]["type"]
+        for var in intervals.vars_all:
+            data = intervals.data[var]["values"]
+            _type = intervals.data[var]["type"]
             if _type == "str":
                 mesh[var] = data
             else:
@@ -261,8 +471,11 @@ class DrillHole:
         return p.show()
 
     def show_intervals(
-        self, show_collar=True, show_survey=True, name=None, *args, **kwargs
+        self, name=None, show_collar=True, show_survey=True, *args, **kwargs
     ):
+        if name is None:
+            name = list(self.intervals.keys())[0]
+
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
         p.add_intervals(intervals_mesh, *args, **kwargs)
@@ -285,7 +498,7 @@ class DrillHole:
     def show(self):
         collar_mesh = self.make_collar_mesh()
         survey_mesh = self.make_survey_mesh()
-        intervals_mesh = self.make_intervals_mesh(None)
+        intervals_mesh = self.make_intervals_mesh()
 
         p = DrillDownPlotter()
         p.add_collars(collar_mesh)
@@ -294,22 +507,34 @@ class DrillHole:
 
         return p.show()
 
-    def drill_log(self):
+    def drill_log(self, categorical_vars=None, continuous_vars=None):
         log = DrillLog()
-        depths = self.from_to
 
-        for var in self.categorical_vars:
-            values = self.intervals[var]["values"]
+        if categorical_vars is None:
+            categorical_vars = self.categorical_vars
+
+        if continuous_vars is None:
+            continuous_vars = self.continuous_vars
+
+        intervals = self.intervals[list(self.intervals.keys())[0]]
+        from_to = intervals.from_to[intervals.hole_ids == self.name]
+
+        for var in categorical_vars:
+            values = intervals.data[var]["values"][intervals.hole_ids == self.name]
             log.add_categorical_interval_data(
-                var, depths, values, self.categorical_mapping[var]
+                var,
+                from_to,
+                values,
+                intervals.code_to_cat_map[var],
+                intervals.code_to_color_map[var],
             )
 
-        for var in self.continuous_vars:
-            values = self.intervals[var]["values"]
+        for var in continuous_vars:
+            values = intervals.data[var]["values"][intervals.hole_ids == self.name]
 
-            log.add_continuous_interval_data(var, depths, values)
+            log.add_continuous_interval_data(var, from_to, values)
 
-        log.create_figure(y_axis_label="Depth (m)", title=self.name)
+        log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
         return log.fig
 
@@ -322,8 +547,8 @@ class DrillHoleGroup:
         self.categorical_vars = []
         self.continuous_vars = []
         self.intervals = {}
-        self.categorical_mapping = {}
-        self.categorical_color_map = {}
+        # self.categorical_mapping = {}
+        # self.categorical_color_map = {}
         self.workspace = Workspace()
         self.hole_ids_with_data = []
 
@@ -369,7 +594,7 @@ class DrillHoleGroup:
 
                 self._holes[hole_id] = hole
 
-    def add_from_to(self, hole_ids, from_to):
+    def _add_from_to(self, hole_ids, from_to):
         if isinstance(hole_ids, pd.core.series.Series):
             hole_ids = hole_ids.values
 
@@ -382,102 +607,117 @@ class DrillHoleGroup:
             dataset = self.from_to[self.from_to[:, 0] == id, 1:]
             if dataset.shape[0] > 0:
                 self.hole_ids_with_data.append(id)
-                self._holes[id].add_from_to(dataset)
+                self._holes[id]._add_from_to(dataset)
 
         return self.from_to
 
-    def add_intervals(
-        self,
-        name,
-        hole_ids,
-        data,
-        categorical_color_rng=999,
-        categorical_pastel_factor=0.2,
-        categorical_color_map=None,
-    ):
-        if isinstance(hole_ids, pd.core.series.Series):
-            hole_ids = hole_ids.values
+    def add_intervals(self, name, intervals):
+        self.intervals[name] = intervals
+        self.categorical_vars += intervals.categorical_vars
+        self.continuous_vars += intervals.continuous_vars
+        self.vars += intervals.vars_all
+        self.hole_ids_with_data += list(np.unique(intervals.hole_ids))
+        self.cat_to_code_map = intervals.cat_to_code_map
+        self.code_to_cat_map = intervals.code_to_cat_map
+        self.code_to_color_map = intervals.code_to_color_map
+        self.cat_to_color_map = intervals.cat_to_color_map
+        self.matplotlib_formatted_color_maps = intervals.matplotlib_formatted_color_maps
 
-        if isinstance(data, pd.core.series.Series):
-            data = data.values
+    # def add_intervals_1(
+    #     self,
+    #     name,
+    #     hole_ids,
+    #     from_to,
+    #     data,
+    #     categorical_color_rng=999,
+    #     categorical_pastel_factor=0.2,
+    #     categorical_color_map=None,
+    # ):
+    #     self._add_from_to(hole_ids, from_to)
 
-        hole_ids = convert_array_type(hole_ids)
-        data, _type = convert_array_type(data, return_type=True)
-        self.vars.append(name)
+    #     if isinstance(hole_ids, pd.core.series.Series):
+    #         hole_ids = hole_ids.values
 
-        if _type == "str":
-            data, unique_values = pd.factorize(data)
-            keys = np.arange(len(unique_values))
-            keys = np.array(keys, dtype="float")
-            data = np.array(data, dtype="float")
-            keys[1:-1] += 0.5
-            data[(data != data.min()) & (data != data.max())] += 0.5
-            if categorical_color_map is None:
-                colors = distinctipy.get_colors(
-                    len(unique_values),
-                    pastel_factor=categorical_pastel_factor,
-                    rng=categorical_color_rng,
-                )
-                self.categorical_mapping[name] = {
-                    key: {"name": value, "color": color}
-                    for (key, value, color) in zip(keys, unique_values, colors)
-                }
-                self.categorical_color_map[
-                    name
-                ] = make_matplotlib_categorical_color_map(colors)
-            else:
-                # ensure categorical color map colors are fractional
-                categorical_color_map = make_color_map_fractional(categorical_color_map)
-                colors_preset = [
-                    categorical_color_map[name] for name in categorical_color_map.keys()
-                ]
-                names_preset = [
-                    name
-                    for name in categorical_color_map.keys()
-                    if name in unique_values
-                ]
-                names_new = [name for name in unique_values if name not in names_preset]
-                names_all = names_preset + names_new
-                n_missing_colors = len(unique_values) - len(names_preset)
-                colors_new = distinctipy.get_colors(n_missing_colors, colors_preset)
-                colors_all = colors_preset + colors_new
-                colors_final = np.empty(len(unique_values), dtype="object")
+    #     if isinstance(data, pd.core.series.Series):
+    #         data = data.values
 
-                self.categorical_mapping[name] = {}
-                for key, value in zip(keys, unique_values):
-                    if value not in names_preset:
-                        color = colors_new.pop()
-                        self.categorical_mapping[name][key] = {
-                            "name": value,
-                            "color": color,
-                        }
+    #     hole_ids = convert_array_type(hole_ids)
+    #     data, _type = convert_array_type(data, return_type=True)
+    #     self.vars.append(name)
 
-                    else:
-                        color = categorical_color_map[value]
-                        self.categorical_mapping[name][key] = {
-                            "name": value,
-                            "color": categorical_color_map[value],
-                        }
-                    colors_final[int(np.floor(key))] = color
+    #     if _type == "str":
+    #         data, unique_values = pd.factorize(data)
+    #         keys = np.arange(len(unique_values))
+    #         keys = np.array(keys, dtype="float")
+    #         data = np.array(data, dtype="float")
+    #         keys[1:-1] += 0.5
+    #         data[(data != data.min()) & (data != data.max())] += 0.5
+    #         if categorical_color_map is None:
+    #             colors = distinctipy.get_colors(
+    #                 len(unique_values),
+    #                 pastel_factor=categorical_pastel_factor,
+    #                 rng=categorical_color_rng,
+    #             )
+    #             self.categorical_mapping[name] = {
+    #                 key: {"name": value, "color": color}
+    #                 for (key, value, color) in zip(keys, unique_values, colors)
+    #             }
+    #             self.categorical_color_map[
+    #                 name
+    #             ] = make_matplotlib_categorical_color_map(colors)
+    #         else:
+    #             # ensure categorical color map colors are fractional
+    #             categorical_color_map = make_color_map_fractional(categorical_color_map)
+    #             colors_preset = [
+    #                 categorical_color_map[name] for name in categorical_color_map.keys()
+    #             ]
+    #             names_preset = [
+    #                 name
+    #                 for name in categorical_color_map.keys()
+    #                 if name in unique_values
+    #             ]
+    #             names_new = [name for name in unique_values if name not in names_preset]
+    #             names_all = names_preset + names_new
+    #             n_missing_colors = len(unique_values) - len(names_preset)
+    #             colors_new = distinctipy.get_colors(n_missing_colors, colors_preset)
+    #             colors_all = colors_preset + colors_new
+    #             colors_final = np.empty(len(unique_values), dtype="object")
 
-                self.categorical_color_map[
-                    name
-                ] = make_matplotlib_categorical_color_map(colors_final)
+    #             self.categorical_mapping[name] = {}
+    #             for key, value in zip(keys, unique_values):
+    #                 if value not in names_preset:
+    #                     color = colors_new.pop()
+    #                     self.categorical_mapping[name][key] = {
+    #                         "name": value,
+    #                         "color": color,
+    #                     }
 
-            self.categorical_vars.append(name)
-        else:
-            self.continuous_vars.append(name)
-        for id in self.hole_ids_with_data:
-            if id not in self.intervals.keys():
-                self.intervals[id] = {}
-            dataset = data[hole_ids == id]
-            if dataset.shape[0] > 0:
-                self.intervals[id][name] = {
-                    "values": dataset,
-                    "type": _type,
-                    "from-to": self._holes[id].from_to,
-                }
-        return self.intervals
+    #                 else:
+    #                     color = categorical_color_map[value]
+    #                     self.categorical_mapping[name][key] = {
+    #                         "name": value,
+    #                         "color": categorical_color_map[value],
+    #                     }
+    #                 colors_final[int(np.floor(key))] = color
+
+    #             self.categorical_color_map[
+    #                 name
+    #             ] = make_matplotlib_categorical_color_map(colors_final)
+
+    #         self.categorical_vars.append(name)
+    #     else:
+    #         self.continuous_vars.append(name)
+    #     for id in self.hole_ids_with_data:
+    #         if id not in self.intervals.keys():
+    #             self.intervals[id] = {}
+    #         dataset = data[hole_ids == id]
+    #         if dataset.shape[0] > 0:
+    #             self.intervals[id][name] = {
+    #                 "values": dataset,
+    #                 "type": _type,
+    #                 "from-to": self._holes[id].from_to,
+    #             }
+    #     return self.intervals
 
     def desurvey(self, hole_id, depths=None):
         return self._holes[hole_id].desurvey(depths=depths)
@@ -492,7 +732,7 @@ class DrillHoleGroup:
         for hole_id in self._holes.keys():
             hole = self._holes[hole_id]
             depths = hole.desurvey()
-            from_to = hole.make_from_to(depths)
+            from_to = hole._make_from_to(depths)
             if from_to.shape[0] > 0:
                 if mesh is None:
                     mesh = hole._make_line_mesh(from_to[:, 0], from_to[:, 1])
@@ -501,12 +741,71 @@ class DrillHoleGroup:
 
         return mesh
 
-    def make_intervals_mesh(self, name):
+    def make_intervals_mesh(self, name=None):
+        if name is None:
+            name = list(self.intervals.keys())[0]
+
+        intervals = self.intervals[name]
         meshes = None
+        for id in self.hole_ids_with_data:
+            from_to = intervals.from_to[intervals.hole_ids == id]
+            hole = self._holes[id]
+            from_depths = hole.desurvey(from_to[:, 0])
+            to_depths = hole.desurvey(from_to[:, 1])
+            intermediate_depths = np.mean([from_depths, to_depths], axis=0)
+            if from_depths.shape[0] > 0:
+                mesh = hole._make_line_mesh(from_depths, to_depths)
+
+                mesh.cell_data["from"] = from_to[:, 0]
+                mesh.cell_data["to"] = from_to[:, 1]
+                mesh.cell_data["hole ID"] = [id] * from_to.shape[0]
+                mesh.cell_data["x"] = intermediate_depths[:, 0]
+                mesh.cell_data["y"] = intermediate_depths[:, 1]
+                mesh.cell_data["z"] = intermediate_depths[:, 2]
+                for var in intervals.vars_all:
+                    data = intervals.data[var]["values"][intervals.hole_ids == id]
+                    _type = intervals.data[var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.cell_data[var] = data
+                if meshes is None:
+                    meshes = mesh
+                else:
+                    meshes += mesh
+
+        return meshes
+
+        # from_depths = self.desurvey(from_to[:, 0])
+        # to_depths = self.desurvey(from_to[:, 1])
+        # intermediate_depths = np.mean([from_depths, to_depths], axis=0)
+        # mesh = self._make_line_mesh(from_depths, to_depths)
+
+        # mesh.cell_data["from"] = from_to[:, 0]
+        # mesh.cell_data["to"] = from_to[:, 1]
+        # mesh.cell_data["hole ID"] = [self.name] * self.from_to.shape[0]
+        # mesh.cell_data["x"] = intermediate_depths[:, 0]
+        # mesh.cell_data["y"] = intermediate_depths[:, 1]
+        # mesh.cell_data["z"] = intermediate_depths[:, 2]
+        # for var in intervals.vars_all:
+        #     data = intervals[var]["values"]
+        #     _type = intervals[var]["type"]
+        #     if _type == "str":
+        #         mesh[var] = data
+        #     else:
+        #         mesh.cell_data[var] = data
+
+        # return mesh
+
+    def make_intervals_mesh_1(self, name):
+        meshes = None
+        print(self.hole_ids_with_data)
         for hole_id in self.hole_ids_with_data:
             hole = self._holes[hole_id]
             from_depths = hole.desurvey(hole.from_to[:, 0])
             to_depths = hole.desurvey(hole.from_to[:, 1])
+            print(from_depths, to_depths)
+
             intermediate_depths = np.mean([from_depths, to_depths], axis=0)
             if from_depths.shape[0] > 0:
                 mesh = hole._make_line_mesh(from_depths, to_depths)
@@ -573,8 +872,11 @@ class DrillHoleGroup:
         return p.show()
 
     def show_intervals(
-        self, show_collars=True, show_surveys=True, name=None, *args, **kwargs
+        self, name=None, show_collars=True, show_surveys=True, *args, **kwargs
     ):
+        if name is None:
+            name = list(self.intervals.keys())[0]
+
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
         p.add_intervals(intervals_mesh, *args, **kwargs)
@@ -601,19 +903,50 @@ class DrillHoleGroup:
 
         return p.show()
 
-    def drill_log(self, hole_id):
-        hole = self._holes[hole_id]
+        # def drill_log(self, hole_id):
+        #     hole = self._holes[hole_id]
+        #     log = DrillLog()
+        #     depths = hole.from_to
+        #     for var in self.categorical_vars:
+        #         values = self.intervals[hole_id][var]["values"]
+        #         log.add_categorical_interval_data(
+        #             var, depths, values, self.categorical_mapping[var]
+        #         )
+
+        #     for var in self.continuous_vars:
+        #         values = self.intervals[hole_id][var]["values"]
+        #         log.add_continuous_interval_data(var, depths, values)
+
+        #     log.create_figure(y_axis_label="Depth (m)", title=hole_id)
+
+        #     return log.fig
+
+    def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
         log = DrillLog()
-        depths = hole.from_to
-        for var in self.categorical_vars:
-            values = self.intervals[hole_id][var]["values"]
+
+        if categorical_vars is None:
+            categorical_vars = self.categorical_vars
+
+        if continuous_vars is None:
+            continuous_vars = self.continuous_vars
+
+        intervals = self.intervals[list(self.intervals.keys())[0]]
+        from_to = intervals.from_to[intervals.hole_ids == hole_id]
+
+        for var in categorical_vars:
+            values = intervals.data[var]["values"][intervals.hole_ids == hole_id]
             log.add_categorical_interval_data(
-                var, depths, values, self.categorical_mapping[var]
+                var,
+                from_to,
+                values,
+                intervals.code_to_cat_map[var],
+                intervals.code_to_color_map[var],
             )
 
-        for var in self.continuous_vars:
-            values = self.intervals[hole_id][var]["values"]
-            log.add_continuous_interval_data(var, depths, values)
+        for var in continuous_vars:
+            values = intervals.data[var]["values"][intervals.hole_ids == hole_id]
+
+            log.add_continuous_interval_data(var, from_to, values)
 
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 

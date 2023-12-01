@@ -198,8 +198,12 @@ class DrillDownPlotter(Plotter):
         self.add_surveys(surveys_mesh)
 
         # make and add intervals mesh
-        self.categorical_mapping = holes.categorical_mapping
-        self.categorical_color_map = holes.categorical_color_map
+        self.code_to_cat_map = holes.code_to_cat_map
+        self.cat_to_code_map = holes.cat_to_code_map
+        self.code_to_color_map = holes.code_to_color_map
+        self.cat_to_color_map = holes.cat_to_color_map
+        self.matplotlib_formatted_color_maps = holes.matplotlib_formatted_color_maps
+
         self.categorical_vars = holes.categorical_vars
         self.continuous_vars = holes.continuous_vars
 
@@ -412,8 +416,8 @@ class DrillDownPlotter(Plotter):
             active_var
         )
         if active_var in self.categorical_vars:
-            self.cmap = self.categorical_color_map[active_var]
-            self.cmap_range = (0, list(self.categorical_mapping[active_var].keys())[-1])
+            self.cmap = self.matplotlib_formatted_color_maps[active_var]
+            self.cmap_range = (0, list(self.code_to_cat_map[active_var].keys())[-1])
         else:
             if self._prev_active_var in self.categorical_vars:
                 self.cmap = self.continuous_cmap
@@ -557,7 +561,7 @@ class DrillDownPlotter(Plotter):
         for var in categorical_interval_vars:
             values = data[var].values
             log.add_categorical_interval_data(
-                var, depths, values, self.categorical_mapping[var]
+                var, depths, values, self.code_to_cat[var], self.code_to_color_map[var]
             )
         for var in continuous_interval_vars:
             values = data[var].values

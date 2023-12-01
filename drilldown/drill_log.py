@@ -81,7 +81,8 @@ class DrillLog:
         self.depth_range = [-np.inf, np.inf]
 
         # initialize categorical mapping
-        self.categorical_mapping = {}
+        self.code_to_cat_map = {}
+        self.code_to_color_map = {}
 
     def create_figure(self, y_axis_label=None, title=None):
         # get total number of variables
@@ -124,7 +125,8 @@ class DrillLog:
                     name,
                     depths,
                     values,
-                    self.categorical_mapping[var],
+                    self.code_to_cat_map[var],
+                    self.code_to_color_map[var],
                     col=cum_cols + col + 1,
                 )
             cum_cols += col + 1
@@ -173,12 +175,15 @@ class DrillLog:
             hoverlabel=dict(font=dict(color="#000000")),
         )
 
-    def add_categorical_interval_data(self, name, depths, values, categorical_mapping):
+    def add_categorical_interval_data(
+        self, name, depths, values, code_to_cat_map, code_to_color_map
+    ):
         self.categorical_interval_data[name] = {"depths": depths, "values": values}
         self.categorical_interval_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
-        self.categorical_mapping[name] = categorical_mapping
+        self.code_to_cat_map[name] = code_to_cat_map
+        self.code_to_color_map[name] = code_to_color_map
 
     def add_continuous_interval_data(self, name, depths, values):
         self.continuous_interval_data[name] = {"depths": depths, "values": values}
@@ -197,7 +202,7 @@ class DrillLog:
         self._update_depth_range(depths)
 
     def _add_categorical_interval_data(
-        self, name, depths, values, categorical_map, col=None
+        self, name, depths, values, code_to_cat_map, code_to_color_map, col=None
     ):
         add_col = False
         if add_col == True:
@@ -218,8 +223,8 @@ class DrillLog:
 
         for i in np.unique(values):
             if not np.isnan(i):
-                category = categorical_map[i]["name"]
-                color = categorical_map[i]["color"]
+                category = code_to_cat_map[i]
+                color = code_to_color_map[i]
                 color = convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
 
                 self.fig.add_trace(
