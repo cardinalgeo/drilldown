@@ -143,7 +143,7 @@ class DrillDownPlotter(Plotter):
         """
         name = "drillhole intervals"
         self.n_sides = n_sides
-
+        self.n_intervals = mesh.n_lines
         if capping == True:
             self._faces_per_interval = self.n_sides + 2
         else:
@@ -527,18 +527,7 @@ class DrillDownPlotter(Plotter):
 
     @property
     def selected_intervals(self):
-        intervals = self._selected_intervals
-
-        holes_mesh = self._filters["drillhole intervals"]
-        vars = holes_mesh.array_names
-        assay_dict = {}
-        for var in vars:
-            assay_dict[var] = holes_mesh[var][:: self.faces_per_interval][intervals]
-
-        assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
-        assay = pd.DataFrame(assay_dict)
-
-        return assay
+        return self._selected_intervals
 
     @selected_intervals.setter
     def selected_intervals(self, intervals):
@@ -554,23 +543,59 @@ class DrillDownPlotter(Plotter):
 
         self._update_selection_object("interval", self._selected_interval_cells)
 
-    # @property
-    # def filtered_intervals(self):
-    #     return self._filtered_intervals
+    @property
+    def interval_filter(self):
+        if hasattr(self, "_interval_filter"):
+            return self._interval_filter
 
-    # @filtered_intervals.setter
-    # def filtered_intervals(self, intervals):
-    #     interval_cells = []
-    #     for interval in intervals:
-    #         interval_cells += np.arange(interval * self.faces_per_interval, (interval + 1) * self.faces_per_interval).tolist()
-    #     self._filtered_intervals = intervals
-    #     self._filtered_interval_cells = interval_cells
+    @interval_filter.setter
+    def interval_filter(self, filter):
+        self._interval_filter = np.array(filter)
+        self._interval_cells_filter = np.repeat(filter, self._faces_per_interval)
 
-    #     self._filter_intervals(self._filtered_interval_cells)
+        if len(filter) == len(self._selected_intervals):  # filter only selection
+            self._selected_intervals = self._selected_intervals[self._interval_filter]
+            self._selected_interval_cells = self._selected_interval_cells[
+                self._interval_cells_filter
+            ]
+            self._update_selection_object("interval", self._selected_interval_cells)
 
-    # def reset_filter(self):
-    #     self.remove_actor(self._actor["drillhole intervals"]);;.;l,;.
-    #     self.add_holes(self._unfiltered_mesh)
+        elif len(filter) == self.n_intervals:  # filter entire dataset
+            self._selected_intervals = np.arange(self.n_intervals)[
+                self._interval_filter
+            ]
+            self._selected_interval_cells = np.arange(
+                self.n_intervals * self._faces_per_interval
+            )[self._interval_cells_filter]
+            self._update_selection_object("interval", self._selected_interval_cells)
+
+    def selected_interval_data(self):
+        intervals = self._selected_intervals
+
+        holes_mesh = self._filters["drillhole intervals"]
+        vars = holes_mesh.array_names
+        assay_dict = {}
+        for var in vars:
+            assay_dict[var] = holes_mesh[var][:: self.faces_per_interval][intervals]
+
+        assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
+        assay = pd.DataFrame(assay_dict)
+
+        return assay
+
+    def all_interval_data(self):
+        intervals = np.arange(self.n_intervals)
+
+        holes_mesh = self._filters["drillhole intervals"]
+        vars = holes_mesh.array_names
+        assay_dict = {}
+        for var in vars:
+            assay_dict[var] = holes_mesh[var][:: self.faces_per_interval][intervals]
+
+        assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
+        assay = pd.DataFrame(assay_dict)
+
+        return assay
 
     def selected_drill_log(
         self, categorical_interval_vars=None, continuous_interval_vars=None
