@@ -189,10 +189,14 @@ class Intervals:
         self.code_to_color_map[var_name] = {
             code: color for code, color in zip(codes, colors)
         }
+
         # create matplotlib categorical color map
+        codes.sort()
         self.matplotlib_formatted_color_maps[
             var_name
-        ] = make_matplotlib_categorical_color_map(colors)
+        ] = make_matplotlib_categorical_color_map(
+            [self.code_to_color_map[var_name][code] for code in codes]
+        )
 
     def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
         # ensure that color maps exist for categorical vars
