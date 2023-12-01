@@ -241,6 +241,9 @@ class DrillDownPlotter(Plotter):
 
         # track clicks
         self.track_click_position(side="left", callback=self._make_selection)
+        self.track_click_position(
+            side="left", callback=self._reset_selection, double=True
+        )
 
         # set selection actor
         self.selection_actor = None
@@ -327,50 +330,78 @@ class DrillDownPlotter(Plotter):
         return self._selected_intervals, self._selected_interval_cells
 
     def _make_continuous_multi_selection(self, picked_interval_cell):
-        if (
-            self._picked_interval_cell < picked_interval_cell
-        ):  # normal direction (down the hole)
-            selected_intervals = np.arange(
-                self._selected_intervals[-1] + 1,
-                int(np.floor(picked_interval_cell / self.faces_per_interval)) + 1,
-            ).tolist()
-            selected_interval_cells = np.arange(
-                (selected_intervals[0]) * self.faces_per_interval,
-                (selected_intervals[-1] + 1) * self.faces_per_interval,
-            ).tolist()
+        if self._picked_interval_cell is not None:
+            if (
+                self._picked_interval_cell < picked_interval_cell
+            ):  # normal direction (down the hole)
+                selected_intervals = np.arange(
+                    self._selected_intervals[-1] + 1,
+                    int(np.floor(picked_interval_cell / self.faces_per_interval)) + 1,
+                ).tolist()
+                selected_interval_cells = np.arange(
+                    (selected_intervals[0]) * self.faces_per_interval,
+                    (selected_intervals[-1] + 1) * self.faces_per_interval,
+                ).tolist()
 
-            self._selected_intervals += selected_intervals
-            self._selected_interval_cells += selected_interval_cells
-        else:  # reverse direction (up the hole)
-            selected_intervals = np.arange(
-                int(np.floor(picked_interval_cell / self.faces_per_interval)),
-                self._selected_intervals[-1],
-            ).tolist()
-            selected_interval_cells = np.arange(
-                (selected_intervals[0] * self.faces_per_interval),
-                (selected_intervals[-1] + 1) * self.faces_per_interval,
-            ).tolist()
+                self._selected_intervals += selected_intervals
+                self._selected_interval_cells += selected_interval_cells
+            else:  # reverse direction (up the hole)
+                selected_intervals = np.arange(
+                    int(np.floor(picked_interval_cell / self.faces_per_interval)),
+                    self._selected_intervals[-1],
+                ).tolist()
+                selected_interval_cells = np.arange(
+                    (selected_intervals[0] * self.faces_per_interval),
+                    (selected_intervals[-1] + 1) * self.faces_per_interval,
+                ).tolist()
 
-            self._selected_intervals = selected_intervals + self._selected_intervals
-            self._selected_interval_cells = (
-                selected_interval_cells + self._selected_interval_cells
-            )
+                self._selected_intervals = selected_intervals + self._selected_intervals
+                self._selected_interval_cells = (
+                    selected_interval_cells + self._selected_interval_cells
+                )
 
         return self._selected_intervals, self._selected_interval_cells
 
+    def _reset_selection(self, *args):
+        pos = self.click_position + (0,)
+        actor_picker = self.actor_picker
+        actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
+        picked_actor = actor_picker.GetActor()
+        if picked_actor != self._actors["drillhole intervals"]:
+            self.remove_actor(self.selection_actor)
+            self._actors["drillhole intervals"].prop.opacity = 1
+
+            # reset selection attributes
+            self.selection_actor = None
+            self._picked_interval_cell = None
+            self._selected_intervals = []
+            self._selected_interval_cells = []
+
     def _update_selection_object(self, interval_or_sample, selected_cells):
         mesh = self._filters["drillhole intervals"]
-        sel_mesh = mesh.extract_cells(selected_cells)
+        self.selection_mesh = mesh.extract_cells(selected_cells)
         self.selection_actor = self.add_mesh(
-            sel_mesh,
+            self.selection_mesh,
             name="drillhole intervals selection",
-            color=self.selection_color,
+            scalars=self.active_var,
+            cmap=self.cmap,
+            clim=self.cmap_range,
+            show_scalar_bar=False,
             reset_camera=False,
             pickable=False,
         )
+
+        # # update hole parameters so that they are applied to selection
+        # cmap_range = self.cmap_range
+        # self.active_var = self.active_var
+        # self.cmap = self.cmap
+        # self.cmap_range = cmap_range
+
         self.selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
             0, -5
         )
+
+        self._actors["drillhole intervals"].prop.opacity = 0.1
         self.render()
 
     # def _filter_intervals(self, filtered_cells):
@@ -395,9 +426,15 @@ class DrillDownPlotter(Plotter):
             self._prev_active_var = None
 
         self._active_var = active_var
-        self._actors["drillhole intervals"].mapper.dataset.set_active_scalars(
-            active_var
-        )
+
+        actors = [self._actors["drillhole intervals"]]
+        if hasattr(self, "selection_actor"):
+            if self.selection_actor is not None:
+                actors.append(self.selection_actor)
+
+        for actor in actors:
+            actor.mapper.dataset.set_active_scalars(active_var)
+
         if active_var in self.categorical_vars:
             self.cmap = self.matplotlib_formatted_color_maps[active_var]
             self.cmap_range = (0, list(self.code_to_cat_map[active_var].keys())[-1])
@@ -416,20 +453,21 @@ class DrillDownPlotter(Plotter):
     @cmap.setter
     def cmap(self, cmap):
         self._cmap = cmap
-        if self.active_var in self.continuous_vars:
-            self._actors["drillhole intervals"].mapper.lookup_table.cmap = cmap
-            self._actors[
-                "drillhole intervals"
-            ].mapper.lookup_table.nan_color = "white"  # self.nan_opacity
-            self.continuous_cmap = cmap
 
-        else:
-            self._actors["drillhole intervals"].mapper.lookup_table = pv.LookupTable(
-                cmap
-            )
-            self._actors[
-                "drillhole intervals"
-            ].mapper.lookup_table.nan_color = "white"  # self.nan_opacity
+        actors = [self._actors["drillhole intervals"]]
+        if hasattr(self, "selection_actor"):
+            if self.selection_actor is not None:
+                actors.append(self.selection_actor)
+
+        for actor in actors:
+            if self.active_var in self.continuous_vars:
+                actor.mapper.lookup_table.cmap = cmap
+                actor.mapper.lookup_table.nan_color = "white"  # self.nan_opacity
+                self.continuous_cmap = cmap
+
+            else:
+                actor.mapper.lookup_table = pv.LookupTable(cmap)
+                actor.mapper.lookup_table.nan_color = "white"  # self.nan_opacity
 
         self.render()
 
@@ -440,10 +478,16 @@ class DrillDownPlotter(Plotter):
     @cmap_range.setter
     def cmap_range(self, cmap_range):
         self._cmap_range = cmap_range
-        self._actors[
-            "drillhole intervals"
-        ].mapper.lookup_table.scalar_range = cmap_range
-        self._actors["drillhole intervals"].mapper.SetUseLookupTableScalarRange(True)
+
+        actors = [self._actors["drillhole intervals"]]
+        if hasattr(self, "selection_actor"):
+            if self.selection_actor is not None:
+                actors.append(self.selection_actor)
+
+        for actor in actors:
+            actor.mapper.lookup_table.scalar_range = cmap_range
+            actor.mapper.SetUseLookupTableScalarRange(True)
+
         self.render()
 
     def reset_cmap_range(self):
