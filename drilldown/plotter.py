@@ -602,7 +602,7 @@ class DrillDownPlotter(Plotter):
     def selected_drill_log(
         self, categorical_interval_vars=None, continuous_interval_vars=None
     ):
-        data = self.selected_intervals
+        data = self.selected_interval_data()
         if categorical_interval_vars is None:
             categorical_interval_vars = self.categorical_vars
 
