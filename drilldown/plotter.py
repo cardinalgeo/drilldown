@@ -200,6 +200,8 @@ class DrillDownPlotter(Plotter):
         self.add_surveys(surveys_mesh)
 
         # make and add intervals mesh
+        self.code_to_hole_id_map = holes.code_to_hole_id_map
+        self.hole_id_to_code_map = holes.hole_id_to_code_map
         self.code_to_cat_map = holes.code_to_cat_map
         self.cat_to_code_map = holes.cat_to_code_map
         self.code_to_color_map = holes.code_to_color_map
@@ -582,6 +584,7 @@ class DrillDownPlotter(Plotter):
 
         assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
         assay = pd.DataFrame(assay_dict)
+        assay["hole ID"] = [self.code_to_hole_id_map[code] for code in assay["hole ID"]]
 
         return assay
 
@@ -596,6 +599,7 @@ class DrillDownPlotter(Plotter):
 
         assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
         assay = pd.DataFrame(assay_dict)
+        assay["hole ID"] = [self.code_to_hole_id_map[code] for code in assay["hole ID"]]
 
         return assay
 
@@ -603,31 +607,33 @@ class DrillDownPlotter(Plotter):
         self, categorical_interval_vars=None, continuous_interval_vars=None
     ):
         data = self.selected_interval_data()
-        if categorical_interval_vars is None:
-            categorical_interval_vars = self.categorical_vars
+        hole_id = data["hole ID"].unique()
+        if len(hole_id) == 1:
+            if categorical_interval_vars is None:
+                categorical_interval_vars = self.categorical_vars
 
-        if continuous_interval_vars is None:
-            continuous_interval_vars = self.continuous_vars
+            if continuous_interval_vars is None:
+                continuous_interval_vars = self.continuous_vars
 
-        log = DrillLog()
-        depths = data[["from", "to"]].values
+            log = DrillLog()
+            depths = data[["from", "to"]].values
 
-        for var in categorical_interval_vars:
-            values = data[var].values
-            log.add_categorical_interval_data(
-                var,
-                depths,
-                values,
-                self.code_to_cat_map[var],
-                self.code_to_color_map[var],
-            )
-        for var in continuous_interval_vars:
-            values = data[var].values
-            log.add_continuous_interval_data(var, depths, values)
+            for var in categorical_interval_vars:
+                values = data[var].values
+                log.add_categorical_interval_data(
+                    var,
+                    depths,
+                    values,
+                    self.code_to_cat_map[var],
+                    self.code_to_color_map[var],
+                )
+            for var in continuous_interval_vars:
+                values = data[var].values
+                log.add_continuous_interval_data(var, depths, values)
 
-        log.create_figure()
+            log.create_figure(y_axis_label="Depth (m)", title=hole_id[0])
 
-        return log.fig
+            return log.fig
 
     def iframe(self, w="100%", h=None):
         if h is None:

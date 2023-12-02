@@ -96,6 +96,16 @@ class Intervals:
             hole_ids = hole_ids.values
         self.hole_ids = hole_ids
 
+        # encode hole IDs, as strings are wiped in pyvista meshes
+        self.hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
+        self.hole_id_to_code_map = {
+            hole_id: code for code, hole_id in enumerate(hole_ids_unique)
+        }
+        self.code_to_hole_id_map = {
+            code: hole_id for code, hole_id in enumerate(hole_ids_unique)
+        }
+        print(self.hole_id_to_code_map)
+        print(self.code_to_hole_id_map)
         # add from-to depths
         self.from_to = from_to
 
@@ -310,6 +320,8 @@ class DrillHole:
         self.categorical_vars += intervals.categorical_vars
         self.continuous_vars += intervals.continuous_vars
         self.vars += intervals.vars_all
+        self.hole_id_to_code_map = intervals.hole_id_to_code_map
+        self.code_to_hole_id_map = intervals.code_to_hole_id_map
         self.cat_to_code_map = intervals.cat_to_code_map
         self.code_to_cat_map = intervals.code_to_cat_map
         self.code_to_color_map = intervals.code_to_color_map
@@ -363,7 +375,9 @@ class DrillHole:
 
         mesh.cell_data["from"] = from_to[:, 0]
         mesh.cell_data["to"] = from_to[:, 1]
-        mesh.cell_data["hole ID"] = [self.name] * self.from_to.shape[0]
+        mesh.cell_data["hole ID"] = [
+            intervals.hole_id_to_code_map[self.name]
+        ] * self.from_to.shape[0]
         mesh.cell_data["x"] = intermediate_depths[:, 0]
         mesh.cell_data["y"] = intermediate_depths[:, 1]
         mesh.cell_data["z"] = intermediate_depths[:, 2]
@@ -543,6 +557,8 @@ class DrillHoleGroup:
         self.continuous_vars += intervals.continuous_vars
         self.vars += intervals.vars_all
         self.hole_ids_with_data += list(np.unique(intervals.hole_ids))
+        self.hole_id_to_code_map = intervals.hole_id_to_code_map
+        self.code_to_hole_id_map = intervals.code_to_hole_id_map
         self.cat_to_code_map = intervals.cat_to_code_map
         self.code_to_cat_map = intervals.code_to_cat_map
         self.code_to_color_map = intervals.code_to_color_map
@@ -588,7 +604,9 @@ class DrillHoleGroup:
 
                 mesh.cell_data["from"] = from_to[:, 0]
                 mesh.cell_data["to"] = from_to[:, 1]
-                mesh.cell_data["hole ID"] = [id] * from_to.shape[0]
+                mesh.cell_data["hole ID"] = [
+                    intervals.hole_id_to_code_map[id]
+                ] * from_to.shape[0]
                 mesh.cell_data["x"] = intermediate_depths[:, 0]
                 mesh.cell_data["y"] = intermediate_depths[:, 1]
                 mesh.cell_data["z"] = intermediate_depths[:, 2]
