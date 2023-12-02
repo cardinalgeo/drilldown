@@ -254,8 +254,6 @@ class DrillHole:
         self.categorical_vars = []
         self.continuous_vars = []
         self.intervals = {}
-        # self.categorical_mapping = {}
-        # self.categorical_color_map = {}
 
     def add_collar(self, collar):
         if isinstance(collar, pd.core.series.Series) | isinstance(
@@ -597,39 +595,6 @@ class DrillHoleGroup:
                 for var in intervals.vars_all:
                     data = intervals.data[var]["values"][intervals.hole_ids == id]
                     _type = intervals.data[var]["type"]
-                    if _type == "str":
-                        mesh[var] = data
-                    else:
-                        mesh.cell_data[var] = data
-                if meshes is None:
-                    meshes = mesh
-                else:
-                    meshes += mesh
-
-        return meshes
-
-    def make_intervals_mesh_1(self, name):
-        meshes = None
-        print(self.hole_ids_with_data)
-        for hole_id in self.hole_ids_with_data:
-            hole = self._holes[hole_id]
-            from_depths = hole.desurvey(hole.from_to[:, 0])
-            to_depths = hole.desurvey(hole.from_to[:, 1])
-            print(from_depths, to_depths)
-
-            intermediate_depths = np.mean([from_depths, to_depths], axis=0)
-            if from_depths.shape[0] > 0:
-                mesh = hole._make_line_mesh(from_depths, to_depths)
-                mesh.cell_data["from"] = hole.from_to[:, 0]
-                mesh.cell_data["to"] = hole.from_to[:, 1]
-                mesh.cell_data["hole ID"] = [hole_id] * hole.from_to.shape[0]
-                mesh.cell_data["x"] = intermediate_depths[:, 0]
-                mesh.cell_data["y"] = intermediate_depths[:, 1]
-                mesh.cell_data["z"] = intermediate_depths[:, 2]
-
-                for var in self.vars:
-                    data = self.intervals[hole_id][var]["values"]
-                    _type = self.intervals[hole_id][var]["type"]
                     if _type == "str":
                         mesh[var] = data
                     else:
