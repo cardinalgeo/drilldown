@@ -48,7 +48,7 @@ class DrillDownPlotter(Plotter):
         vtkMapper.SetResolveCoincidentTopologyToPolygonOffset()
         # vtkMapper.SetResolveCoincidentTopologyPolygonOffsetParameters(0, -0.5)
 
-    def add_mesh(self, mesh, name, *args, **kwargs):
+    def add_mesh(self, mesh, name, pickable=False, *args, **kwargs):
         """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene.
 
         Parameters
@@ -74,7 +74,9 @@ class DrillDownPlotter(Plotter):
             self.translate_by = [-1 * val for val in mesh.center]
         mesh = mesh.translate(self.translate_by)
 
-        actor = super(DrillDownPlotter, self).add_mesh(mesh, name=name, *args, **kwargs)
+        actor = super(DrillDownPlotter, self).add_mesh(
+            mesh, name=name, pickable=pickable, *args, **kwargs
+        )
         self._actors[name] = actor
         # self.reset_camera()
 
@@ -87,14 +89,13 @@ class DrillDownPlotter(Plotter):
             name,
             render_points_as_spheres=True,
             point_size=10,
-            pickable=False,
             *args,
             **kwargs,
         )
 
     def add_surveys(self, mesh, *args, **kwargs):
         name = "surveys"
-        self.add_mesh(mesh, name, pickable=False, *args, **kwargs)
+        self.add_mesh(mesh, name, *args, **kwargs)
 
     def add_intervals(
         self,
@@ -165,6 +166,7 @@ class DrillDownPlotter(Plotter):
             name=name,
             scalars=active_var,
             show_scalar_bar=False,
+            pickable=selectable,
             *args,
             **kwargs,
         )
