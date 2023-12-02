@@ -603,6 +603,19 @@ class DrillDownPlotter(Plotter):
 
         return assay
 
+    @property
+    def selected_hole_ids(self):
+        return self._selected_hole_ids
+
+    @selected_hole_ids.setter
+    def selected_hole_ids(self, hole_ids):
+        if isinstance(hole_ids, str):
+            hole_ids = [hole_ids]
+        self._selected_hole_ids = hole_ids
+        data = self.all_interval_data()
+        filter = data["hole ID"].isin(hole_ids)
+        self.interval_filter = filter
+
     def selected_drill_log(
         self, categorical_interval_vars=None, continuous_interval_vars=None
     ):
