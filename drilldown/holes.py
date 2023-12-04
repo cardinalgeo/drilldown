@@ -348,6 +348,9 @@ class DrillHole:
         self.intervals = {}
         self.points = {}
 
+        self.hole_id_to_code_map = {}
+        self.code_to_hole_id_map = {}
+
         self.cat_to_code_map = {}
         self.code_to_cat_map = {}
         self.code_to_color_map = {}
@@ -404,30 +407,30 @@ class DrillHole:
 
             return depths
 
-    def _add_data(self, data):
-        self.hole_id_to_code_map = data.hole_id_to_code_map
-        self.code_to_hole_id_map = data.code_to_hole_id_map
-        self.cat_to_code_map.update(data.cat_to_code_map)
-        self.code_to_cat_map.update(data.code_to_cat_map)
-        self.code_to_color_map.update(data.code_to_color_map)
-        self.cat_to_color_map.update(data.cat_to_color_map)
-        self.matplotlib_formatted_color_maps.update(
-            data.matplotlib_formatted_color_maps
-        )
+    def _add_data(self, name, data):
+        self.hole_id_to_code_map[name] = data.hole_id_to_code_map
+        self.code_to_hole_id_map[name] = data.code_to_hole_id_map
+        self.cat_to_code_map[name] = data.cat_to_code_map
+        self.code_to_cat_map[name] = data.code_to_cat_map
+        self.code_to_color_map[name] = data.code_to_color_map
+        self.cat_to_color_map[name] = data.cat_to_color_map
+        self.matplotlib_formatted_color_maps[
+            name
+        ] = data.matplotlib_formatted_color_maps
 
     def add_intervals(self, name, intervals):
         self.intervals[name] = intervals
         self.categorical_interval_vars += intervals.categorical_vars
         self.continuous_interval_vars += intervals.continuous_vars
         self.vars += intervals.vars_all
-        self._add_data(intervals)
+        self._add_data(name, intervals)
 
     def add_points(self, name, points):
         self.points[name] = points
         self.categorical_point_vars += points.categorical_vars
         self.continuous_point_vars += points.continuous_vars
         self.vars += points.vars_all
-        self._add_data(points)
+        self._add_data(name, points)
 
     def desurvey(self, depths=None):
         if depths is None:
@@ -492,8 +495,23 @@ class DrillHole:
 
         return mesh
 
-    def make_point_mesh(self, name):
-        pass
+    def make_points_mesh(self, name=None):
+        if name is None:
+            name = list(self.points.keys())[0]
+
+        points = self.points[name]
+        depths = points.depths
+        depths = self.desurvey(depths)
+        mesh = pv.PolyData(depths)
+        for var in points.vars_all:
+            data = points.data[var]["values"]
+            _type = points.data[var]["type"]
+            if _type == "str":
+                mesh[var] = data
+            else:
+                mesh.point_data[var] = data
+
+        return mesh
 
     def show_collar(self, *args, **kwargs):
         collar_mesh = self.make_collar_mesh()
@@ -521,7 +539,13 @@ class DrillHole:
 
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
-        p.add_intervals(intervals_mesh, *args, **kwargs)
+        p.add_intervals(
+            intervals_mesh,
+            self.categorical_interval_vars,
+            self.continuous_interval_vars,
+            *args,
+            **kwargs
+        )
 
         if show_collar == True:
             collar_mesh = self.make_collar_mesh()
@@ -533,20 +557,50 @@ class DrillHole:
 
         return p.show()
 
-    def show_points(self, name=None):
-        mesh = self.make_survey_mesh(name)
+    def show_points(
+        self, name=None, show_collar=True, show_survey=True, *args, **kwargs
+    ):
+        if name is None:
+            name = list(self.points.keys())[0]
 
-        return mesh.plot()
+        points_mesh = self.make_points_mesh(name)
+        p = DrillDownPlotter()
+        p.add_points(
+            points_mesh,
+            self.categorical_point_vars,
+            self.continuous_point_vars,
+            *args,
+            **kwargs
+        )
+
+        if show_collar == True:
+            collar_mesh = self.make_collar_mesh()
+            p.add_collars(collar_mesh)
+
+        if show_survey == True:
+            survey_mesh = self.make_survey_mesh()
+            p.add_surveys(survey_mesh)
+
+        return p.show()
 
     def show(self):
         collar_mesh = self.make_collar_mesh()
         survey_mesh = self.make_survey_mesh()
         intervals_mesh = self.make_intervals_mesh()
+        points_mesh = self.make_points_mesh()
 
         p = DrillDownPlotter()
         p.add_collars(collar_mesh)
         p.add_surveys(survey_mesh)
-        p.add_intervals(intervals_mesh, radius=10)
+        p.add_intervals(
+            intervals_mesh,
+            self.categorical_interval_vars,
+            self.continuous_interval_vars,
+            radius=10,
+        )
+        p.add_points(
+            points_mesh, self.categorical_point_vars, self.continuous_point_vars
+        )
 
         return p.show()
 
@@ -571,6 +625,7 @@ class DrillHole:
                 ]
             ):
                 pass
+
             else:
                 categorical_interval_vars = self.categorical_interval_vars
                 continuous_interval_vars = self.continuous_interval_vars
@@ -642,6 +697,9 @@ class DrillHoleGroup:
         self.workspace = Workspace()
         self.hole_ids_with_data = []
 
+        self.hole_id_to_code_map = {}
+        self.code_to_hole_id_map = {}
+
         self.cat_to_code_map = {}
         self.code_to_cat_map = {}
         self.code_to_color_map = {}
@@ -707,33 +765,31 @@ class DrillHoleGroup:
 
         return self.from_to
 
-    def _add_data(self, data):
-        self.hole_id_to_code_map = data.hole_id_to_code_map
-        self.code_to_hole_id_map = data.code_to_hole_id_map
+    def _add_data(self, name, data):
         self.hole_ids_with_data += list(np.unique(data.hole_ids))
-        self.hole_id_to_code_map = data.hole_id_to_code_map
-        self.code_to_hole_id_map = data.code_to_hole_id_map
-        self.cat_to_code_map.update(data.cat_to_code_map)
-        self.code_to_cat_map.update(data.code_to_cat_map)
-        self.code_to_color_map.update(data.code_to_color_map)
-        self.cat_to_color_map.update(data.cat_to_color_map)
-        self.matplotlib_formatted_color_maps.update(
-            data.matplotlib_formatted_color_maps
-        )
+        self.hole_id_to_code_map[name] = data.hole_id_to_code_map
+        self.code_to_hole_id_map[name] = data.code_to_hole_id_map
+        self.cat_to_code_map[name] = data.cat_to_code_map
+        self.code_to_cat_map[name] = data.code_to_cat_map
+        self.code_to_color_map[name] = data.code_to_color_map
+        self.cat_to_color_map[name] = data.cat_to_color_map
+        self.matplotlib_formatted_color_maps[
+            name
+        ] = data.matplotlib_formatted_color_maps
 
     def add_intervals(self, name, intervals):
         self.intervals[name] = intervals
         self.categorical_interval_vars += intervals.categorical_vars
         self.continuous_interval_vars += intervals.continuous_vars
         self.vars += intervals.vars_all
-        self._add_data(intervals)
+        self._add_data(name, intervals)
 
     def add_points(self, name, points):
         self.points[name] = points
         self.categorical_point_vars += points.categorical_vars
         self.continuous_point_vars += points.continuous_vars
         self.vars += points.vars_all
-        self._add_data(points)
+        self._add_data(name, points)
 
     def desurvey(self, hole_id, depths=None):
         return self._holes[hole_id].desurvey(depths=depths)
@@ -794,8 +850,31 @@ class DrillHoleGroup:
 
         return meshes
 
-    def make_points_mesh(self):
-        return
+    def make_points_mesh(self, name=None):
+        if name is None:
+            name = list(self.points.keys())[0]
+
+        points = self.points[name]
+        meshes = None
+        for id in self.hole_ids_with_data:
+            depths = points.depths[points.hole_ids == id]
+            hole = self._holes[id]
+            depths = hole.desurvey(depths)
+            if depths.shape[0] > 0:
+                mesh = pv.PolyData(depths)
+                for var in points.vars_all:
+                    data = points.data[var]["values"][points.hole_ids == id]
+                    _type = points.data[var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.point_data[var] = data
+                if meshes is None:
+                    meshes = mesh
+                else:
+                    meshes += mesh
+
+        return meshes
 
     def show_collars(self):
         mesh = self.make_collars_mesh()
@@ -843,7 +922,39 @@ class DrillHoleGroup:
 
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
-        p.add_intervals(intervals_mesh, *args, **kwargs)
+        p.add_intervals(
+            intervals_mesh,
+            self.categorical_point_vars,
+            self.continuous_point_vars,
+            *args,
+            **kwargs
+        )
+
+        if show_collars == True:
+            collars_mesh = self.make_collars_mesh()
+            p.add_collars(collars_mesh)
+
+        if show_surveys == True:
+            surveys_mesh = self.make_surveys_mesh()
+            p.add_surveys(surveys_mesh)
+
+        return p.show()
+
+    def show_points(
+        self, name=None, show_collars=True, show_surveys=True, *args, **kwargs
+    ):
+        if name is None:
+            name = list(self.points.keys())[0]
+
+        points_mesh = self.make_points_mesh(name)
+        p = DrillDownPlotter()
+        p.add_points(
+            points_mesh,
+            self.categorical_point_vars,
+            self.continuous_point_vars,
+            *args,
+            **kwargs
+        )
 
         if show_collars == True:
             collars_mesh = self.make_collars_mesh()
@@ -859,11 +970,22 @@ class DrillHoleGroup:
         collars_mesh = self.make_collars_mesh()
         surveys_mesh = self.make_surveys_mesh()
         intervals_mesh = self.make_intervals_mesh(None)
+        points_mesh = self.make_points_mesh(None)
 
         p = DrillDownPlotter()
         p.add_collars(collars_mesh)
-        p.add_surveys(surveys_mesh)
-        p.add_intervals(intervals_mesh, radius=10)
+        p.add_surveys(
+            surveys_mesh,
+        )
+        p.add_intervals(
+            intervals_mesh,
+            self.categorical_interval_vars,
+            self.continuous_interval_vars,
+            radius=10,
+        )
+        p.add_points(
+            points_mesh, self.categorical_point_vars, self.continuous_point_vars
+        )
 
         return p.show()
 
@@ -889,6 +1011,7 @@ class DrillHoleGroup:
                 ]
             ):
                 pass
+
             else:
                 categorical_interval_vars = self.categorical_interval_vars
                 continuous_interval_vars = self.continuous_interval_vars

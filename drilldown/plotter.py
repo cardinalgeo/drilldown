@@ -100,6 +100,8 @@ class DrillDownPlotter(Plotter):
     def add_intervals(
         self,
         mesh,
+        categorical_vars=[],
+        continuous_vars=[],
         selectable=True,
         radius=1.5,
         n_sides=20,
@@ -142,7 +144,7 @@ class DrillDownPlotter(Plotter):
             The latter is less accurate than normal picking. Thus, activating accelerated selection
             increases selection speed but decreases selection accuracy. By default False
         """
-        name = "drillhole intervals"
+        name = "intervals"
         self.n_sides = n_sides
         self.n_intervals = mesh.n_lines
         if capping == True:
@@ -172,16 +174,19 @@ class DrillDownPlotter(Plotter):
         )
         self.reset_camera()
 
+        self.categorical_interval_vars = categorical_vars
+        self.continuous_interval_vars = continuous_vars
+
         self._active_var = active_var
         self._cmap = cmap
         self._cmap_range = cmap_range
 
-        self.active_var = active_var
-        self.cmap = cmap
-        if self._active_var in self.continuous_vars:
-            self.continuous_map = cmap
-        if cmap_range != None:
-            self.cmap_range = cmap_range
+        # self.active_var = active_var
+        # self.cmap = cmap
+        # if self._active_var in self.continuous_interval_vars:
+        #     self.continuous_map = cmap
+        # if cmap_range != None:
+        #     self.cmap_range = cmap_range
 
         if selectable == True:
             self._make_selectable(
@@ -189,6 +194,23 @@ class DrillDownPlotter(Plotter):
                 selection_color=selection_color,
                 accelerated_selection=accelerated_selection,
             )
+
+    def add_points(
+        self, mesh, categorical_vars=[], continuous_vars=[], *args, **kwargs
+    ):
+        name = "points"
+        self.add_mesh(
+            mesh,
+            name=name,
+            render_points_as_spheres=True,
+            point_size=10,
+            show_scalar_bar=False,
+            *args,
+            **kwargs,
+        )
+
+        self.categorical_point_vars = categorical_vars
+        self.continuous_point_vars = continuous_vars
 
     def add_holes(self, holes, *args, **kwargs):
         # make and add collars mesh
@@ -200,7 +222,23 @@ class DrillDownPlotter(Plotter):
         self.add_surveys(surveys_mesh)
 
         # make and add intervals mesh
+        intervals_mesh = holes.make_intervals_mesh("intervals")
+        self.add_intervals(
+            intervals_mesh,
+            holes.categorical_interval_vars,
+            holes.continuous_interval_vars,
+            *args,
+            **kwargs,
+        )
+
+        # make and add points mesh
+        points_mesh = holes.make_points_mesh()
+        self.add_points(
+            points_mesh, holes.categorical_point_vars, holes.continuous_point_vars
+        )
+
         self.code_to_hole_id_map = holes.code_to_hole_id_map
+        print(holes.code_to_hole_id_map)
         self.hole_id_to_code_map = holes.hole_id_to_code_map
         self.code_to_cat_map = holes.code_to_cat_map
         self.cat_to_code_map = holes.cat_to_code_map
@@ -208,11 +246,10 @@ class DrillDownPlotter(Plotter):
         self.cat_to_color_map = holes.cat_to_color_map
         self.matplotlib_formatted_color_maps = holes.matplotlib_formatted_color_maps
 
-        self.categorical_vars = holes.categorical_vars
-        self.continuous_vars = holes.continuous_vars
-
-        intervals_mesh = holes.make_intervals_mesh("intervals")
-        self.add_intervals(intervals_mesh, *args, **kwargs)
+        # self.categorical_interval_vars = holes.categorical_interval_vars
+        # self.continuous_interval_vars = holes.continuous_interval_vars
+        # self.categorical_point_vars = holes.categorical_point_vars
+        # self.continuous_point_vars = holes.continuous_point_vars
 
     @property
     def hole_vars(self):
@@ -283,7 +320,7 @@ class DrillDownPlotter(Plotter):
         actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
         picked_actor = actor_picker.GetActor()
         if picked_actor is not None:
-            if picked_actor == self._actors["drillhole intervals"]:
+            if picked_actor == self._actors["intervals"]:
                 cell_picker = self.drillhole_interval_cell_picker
                 cell_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
                 picked_interval_cell = cell_picker.GetCellId()
@@ -371,9 +408,9 @@ class DrillDownPlotter(Plotter):
         actor_picker = self.actor_picker
         actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
         picked_actor = actor_picker.GetActor()
-        if picked_actor != self._actors["drillhole intervals"]:
+        if picked_actor != self._actors["intervals"]:
             self.remove_actor(self.selection_actor)
-            self._actors["drillhole intervals"].prop.opacity = 1
+            self._actors["intervals"].prop.opacity = 1
 
             # reset selection attributes
             self.selection_actor = None
@@ -382,11 +419,12 @@ class DrillDownPlotter(Plotter):
             self._selected_interval_cells = []
 
     def _update_selection_object(self, interval_or_sample, selected_cells):
-        mesh = self._filters["drillhole intervals"]
+        name = "intervals"
+        mesh = self._filters[name]
         self.selection_mesh = mesh.extract_cells(selected_cells)
         self.selection_actor = self.add_mesh(
             self.selection_mesh,
-            name="drillhole intervals selection",
+            name=name + " selection",
             scalars=self.active_var,
             cmap=self.cmap,
             clim=self.cmap_range,
@@ -405,13 +443,13 @@ class DrillDownPlotter(Plotter):
             0, -5
         )
 
-        self._actors["drillhole intervals"].prop.opacity = 0.1
+        self._actors[name].prop.opacity = 0.1
         self.render()
 
     # def _filter_intervals(self, filtered_cells):
-    #     mesh = self._filters["drillhole intervals"]
+    #     mesh = self._filters["intervals"]
     #     self._unfiltered_mesh = mesh
-    #     self.remove_actor(self._actors["drillhole intervals"])
+    #     self.remove_actor(self._actors["intervals"])
 
     #     filt_mesh = mesh.extract_cells(filtered_cells)
     #     filt_mesh = filt_mesh.extract_geometry(filt_mesh.bounds)
@@ -431,7 +469,7 @@ class DrillDownPlotter(Plotter):
 
         self._active_var = active_var
 
-        actors = [self._actors["drillhole intervals"]]
+        actors = [self._actors["intervals"]]
         if hasattr(self, "selection_actor"):
             if self.selection_actor is not None:
                 actors.append(self.selection_actor)
@@ -439,11 +477,14 @@ class DrillDownPlotter(Plotter):
         for actor in actors:
             actor.mapper.dataset.set_active_scalars(active_var)
 
-        if active_var in self.categorical_vars:
+        if active_var in self.categorical_interval_vars:
             self.cmap = self.matplotlib_formatted_color_maps.get(active_var, None)
-            self.cmap_range = (0, list(self.code_to_cat_map[active_var].keys())[-1])
+            self.cmap_range = (
+                0,
+                list(self.code_to_cat_map["intervals"][active_var].keys())[-1],
+            )
         else:
-            if self._prev_active_var in self.categorical_vars:
+            if self._prev_active_var in self.categorical_interval_vars:
                 self.cmap = self.continuous_cmap
                 self.reset_cmap_range()
             else:
@@ -458,13 +499,13 @@ class DrillDownPlotter(Plotter):
     def cmap(self, cmap):
         self._cmap = cmap
 
-        actors = [self._actors["drillhole intervals"]]
+        actors = [self._actors["intervals"]]
         if hasattr(self, "selection_actor"):
             if self.selection_actor is not None:
                 actors.append(self.selection_actor)
 
         for actor in actors:
-            if self.active_var in self.continuous_vars:
+            if self.active_var in self.continuous_interval_vars:
                 actor.mapper.lookup_table.cmap = cmap
                 actor.mapper.lookup_table.nan_color = "white"  # self.nan_opacity
                 self.continuous_cmap = cmap
@@ -483,7 +524,7 @@ class DrillDownPlotter(Plotter):
     def cmap_range(self, cmap_range):
         self._cmap_range = cmap_range
 
-        actors = [self._actors["drillhole intervals"]]
+        actors = [self._actors["intervals"]]
         if hasattr(self, "selection_actor"):
             if self.selection_actor is not None:
                 actors.append(self.selection_actor)
@@ -495,7 +536,7 @@ class DrillDownPlotter(Plotter):
         self.render()
 
     def reset_cmap_range(self):
-        mesh = self._filters["drillhole intervals"]
+        mesh = self._filters["intervals"]
         array = mesh.cell_data[self.active_var]
         min, max = array.min(), array.max()
         self.cmap_range = (min, max)
@@ -518,7 +559,7 @@ class DrillDownPlotter(Plotter):
     def get_assay_data(self):
         intervals = self._selected_intervals
 
-        holes_mesh = self._filters["drillhole intervals"]
+        holes_mesh = self._filters["intervals"]
         vars = holes_mesh.array_names
         assay_dict = {}
         for var in vars:
@@ -576,7 +617,7 @@ class DrillDownPlotter(Plotter):
     def selected_interval_data(self):
         intervals = self._selected_intervals
 
-        holes_mesh = self._filters["drillhole intervals"]
+        holes_mesh = self._filters["intervals"]
         vars = holes_mesh.array_names
         assay_dict = {}
         for var in vars:
@@ -584,14 +625,16 @@ class DrillDownPlotter(Plotter):
 
         assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
         assay = pd.DataFrame(assay_dict)
-        assay["hole ID"] = [self.code_to_hole_id_map[code] for code in assay["hole ID"]]
+        assay["hole ID"] = [
+            self.code_to_hole_id_map["intervals"][code] for code in assay["hole ID"]
+        ]
 
         return assay
 
     def all_interval_data(self):
         intervals = np.arange(self.n_intervals)
 
-        holes_mesh = self._filters["drillhole intervals"]
+        holes_mesh = self._filters["intervals"]
         vars = holes_mesh.array_names
         assay_dict = {}
         for var in vars:
@@ -599,7 +642,9 @@ class DrillDownPlotter(Plotter):
 
         assay_dict.pop("TubeNormals")  # pandas won't except columns that aren't 1D
         assay = pd.DataFrame(assay_dict)
-        assay["hole ID"] = [self.code_to_hole_id_map[code] for code in assay["hole ID"]]
+        assay["hole ID"] = [
+            self.code_to_hole_id_map["intervals"][code] for code in assay["hole ID"]
+        ]
 
         return assay
 
@@ -617,33 +662,55 @@ class DrillDownPlotter(Plotter):
         self.interval_filter = filter
 
     def selected_drill_log(
-        self, categorical_interval_vars=None, continuous_interval_vars=None
+        self,
+        categorical_interval_vars=[],
+        continuous_interval_vars=[],
+        categorical_point_vars=[],
+        continuous_point_vars=[],
     ):
-        data = self.selected_interval_data()
-        hole_id = data["hole ID"].unique()
-        if len(hole_id) == 1:
-            if categorical_interval_vars is None:
-                categorical_interval_vars = self.categorical_vars
+        interval_data = self.selected_interval_data()
+        # point_data = self.selected_point_data()
 
-            if continuous_interval_vars is None:
-                continuous_interval_vars = self.continuous_vars
+        hole_id = interval_data["hole ID"].unique()
+        if len(hole_id) == 1:
+            # check if no variables are passed; if so, use all variables
+            if any(
+                len(_) != 0
+                for _ in [
+                    categorical_interval_vars,
+                    continuous_interval_vars,
+                    categorical_point_vars,
+                    continuous_point_vars,
+                ]
+            ):
+                pass
+
+            else:
+                categorical_interval_vars = self.categorical_interval_vars
+                continuous_interval_vars = self.continuous_interval_vars
+                categorical_point_vars = self.categorical_point_vars
+                continuous_point_vars = self.continuous_point_vars
 
             log = DrillLog()
-            depths = data[["from", "to"]].values
+
+            # add interval data
+            depths = interval_data[["from", "to"]].values
 
             for var in categorical_interval_vars:
-                values = data[var].values
-                code_to_color_map = self.code_to_color_map.get(var, None)
+                values = interval_data[var].values
+                code_to_color_map = self.code_to_color_map["intervals"].get(var, None)
                 log.add_categorical_interval_data(
                     var,
                     depths,
                     values,
-                    self.code_to_cat_map[var],
+                    self.code_to_cat_map["intervals"][var],
                     code_to_color_map,
                 )
             for var in continuous_interval_vars:
-                values = data[var].values
+                values = interval_data[var].values
                 log.add_continuous_interval_data(var, depths, values)
+
+            # add point data
 
             log.create_figure(y_axis_label="Depth (m)", title=hole_id[0])
 
@@ -744,6 +811,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
     def add_intervals(
         self,
         mesh,
+        categorical_vars=[],
+        continuous_vars=[],
         active_var=None,
         cmap="blues",
         cmap_range=None,
@@ -766,6 +835,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         tube_mesh = super(DrillDownPanelPlotter, self).add_intervals(
             mesh,
             active_var=active_var,
+            categorical_vars=categorical_vars,
+            continuous_vars=continuous_vars,
             cmap=cmap,
             cmap_range=cmap_range,
             *args,
@@ -805,8 +876,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         return widget
 
     def _make_cmap_range_widget(self, value=None):
-        min = self._actors["drillhole intervals"].mapper.dataset.active_scalars.min()
-        max = self._actors["drillhole intervals"].mapper.dataset.active_scalars.max()
+        min = self._actors["intervals"].mapper.dataset.active_scalars.min()
+        max = self._actors["intervals"].mapper.dataset.active_scalars.max()
         if value == None:
             value = (min, max)
         widget = pn.widgets.RangeSlider(
@@ -894,9 +965,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         active_var = event.new
         self.active_var = active_var
 
-        active_scalars = self._actors[
-            "drillhole intervals"
-        ].mapper.dataset.active_scalars
+        active_scalars = self._actors["intervals"].mapper.dataset.active_scalars
         self.cmap_range_widget.start = active_scalars.min()
         self.cmap_range_widget.end = active_scalars.max()
 
@@ -904,9 +973,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         cmap = event.new
         self.cmap = cmap
 
-        active_scalars = self._actors[
-            "drillhole intervals"
-        ].mapper.dataset.active_scalars
+        active_scalars = self._actors["intervals"].mapper.dataset.active_scalars
         self.cmap_range_widget.start = active_scalars.min()
         self.cmap_range_widget.end = active_scalars.max()
 
