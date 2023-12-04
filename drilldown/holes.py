@@ -64,13 +64,13 @@ def encode_categorical_data(data):
     return code_to_cat_map, data_encoded
 
 
-class Intervals:
+class HoleData:
     def __init__(self):
         self.hole_ids = []
         self.vars_all = []
         self.categorical_vars = []
         self.continuous_vars = []
-        self._from_to = None
+        self._depths = None
         self.data = {}
         self.code_to_color_map = {}
         self.cat_to_color_map = {}
@@ -84,7 +84,7 @@ class Intervals:
         self,
         var_names,
         hole_ids,
-        from_to,
+        depths,
         data,
         return_data=False,
     ):
@@ -104,10 +104,9 @@ class Intervals:
         self.code_to_hole_id_map = {
             code: hole_id for code, hole_id in enumerate(hole_ids_unique)
         }
-        print(self.hole_id_to_code_map)
-        print(self.code_to_hole_id_map)
+
         # add from-to depths
-        self.from_to = from_to
+        self.depths = depths
 
         # add data
         if (isinstance(data, pd.core.series.Series)) | (
@@ -208,6 +207,21 @@ class Intervals:
             [self.code_to_color_map[var_name][code] for code in codes]
         )
 
+    @property
+    def depths(self):
+        return self._depths
+
+    @depths.setter
+    def depths(self, depths):
+        if isinstance(depths, pd.core.frame.DataFrame):
+            depths = depths.values
+        self._depths = depths.astype(np.float64)
+
+
+class Points(HoleData):
+    def __init__(self):
+        super().__init__()
+
     def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
         # ensure that color maps exist for categorical vars
         self._construct_categorical_cmap()
@@ -219,7 +233,44 @@ class Intervals:
         if continuous_vars is None:
             continuous_vars = self.continuous_vars
 
-        from_to = self.from_to[self.hole_ids == hole_id]
+        depths = self.depths[self.hole_ids == hole_id]
+
+        for var in categorical_vars:
+            values = self.data[var]["values"][self.hole_ids == hole_id]
+            log.add_categorical_point_data(
+                var,
+                depths,
+                values,
+                self.code_to_cat_map[var],
+                self.code_to_color_map[var],
+            )
+
+        for var in continuous_vars:
+            values = self.data[var]["values"][self.hole_ids == hole_id]
+
+            log.add_continuous_point_data(var, depths, values)
+
+        log.create_figure(y_axis_label="Depth (m)", title=hole_id)
+
+        return log.fig
+
+
+class Intervals(HoleData):
+    def __init__(self):
+        super().__init__()
+
+    def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
+        # ensure that color maps exist for categorical vars
+        self._construct_categorical_cmap()
+        log = DrillLog()
+
+        if categorical_vars is None:
+            categorical_vars = self.categorical_vars
+
+        if continuous_vars is None:
+            continuous_vars = self.continuous_vars
+
+        from_to = self.depths[self.hole_ids == hole_id]
 
         for var in categorical_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
@@ -239,16 +290,6 @@ class Intervals:
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
         return log.fig
-
-    @property
-    def from_to(self):
-        return self._from_to
-
-    @from_to.setter
-    def from_to(self, from_to):
-        if isinstance(from_to, pd.core.frame.DataFrame):
-            from_to = from_to.values
-        self._from_to = from_to.astype(np.float64)
 
 
 class DrillHole:
@@ -367,7 +408,7 @@ class DrillHole:
             name = list(self.intervals.keys())[0]
 
         intervals = self.intervals[name]
-        from_to = intervals.from_to
+        from_to = intervals.depths
         from_depths = self.desurvey(from_to[:, 0])
         to_depths = self.desurvey(from_to[:, 1])
         intermediate_depths = np.mean([from_depths, to_depths], axis=0)
@@ -459,7 +500,7 @@ class DrillHole:
             continuous_vars = self.continuous_vars
 
         intervals = self.intervals[list(self.intervals.keys())[0]]
-        from_to = intervals.from_to[intervals.hole_ids == self.name]
+        from_to = intervals.depths[intervals.hole_ids == self.name]
 
         for var in categorical_vars:
             values = intervals.data[var]["values"][intervals.hole_ids == self.name]
@@ -594,7 +635,7 @@ class DrillHoleGroup:
         intervals = self.intervals[name]
         meshes = None
         for id in self.hole_ids_with_data:
-            from_to = intervals.from_to[intervals.hole_ids == id]
+            from_to = intervals.depths[intervals.hole_ids == id]
             hole = self._holes[id]
             from_depths = hole.desurvey(from_to[:, 0])
             to_depths = hole.desurvey(from_to[:, 1])
@@ -707,7 +748,7 @@ class DrillHoleGroup:
             continuous_vars = self.continuous_vars
 
         intervals = self.intervals[list(self.intervals.keys())[0]]
-        from_to = intervals.from_to[intervals.hole_ids == hole_id]
+        from_to = intervals.depths[intervals.hole_ids == hole_id]
 
         for var in categorical_vars:
             values = intervals.data[var]["values"][intervals.hole_ids == hole_id]

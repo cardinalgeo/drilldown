@@ -92,12 +92,12 @@ class DrillLog:
             + self.categorical_point_vars
             + self.continuous_point_vars
         )
-
         # get number of columns
         self.n_categorical_interval_cols = len(self.categorical_interval_vars)
         self.n_continuous_interval_cols = len(self.continuous_interval_vars)
         self.n_categorical_point_cols = len(self.categorical_point_vars)
         self.n_continuous_point_cols = len(self.continuous_point_vars)
+
         self.n_cols = (
             self.n_categorical_interval_cols
             + self.n_continuous_interval_cols
@@ -141,12 +141,23 @@ class DrillLog:
                 )
             cum_cols += col
 
+        if self.categorical_point_data:
+            for col, var in enumerate(self.categorical_point_vars):
+                name = var
+                depths = self.categorical_point_data[var]["depths"]
+                values = self.categorical_point_data[var]["values"]
+                self._add_categorical_point_data(
+                    name,
+                    depths,
+                    values,
+                    self.code_to_cat_map[var],
+                    self.code_to_color_map[var],
+                    col=cum_cols + col + 1,
+                )
+            cum_cols += col + 1
+
         if self.continuous_point_data:
             for var in self.continuous_point_data.keys():
-                pass
-
-        if self.categorical_point_data:
-            for var in self.categorical_point_data.keys():
                 pass
 
         # set moving horizontal line
@@ -191,13 +202,19 @@ class DrillLog:
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
-    def add_categorical_point_data(self, name, depths, values):
+    def add_categorical_point_data(
+        self, name, depths, values, code_to_cat_map, code_to_color_map
+    ):
         self.categorical_point_data[name] = {"depths": depths, "values": values}
+        self.categorical_point_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
+        self.code_to_cat_map[name] = code_to_cat_map
+        self.code_to_color_map[name] = code_to_color_map
 
     def add_continuous_point_data(self, name, depths, values):
         self.continuous_point_data[name] = {"depths": depths, "values": values}
+        self.continuous_point_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
@@ -282,8 +299,45 @@ class DrillLog:
             col=col,
         )
 
-    def _add_categorical_point_data(self, name):
-        pass
+    def _add_categorical_point_data(
+        self, name, depths, values, code_to_cat_map, code_to_color_map, col=None
+    ):
+        add_col = False
+        if add_col == True:
+            # update subplot layout
+            self.n_categorical_point_cols += 1
+            self._update_col_widths()
+
+            # update subplot titles
+            self.subplot_titles += [name]
+
+            # create new figure
+            self._create_figure()
+
+        categories = [code_to_cat_map[val] for val in values]
+        colors = [code_to_color_map[val] for val in values]
+        colors = [
+            convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
+            for color in colors
+        ]
+
+        self.fig.add_trace(
+            go.Scattergl(
+                x=np.ones(len(depths)),
+                y=depths,
+                opacity=1,
+                mode="markers",
+                name=name,
+                text=categories,
+                hoverinfo="text",
+                marker={"color": colors},
+                legendgroup=name,
+                legendgrouptitle_text=name,
+            ),
+            row=1,
+            col=col,
+        )
+        self.fig.update_xaxes(visible=False, showticklabels=False, row=1, col=col)
 
     def _add_continuous_point_data(self, name):
         pass
