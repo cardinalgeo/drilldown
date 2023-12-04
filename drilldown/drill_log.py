@@ -77,9 +77,6 @@ class DrillLog:
         self.categorical_point_vars = []
         self.continuous_point_vars = []
 
-        # initialize depth range
-        self.depth_range = [-np.inf, np.inf]
-
         # initialize categorical mapping
         self.code_to_cat_map = {}
         self.code_to_color_map = {}
@@ -139,7 +136,7 @@ class DrillLog:
                 self._add_continuous_interval_data(
                     name, depths, values, col=cum_cols + col + 1
                 )
-            cum_cols += col
+            cum_cols += col + 1
 
         if self.categorical_point_data:
             for col, var in enumerate(self.categorical_point_vars):
@@ -361,10 +358,14 @@ class DrillLog:
         self.col_widths += self.n_continuous_point_cols * [self.width_continuous_point]
 
     def _update_depth_range(self, depths):
-        if depths.min() > self.depth_range[0]:
-            self.depth_range[0] = depths.min()
-        if depths.max() < self.depth_range[1]:
-            self.depth_range[1] = depths.max()
+        if not hasattr(self, "depth_range"):  # first time
+            self.depth_range = [depths.min(), depths.max()]
+
+        else:
+            if depths.min() < self.depth_range[0]:
+                self.depth_range[0] = depths.min()
+            if depths.max() > self.depth_range[1]:
+                self.depth_range[1] = depths.max()
 
     def show(self):
         return self.fig.show()
