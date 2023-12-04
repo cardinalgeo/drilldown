@@ -440,7 +440,7 @@ class DrillDownPlotter(Plotter):
             actor.mapper.dataset.set_active_scalars(active_var)
 
         if active_var in self.categorical_vars:
-            self.cmap = self.matplotlib_formatted_color_maps[active_var]
+            self.cmap = self.matplotlib_formatted_color_maps.get(active_var, None)
             self.cmap_range = (0, list(self.code_to_cat_map[active_var].keys())[-1])
         else:
             if self._prev_active_var in self.categorical_vars:
@@ -633,12 +633,13 @@ class DrillDownPlotter(Plotter):
 
             for var in categorical_interval_vars:
                 values = data[var].values
+                code_to_color_map = self.code_to_color_map.get(var, None)
                 log.add_categorical_interval_data(
                     var,
                     depths,
                     values,
                     self.code_to_cat_map[var],
-                    self.code_to_color_map[var],
+                    code_to_color_map,
                 )
             for var in continuous_interval_vars:
                 values = data[var].values

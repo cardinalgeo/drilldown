@@ -187,7 +187,7 @@ class DrillLog:
         )
 
     def add_categorical_interval_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map
+        self, name, depths, values, code_to_cat_map, code_to_color_map=None
     ):
         self.categorical_interval_data[name] = {"depths": depths, "values": values}
         self.categorical_interval_vars += [name]
@@ -203,7 +203,7 @@ class DrillLog:
         self._update_depth_range(depths)
 
     def add_categorical_point_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map
+        self, name, depths, values, code_to_cat_map, code_to_color_map=None
     ):
         self.categorical_point_data[name] = {"depths": depths, "values": values}
         self.categorical_point_vars += [name]
@@ -241,9 +241,11 @@ class DrillLog:
         for i in np.unique(values):
             if not np.isnan(i):
                 category = code_to_cat_map[i]
-                color = code_to_color_map[i]
-                color = convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
-
+                if code_to_color_map is not None:
+                    color = code_to_color_map[i]
+                    color = convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
+                else:
+                    color = "#636EFA"  # default plotly color
                 self.fig.add_trace(
                     go.Scattergl(
                         x=np.where(values == i, 100, 0),
@@ -300,7 +302,7 @@ class DrillLog:
         )
 
     def _add_categorical_point_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map, col=None
+        self, name, depths, values, code_to_cat_map, code_to_color_map=None, col=None
     ):
         add_col = False
         if add_col == True:
@@ -315,11 +317,14 @@ class DrillLog:
             self._create_figure()
 
         categories = [code_to_cat_map[val] for val in values]
-        colors = [code_to_color_map[val] for val in values]
-        colors = [
-            convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
-            for color in colors
-        ]
+        if code_to_color_map is not None:
+            colors = [code_to_color_map[val] for val in values]
+            colors = [
+                convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
+                for color in colors
+            ]
+        else:
+            colors = None
 
         self.fig.add_trace(
             go.Scattergl(

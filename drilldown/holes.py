@@ -87,9 +87,13 @@ class HoleData:
         depths,
         data,
         return_data=False,
+        construct_categorical_cmap=False,
     ):
         # add vars
         self.vars_all += var_names
+
+        # save flag to construct categorical color map
+        self.construct_categorical_cmap = construct_categorical_cmap
 
         # add hole IDs
         if isinstance(hole_ids, pd.core.series.Series):
@@ -222,9 +226,29 @@ class Points(HoleData):
     def __init__(self):
         super().__init__()
 
+    def add_data(
+        self,
+        var_names,
+        hole_ids,
+        depths,
+        data,
+        return_data=False,
+        construct_categorical_cmap=False,
+    ):
+        super().add_data(
+            var_names,
+            hole_ids,
+            depths,
+            data,
+            return_data=return_data,
+            construct_categorical_cmap=construct_categorical_cmap,
+        )
+
     def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
-        # ensure that color maps exist for categorical vars
-        self._construct_categorical_cmap()
+        if self.construct_categorical_cmap == True:
+            # ensure that color maps exist for categorical vars
+            self._construct_categorical_cmap()
+
         log = DrillLog()
 
         if categorical_vars is None:
@@ -237,12 +261,9 @@ class Points(HoleData):
 
         for var in categorical_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
+            code_to_color_map = self.code_to_color_map.get(var, None)
             log.add_categorical_point_data(
-                var,
-                depths,
-                values,
-                self.code_to_cat_map[var],
-                self.code_to_color_map[var],
+                var, depths, values, self.code_to_cat_map[var], code_to_color_map
             )
 
         for var in continuous_vars:
@@ -259,9 +280,29 @@ class Intervals(HoleData):
     def __init__(self):
         super().__init__()
 
+    def add_data(
+        self,
+        var_names,
+        hole_ids,
+        depths,
+        data,
+        return_data=False,
+        construct_categorical_cmap=True,
+    ):
+        super().add_data(
+            var_names,
+            hole_ids,
+            depths,
+            data,
+            return_data=return_data,
+            construct_categorical_cmap=construct_categorical_cmap,
+        )
+
     def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
-        # ensure that color maps exist for categorical vars
-        self._construct_categorical_cmap()
+        if self.construct_categorical_cmap == True:
+            # ensure that color maps exist for categorical vars
+            self._construct_categorical_cmap()
+
         log = DrillLog()
 
         if categorical_vars is None:
@@ -274,12 +315,9 @@ class Intervals(HoleData):
 
         for var in categorical_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
+            code_to_color_map = self.code_to_color_map.get(var, None)
             log.add_categorical_interval_data(
-                var,
-                from_to,
-                values,
-                self.code_to_cat_map[var],
-                self.code_to_color_map[var],
+                var, from_to, values, self.code_to_cat_map[var], code_to_color_map
             )
 
         for var in continuous_vars:
@@ -504,12 +542,13 @@ class DrillHole:
 
         for var in categorical_vars:
             values = intervals.data[var]["values"][intervals.hole_ids == self.name]
+            code_to_color_map = self.code_to_color_map.get(var, None)
             log.add_categorical_interval_data(
                 var,
                 from_to,
                 values,
                 intervals.code_to_cat_map[var],
-                intervals.code_to_color_map[var],
+                code_to_color_map,
             )
 
         for var in continuous_vars:
@@ -752,12 +791,13 @@ class DrillHoleGroup:
 
         for var in categorical_vars:
             values = intervals.data[var]["values"][intervals.hole_ids == hole_id]
+            code_to_color_map = self.code_to_color_map.get(var, None)
             log.add_categorical_interval_data(
                 var,
                 from_to,
                 values,
                 intervals.code_to_cat_map[var],
-                intervals.code_to_color_map[var],
+                code_to_color_map,
             )
 
         for var in continuous_vars:
