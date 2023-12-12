@@ -13,7 +13,10 @@ def interleave_intervals(depths, values=None, connected=True):
 
         if values is not None:
             # construct new values
-            values_new = np.empty(values.shape[0] * 2)
+            if np.issubdtype(values.dtype, np.number):  # if values is numeric
+                values_new = np.empty(values.shape[0] * 2)
+            else:
+                values_new = np.empty(values.shape[0] * 2, dtype=object)
             values_new[0::2] = values
             values_new[1::2] = values
 
@@ -32,14 +35,25 @@ def clean_missing_intervals(depths, values):
     ):
         values = values.values
 
-    values = values.astype(float)  # can't be int because of np.nan
     from_depth = depths[:, 0]
     to_depth = depths[:, 1]
     missing_interval_ind = np.not_equal(from_depth[1:], to_depth[:-1]).nonzero()[0]
-    for i in reversed(missing_interval_ind):
-        from_depth = np.insert(from_depth, i + 1, to_depth[i])
-        to_depth = np.insert(to_depth, i + 1, from_depth[i + 2])
-        values = np.insert(values, i + 1, np.nan, axis=0)
+    if np.issubdtype(values.dtype, np.number):  # if values is numeric, fill with np.nan
+        values = values.astype(float)  # can't be int because of np.nan
+        for i in reversed(missing_interval_ind):
+            from_depth = np.insert(from_depth, i + 1, to_depth[i])
+            to_depth = np.insert(to_depth, i + 1, from_depth[i + 2])
+            values = np.insert(values, i + 1, np.nan, axis=0)
+
+    else:  # if values is not numeric, fill with "None"
+        for i in reversed(missing_interval_ind):
+            values = values.astype(object)
+            from_depth = np.insert(from_depth, i + 1, to_depth[i])
+            to_depth = np.insert(to_depth, i + 1, from_depth[i + 2])
+            values = np.insert(
+                values, i + 1, np.nan, axis=0
+            )  # Nonee as np.insert is excising the last character of None
+
     return np.stack([from_depth, to_depth], axis=1), values
 
 
@@ -78,8 +92,7 @@ class DrillLog:
         self.continuous_point_vars = []
 
         # initialize categorical mapping
-        self.code_to_cat_map = {}
-        self.code_to_color_map = {}
+        self.cat_to_color_map = {}
 
     def create_figure(self, y_axis_label=None, title=None):
         # get total number of variables
@@ -122,8 +135,7 @@ class DrillLog:
                     name,
                     depths,
                     values,
-                    self.code_to_cat_map[var],
-                    self.code_to_color_map[var],
+                    self.cat_to_color_map[var],
                     col=cum_cols + col + 1,
                 )
             cum_cols += col + 1
@@ -147,8 +159,7 @@ class DrillLog:
                     name,
                     depths,
                     values,
-                    self.code_to_cat_map[var],
-                    self.code_to_color_map[var],
+                    self.cat_to_color_map[var],
                     col=cum_cols + col + 1,
                 )
             cum_cols += col + 1
@@ -184,14 +195,13 @@ class DrillLog:
         )
 
     def add_categorical_interval_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map=None
+        self, name, depths, values, cat_to_color_map=None
     ):
         self.categorical_interval_data[name] = {"depths": depths, "values": values}
         self.categorical_interval_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
-        self.code_to_cat_map[name] = code_to_cat_map
-        self.code_to_color_map[name] = code_to_color_map
+        self.cat_to_color_map[name] = cat_to_color_map
 
     def add_continuous_interval_data(self, name, depths, values):
         self.continuous_interval_data[name] = {"depths": depths, "values": values}
@@ -199,15 +209,12 @@ class DrillLog:
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
-    def add_categorical_point_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map=None
-    ):
+    def add_categorical_point_data(self, name, depths, values, cat_to_color_map=None):
         self.categorical_point_data[name] = {"depths": depths, "values": values}
         self.categorical_point_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
-        self.code_to_cat_map[name] = code_to_cat_map
-        self.code_to_color_map[name] = code_to_color_map
+        self.cat_to_color_map[name] = cat_to_color_map
 
     def add_continuous_point_data(self, name, depths, values):
         self.continuous_point_data[name] = {"depths": depths, "values": values}
@@ -216,7 +223,7 @@ class DrillLog:
         self._update_depth_range(depths)
 
     def _add_categorical_interval_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map, col=None
+        self, name, depths, values, cat_to_color_map, col=None
     ):
         add_col = False
         if add_col == True:
@@ -235,31 +242,33 @@ class DrillLog:
         # duplicate depths and values for plotting
         depths, values = interleave_intervals(depths, values)
 
-        for i in np.unique(values):
-            if not np.isnan(i):
-                category = code_to_cat_map[i]
-                if code_to_color_map is not None:
-                    color = code_to_color_map[i]
-                    color = convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
-                else:
-                    color = "#636EFA"  # default plotly color
-                self.fig.add_trace(
-                    go.Scattergl(
-                        x=np.where(values == i, 100, 0),
-                        y=depths,
-                        line_shape="vh",
-                        fill="tozerox",
-                        opacity=1,
-                        mode="none",
-                        name=category,
-                        hoverinfo="y+name",
-                        fillcolor=color,
-                        legendgroup=name,
-                        legendgrouptitle_text=name,
-                    ),
-                    row=1,
-                    col=col,
-                )
+        values_unique = [
+            val for val in values if not isinstance(val, float)
+        ]  # remove float, which can only be np.nan
+        values_unique = np.unique(values_unique)
+        for cat in values_unique:
+            if cat_to_color_map is not None:
+                color = cat_to_color_map[cat]
+                color = convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
+            else:
+                color = "#636EFA"  # default plotly color
+            self.fig.add_trace(
+                go.Scattergl(
+                    x=np.where(values == cat, 100, 0),
+                    y=depths,
+                    line_shape="vh",
+                    fill="tozerox",
+                    opacity=1,
+                    mode="none",
+                    name=cat,
+                    hoverinfo="y+name",
+                    fillcolor=color,
+                    legendgroup=name,
+                    legendgrouptitle_text=name,
+                ),
+                row=1,
+                col=col,
+            )
         self.fig.update_xaxes(
             range=[90, 100], visible=False, showticklabels=False, row=1, col=col
         )
@@ -299,7 +308,7 @@ class DrillLog:
         )
 
     def _add_categorical_point_data(
-        self, name, depths, values, code_to_cat_map, code_to_color_map=None, col=None
+        self, name, depths, values, cat_to_color_map=None, col=None
     ):
         add_col = False
         if add_col == True:
@@ -313,9 +322,8 @@ class DrillLog:
             # create new figure
             self._create_figure()
 
-        categories = [code_to_cat_map[val] for val in values]
-        if code_to_color_map is not None:
-            colors = [code_to_color_map[val] for val in values]
+        if cat_to_color_map is not None:
+            colors = [cat_to_color_map[val] for val in values]
             colors = [
                 convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
                 for color in colors
@@ -330,7 +338,7 @@ class DrillLog:
                 opacity=1,
                 mode="markers",
                 name=name,
-                text=categories,
+                text=values,
                 hoverinfo="text",
                 marker={"color": colors},
                 legendgroup=name,

@@ -160,7 +160,7 @@ class HoleData:
             # create categorical color map
             self.cat_to_color_map[var] = {
                 cat: color
-                for cat, color in zip(self.cat_to_code_map[var].values(), colors)
+                for cat, color in zip(self.cat_to_code_map[var].keys(), colors)
             }
 
             # create encoded categorical color map
@@ -261,10 +261,8 @@ class Points(HoleData):
 
         for var in categorical_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
-            code_to_color_map = self.code_to_color_map.get(var, None)
-            log.add_categorical_point_data(
-                var, depths, values, self.code_to_cat_map[var], code_to_color_map
-            )
+            cat_to_color_map = self.cat_to_color_map.get(var, None)
+            log.add_categorical_point_data(var, depths, values, cat_to_color_map)
 
         for var in continuous_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
@@ -315,10 +313,9 @@ class Intervals(HoleData):
 
         for var in categorical_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
-            code_to_color_map = self.code_to_color_map.get(var, None)
-            log.add_categorical_interval_data(
-                var, from_to, values, self.code_to_cat_map[var], code_to_color_map
-            )
+            values = np.array([self.code_to_cat_map[var][val] for val in values])
+            cat_to_color_map = self.cat_to_color_map.get(var, None)
+            log.add_categorical_interval_data(var, from_to, values, cat_to_color_map)
 
         for var in continuous_vars:
             values = self.data[var]["values"][self.hole_ids == hole_id]
@@ -331,13 +328,8 @@ class Intervals(HoleData):
 
 
 class DrillHole:
-    def __init__(self, name, workspace=None):
-        self.name = name
-        if workspace == None:
-            self.workspace = Workspace()
-        else:
-            self.workspace = workspace
-
+    def __init__(self):
+        self.workspace = Workspace()
         self.hole_group = DrillholeGroup.create(self.workspace)
         self.vars = []
         self.categorical_interval_vars = []
@@ -347,9 +339,6 @@ class DrillHole:
 
         self.intervals = {}
         self.points = {}
-
-        self.hole_id_to_code_map = {}
-        self.code_to_hole_id_map = {}
 
         self.cat_to_code_map = {}
         self.code_to_cat_map = {}
@@ -381,7 +370,7 @@ class DrillHole:
             self.workspace,
             collar=self.collar,
             surveys=self.survey,
-            name=self.name,
+            name="",
             parent=self.hole_group,
         )
 
@@ -408,8 +397,6 @@ class DrillHole:
             return depths
 
     def _add_data(self, name, data):
-        self.hole_id_to_code_map[name] = data.hole_id_to_code_map
-        self.code_to_hole_id_map[name] = data.code_to_hole_id_map
         self.cat_to_code_map[name] = data.cat_to_code_map
         self.code_to_cat_map[name] = data.code_to_cat_map
         self.code_to_color_map[name] = data.code_to_color_map
@@ -479,9 +466,6 @@ class DrillHole:
 
         mesh.cell_data["from"] = from_to[:, 0]
         mesh.cell_data["to"] = from_to[:, 1]
-        mesh.cell_data["hole ID"] = [
-            intervals.hole_id_to_code_map[self.name]
-        ] * self.from_to.shape[0]
         mesh.cell_data["x"] = intermediate_depths[:, 0]
         mesh.cell_data["y"] = intermediate_depths[:, 1]
         mesh.cell_data["z"] = intermediate_depths[:, 2]
@@ -540,6 +524,7 @@ class DrillHole:
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
         p.add_intervals(
+            name,
             intervals_mesh,
             self.categorical_interval_vars,
             self.continuous_interval_vars,
@@ -566,6 +551,7 @@ class DrillHole:
         points_mesh = self.make_points_mesh(name)
         p = DrillDownPlotter()
         p.add_points(
+            name,
             points_mesh,
             self.categorical_point_vars,
             self.continuous_point_vars,
@@ -592,14 +578,22 @@ class DrillHole:
         p = DrillDownPlotter()
         p.add_collars(collar_mesh)
         p.add_surveys(survey_mesh)
+
+        intervals_name = list(self.intervals.keys())[0]
         p.add_intervals(
+            intervals_name,
             intervals_mesh,
             self.categorical_interval_vars,
             self.continuous_interval_vars,
             radius=10,
         )
+
+        points_name = list(self.points.keys())[0]
         p.add_points(
-            points_mesh, self.categorical_point_vars, self.continuous_point_vars
+            points_name,
+            points_mesh,
+            self.categorical_point_vars,
+            self.continuous_point_vars,
         )
 
         return p.show()
@@ -634,56 +628,51 @@ class DrillHole:
 
             # add interval data
             if self.intervals:
-                intervals = self.intervals[list(self.intervals.keys())[0]]
-                from_to = intervals.depths[intervals.hole_ids == self.name]
+                name = list(self.intervals.keys())[0]
+                intervals = self.intervals[name]
+                from_to = intervals.depths
 
                 for var in categorical_interval_vars:
-                    values = intervals.data[var]["values"][
-                        intervals.hole_ids == self.name
-                    ]
-                    code_to_color_map = self.code_to_color_map.get(var, None)
+                    cat_to_color_map = self.cat_to_color_map[name]
+                    values = intervals.data[var]["values"]
+                    values = np.array(
+                        [self.code_to_cat_map[name][var][val] for val in values]
+                    )
                     log.add_categorical_interval_data(
-                        var,
-                        from_to,
-                        values,
-                        intervals.code_to_cat_map[var],
-                        code_to_color_map,
+                        var, from_to, values, cat_to_color_map.get(var, None)
                     )
 
                 for var in continuous_interval_vars:
-                    values = intervals.data[var]["values"][
-                        intervals.hole_ids == self.name
-                    ]
+                    values = intervals.data[var]["values"]
 
                     log.add_continuous_interval_data(var, from_to, values)
 
             # add point data
             if self.points:
-                points = self.points[list(self.points.keys())[0]]
-                depths = points.depths[points.hole_ids == self.name]
+                name = list(self.points.keys())[0]
+                points = name
+                depths = points.depths
 
                 for var in categorical_point_vars:
-                    values = points.data[var]["values"][points.hole_ids == self.name]
-                    code_to_color_map = self.code_to_color_map.get(var, None)
+                    cat_to_color_map = self.cat_to_color_map[name]
+                    values = points.data[var]["values"]
+                    values = np.array(
+                        [self.code_to_cat_map[name][var][val] for val in values]
+                    )
                     log.add_categorical_point_data(
-                        var,
-                        depths,
-                        values,
-                        points.code_to_cat_map[var],
-                        code_to_color_map,
+                        var, depths, values, cat_to_color_map.get(var, None)
                     )
 
                 for var in continuous_point_vars:
                     pass
 
-            log.create_figure(y_axis_label="Depth (m)", title=self.name)
+            log.create_figure(y_axis_label="Depth (m)")
 
             return log.fig
 
 
 class DrillHoleGroup:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
         self._holes = {}
         self.vars = []
         self.categorical_interval_vars = []
@@ -736,7 +725,7 @@ class DrillHoleGroup:
 
     def _create_holes(self):
         for hole_id in self.hole_ids:
-            hole = DrillHole(hole_id, workspace=self.workspace)
+            hole = DrillHole()
 
             hole.add_collar(self.collars[self.collars[:, 0] == hole_id, 1:][0])
 
@@ -869,6 +858,9 @@ class DrillHoleGroup:
                         mesh[var] = data
                     else:
                         mesh.point_data[var] = data
+                mesh.point_data["hole ID"] = [
+                    points.hole_id_to_code_map[id]
+                ] * depths.shape[0]
                 if meshes is None:
                     meshes = mesh
                 else:
@@ -923,6 +915,7 @@ class DrillHoleGroup:
         intervals_mesh = self.make_intervals_mesh(name)
         p = DrillDownPlotter()
         p.add_intervals(
+            name,
             intervals_mesh,
             self.categorical_point_vars,
             self.continuous_point_vars,
@@ -949,6 +942,7 @@ class DrillHoleGroup:
         points_mesh = self.make_points_mesh(name)
         p = DrillDownPlotter()
         p.add_points(
+            name,
             points_mesh,
             self.categorical_point_vars,
             self.continuous_point_vars,
@@ -967,25 +961,43 @@ class DrillHoleGroup:
         return p.show()
 
     def show(self):
-        collars_mesh = self.make_collars_mesh()
-        surveys_mesh = self.make_surveys_mesh()
-        intervals_mesh = self.make_intervals_mesh(None)
-        points_mesh = self.make_points_mesh(None)
-
         p = DrillDownPlotter()
+
+        # add color-category and code-category maps
+        p.code_to_hole_id_map = self.code_to_hole_id_map
+        p.hole_id_to_code_map = self.hole_id_to_code_map
+        p.code_to_cat_map = self.code_to_cat_map
+        p.cat_to_code_map = self.cat_to_code_map
+        p.code_to_color_map = self.code_to_color_map
+        p.cat_to_color_map = self.cat_to_color_map
+        p.matplotlib_formatted_color_maps = self.matplotlib_formatted_color_maps
+        # create and add collars mesh
+        collars_mesh = self.make_collars_mesh()
         p.add_collars(collars_mesh)
-        p.add_surveys(
-            surveys_mesh,
-        )
-        p.add_intervals(
-            intervals_mesh,
-            self.categorical_interval_vars,
-            self.continuous_interval_vars,
-            radius=10,
-        )
-        p.add_points(
-            points_mesh, self.categorical_point_vars, self.continuous_point_vars
-        )
+
+        # create and add surveys mesh
+        surveys_mesh = self.make_surveys_mesh()
+        p.add_surveys(surveys_mesh)
+
+        # create and add intervals mesh(es)
+        for name in self.intervals.keys():
+            intervals_mesh = self.make_intervals_mesh(name)
+            p.add_intervals(
+                name,
+                intervals_mesh,
+                self.categorical_interval_vars,
+                self.continuous_interval_vars,
+            )
+
+        # create and add points mesh(es)
+        for name in self.points.keys():
+            points_mesh = self.make_points_mesh(name)
+            p.add_points(
+                name,
+                points_mesh,
+                self.categorical_point_vars,
+                self.continuous_point_vars,
+            )
 
         return p.show()
 
@@ -1020,20 +1032,23 @@ class DrillHoleGroup:
 
             # add interval data
             if self.intervals:
-                intervals = self.intervals[list(self.intervals.keys())[0]]
+                name = list(self.intervals.keys())[0]
+                intervals = self.intervals[name]
                 from_to = intervals.depths[intervals.hole_ids == hole_id]
 
                 for var in categorical_interval_vars:
+                    cat_to_color_map = self.cat_to_color_map[name]
                     values = intervals.data[var]["values"][
                         intervals.hole_ids == hole_id
                     ]
-                    code_to_color_map = self.code_to_color_map.get(var, None)
+                    values = np.array(
+                        [self.code_to_cat_map[name][var][val] for val in values]
+                    )
                     log.add_categorical_interval_data(
                         var,
                         from_to,
                         values,
-                        intervals.code_to_cat_map[var],
-                        code_to_color_map,
+                        cat_to_color_map.get(var, None),
                     )
 
                 for var in continuous_interval_vars:
@@ -1045,18 +1060,18 @@ class DrillHoleGroup:
 
             # add point data
             if self.points:
-                points = self.points[list(self.points.keys())[0]]
+                name = list(self.points.keys())[0]
+                points = self.points[name]
                 depths = points.depths[points.hole_ids == hole_id]
 
                 for var in categorical_point_vars:
+                    cat_to_color_map = self.cat_to_color_map[name]
                     values = points.data[var]["values"][points.hole_ids == hole_id]
-                    code_to_color_map = self.code_to_color_map.get(var, None)
+                    values = np.array(
+                        [self.code_to_cat_map[name][var][val] for val in values]
+                    )
                     log.add_categorical_point_data(
-                        var,
-                        depths,
-                        values,
-                        points.code_to_cat_map[var],
-                        code_to_color_map,
+                        var, depths, values, cat_to_color_map.get(var, None)
                     )
 
                 for var in continuous_point_vars:
