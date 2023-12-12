@@ -61,6 +61,11 @@ class DrillDownPlotter(Plotter):
         self.continuous_vars = {}
         self.all_vars = {}
 
+        self.categorical_interval_vars = []
+        self.continuous_interval_vars = []
+        self.categorical_point_vars = []
+        self.continuous_point_vars = []
+
         self.code_to_hole_id_map = None
         self.hole_id_to_code_map = None
         self.code_to_cat_map = None
@@ -246,6 +251,8 @@ class DrillDownPlotter(Plotter):
             increases selection speed but decreases selection accuracy. By default False
         """
         self.interval_actor_names.append(name)
+        self.categorical_interval_vars += categorical_vars
+        self.continuous_interval_vars += continuous_vars
         self.n_intervals[name] = mesh.n_lines
         if capping == True:
             self.cells_per_interval[name] = n_sides + 2
@@ -292,6 +299,8 @@ class DrillDownPlotter(Plotter):
         **kwargs,
     ):
         self.point_actor_names.append(name)
+        self.categorical_point_vars += categorical_vars
+        self.continuous_point_vars += continuous_vars
         self.n_points[name] = mesh.n_points
 
         actor = self.add_hole_data(
@@ -971,10 +980,7 @@ class DrillDownPlotter(Plotter):
 
     def selected_drill_log(
         self,
-        categorical_interval_vars=[],
-        continuous_interval_vars=[],
-        categorical_point_vars=[],
-        continuous_point_vars=[],
+        log_vars=[],
     ):
         interval_data = self.selected_interval_data()
         # point_data = self.selected_point_data()
@@ -982,32 +988,22 @@ class DrillDownPlotter(Plotter):
         hole_id = interval_data["hole ID"].unique()
         if len(hole_id) == 1:
             # check if no variables are passed; if so, use all variables
-            if any(
-                len(_) != 0
-                for _ in [
-                    categorical_interval_vars,
-                    continuous_interval_vars,
-                    categorical_point_vars,
-                    continuous_point_vars,
-                ]
-            ):
-                pass
-
-            else:
-                categorical_interval_vars = self.categorical_interval_vars
-                continuous_interval_vars = self.continuous_interval_vars
-                categorical_point_vars = self.categorical_point_vars
-                continuous_point_vars = self.continuous_point_vars
+            if len(log_vars) == 0:
+                interval_vars = (
+                    self.categorical_interval_vars + self.continuous_interval_vars
+                )
+                point_vars = self.categorical_point_vars + self.continuous_point_vars
+                log_vars = interval_vars + point_vars
 
             log = DrillLog()
 
             # add interval data
             depths = interval_data[["from", "to"]].values
 
-            for var in categorical_interval_vars:
+            for var in log_vars:
                 for name in self.interval_actor_names:
-                    cat_to_color_map = self.cat_to_color_map[name]
-                    if var in cat_to_color_map.keys():
+                    if var in self.categorical_vars[name]:
+                        cat_to_color_map = self.cat_to_color_map[name]
                         values = interval_data[var].values
                         log.add_categorical_interval_data(
                             var,
@@ -1015,13 +1011,38 @@ class DrillDownPlotter(Plotter):
                             values,
                             cat_to_color_map.get(var, None),
                         )
+
+                        exit_flag = True
                         break
 
-            for var in continuous_interval_vars:
-                values = interval_data[var].values
-                log.add_continuous_interval_data(var, depths, values)
+                    if var in self.continuous_vars[name]:
+                        values = interval_data[var].values
+                        log.add_continuous_interval_data(var, depths, values)
 
-            # add point data
+                        exit_flag = True
+                        break
+
+                    if exit_flag == True:
+                        break
+
+                # for name in self.point_actor_names:
+                #     if var in self.categorical_vars[name]:
+                #         cat_to_color_map = self.cat_to_color_map[name]
+                #         values = point_data[var].values
+                #         log.add_categorical_point_data(
+                #             var, depths, values, cat_to_color_map.get(var, None)
+                #         )
+                #         exit_flag = True
+                #         break
+
+                #     if var in self.continuous_vars[name]:
+                #         values = point_data[var].values
+                #         log.add_continuous_point_data(var, depths, values)
+                #         exit_flag = True
+                #         break
+
+                #     if exit_flag == True:
+                #         break
 
             log.create_figure(y_axis_label="Depth (m)", title=hole_id[0])
 

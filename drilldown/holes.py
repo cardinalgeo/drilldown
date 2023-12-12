@@ -244,30 +244,30 @@ class Points(HoleData):
             construct_categorical_cmap=construct_categorical_cmap,
         )
 
-    def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
+    def drill_log(self, hole_id, log_vars=[]):
         if self.construct_categorical_cmap == True:
             # ensure that color maps exist for categorical vars
             self._construct_categorical_cmap()
 
         log = DrillLog()
 
-        if categorical_vars is None:
-            categorical_vars = self.categorical_vars
-
-        if continuous_vars is None:
-            continuous_vars = self.continuous_vars
-
         depths = self.depths[self.hole_ids == hole_id]
 
-        for var in categorical_vars:
-            values = self.data[var]["values"][self.hole_ids == hole_id]
-            cat_to_color_map = self.cat_to_color_map.get(var, None)
-            log.add_categorical_point_data(var, depths, values, cat_to_color_map)
+        if isinstance(log_vars, str):
+            log_vars = [log_vars]
+        if len(log_vars) == 0:
+            log_vars = self.categorical_vars + self.continuous_vars
 
-        for var in continuous_vars:
-            values = self.data[var]["values"][self.hole_ids == hole_id]
+        for var in log_vars:
+            if var in self.categorical_vars:
+                values = self.data[var]["values"][self.hole_ids == hole_id]
+                cat_to_color_map = self.cat_to_color_map.get(var, None)
+                log.add_categorical_point_data(var, depths, values, cat_to_color_map)
 
-            log.add_continuous_point_data(var, depths, values)
+            elif var in self.continuous_vars:
+                values = self.data[var]["values"][self.hole_ids == hole_id]
+
+                log.add_continuous_point_data(var, depths, values)
 
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
@@ -296,31 +296,33 @@ class Intervals(HoleData):
             construct_categorical_cmap=construct_categorical_cmap,
         )
 
-    def drill_log(self, hole_id, categorical_vars=None, continuous_vars=None):
+    def drill_log(self, hole_id, log_vars=[]):
         if self.construct_categorical_cmap == True:
             # ensure that color maps exist for categorical vars
             self._construct_categorical_cmap()
 
         log = DrillLog()
 
-        if categorical_vars is None:
-            categorical_vars = self.categorical_vars
-
-        if continuous_vars is None:
-            continuous_vars = self.continuous_vars
-
         from_to = self.depths[self.hole_ids == hole_id]
 
-        for var in categorical_vars:
-            values = self.data[var]["values"][self.hole_ids == hole_id]
-            values = np.array([self.code_to_cat_map[var][val] for val in values])
-            cat_to_color_map = self.cat_to_color_map.get(var, None)
-            log.add_categorical_interval_data(var, from_to, values, cat_to_color_map)
+        if isinstance(log_vars, str):
+            log_vars = [log_vars]
+        if len(log_vars) == 0:
+            log_vars = self.categorical_vars + self.continuous_vars
 
-        for var in continuous_vars:
-            values = self.data[var]["values"][self.hole_ids == hole_id]
+        for var in log_vars:
+            if var in self.categorical_vars:
+                values = self.data[var]["values"][self.hole_ids == hole_id]
+                values = np.array([self.code_to_cat_map[var][val] for val in values])
+                cat_to_color_map = self.cat_to_color_map.get(var, None)
+                log.add_categorical_interval_data(
+                    var, from_to, values, cat_to_color_map
+                )
 
-            log.add_continuous_interval_data(var, from_to, values)
+            elif var in self.continuous_vars:
+                values = self.data[var]["values"][self.hole_ids == hole_id]
+
+                log.add_continuous_interval_data(var, from_to, values)
 
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
@@ -598,73 +600,68 @@ class DrillHole:
 
         return p.show()
 
-    def drill_log(
-        self,
-        categorical_interval_vars=[],
-        continuous_interval_vars=[],
-        categorical_point_vars=[],
-        continuous_point_vars=[],
-    ):
+    def drill_log(self, log_vars=[]):
         if self.intervals or self.points:  # ensure there is data to plot
             log = DrillLog()
+            if len(log_vars) == 0:
+                interval_vars = (
+                    self.categorical_interval_vars + self.continuous_interval_vars
+                )
+                point_vars = self.categorical_point_vars + self.continuous_point_vars
+                log_vars = interval_vars + point_vars
 
-            # check if no variables are passed; if so, use all variables
-            if any(
-                len(_) != 0
-                for _ in [
-                    categorical_interval_vars,
-                    continuous_interval_vars,
-                    categorical_point_vars,
-                    continuous_point_vars,
-                ]
-            ):
-                pass
+            for var in log_vars:
+                for name in self.intervals.keys():
+                    intervals = self.intervals[name]
+                    from_to = intervals.depths
+                    if var in intervals.categorical_vars:
+                        cat_to_color_map = self.cat_to_color_map[name]
+                        values = intervals.data[var]["values"]
+                        values = np.array(
+                            [self.code_to_cat_map[name][var][val] for val in values]
+                        )
+                        log.add_categorical_interval_data(
+                            var,
+                            from_to,
+                            values,
+                            cat_to_color_map.get(var, None),
+                        )
 
-            else:
-                categorical_interval_vars = self.categorical_interval_vars
-                continuous_interval_vars = self.continuous_interval_vars
-                categorical_point_vars = self.categorical_point_vars
-                continuous_point_vars = self.continuous_point_vars
+                        exit_flag = True
+                        break
 
-            # add interval data
-            if self.intervals:
-                name = list(self.intervals.keys())[0]
-                intervals = self.intervals[name]
-                from_to = intervals.depths
+                    elif var in intervals.continuous_vars:
+                        values = intervals.data[var]["values"]
 
-                for var in categorical_interval_vars:
-                    cat_to_color_map = self.cat_to_color_map[name]
-                    values = intervals.data[var]["values"]
-                    values = np.array(
-                        [self.code_to_cat_map[name][var][val] for val in values]
-                    )
-                    log.add_categorical_interval_data(
-                        var, from_to, values, cat_to_color_map.get(var, None)
-                    )
+                        log.add_continuous_interval_data(var, from_to, values)
 
-                for var in continuous_interval_vars:
-                    values = intervals.data[var]["values"]
+                        exit_flag = True
+                        break
 
-                    log.add_continuous_interval_data(var, from_to, values)
+                    if exit_flag == True:
+                        break
 
-            # add point data
-            if self.points:
-                name = list(self.points.keys())[0]
-                points = name
-                depths = points.depths
+                for name in self.points.keys():
+                    points = self.points[name]
+                    depths = points.depths
+                    if var in points.categorical_vars:
+                        cat_to_color_map = self.cat_to_color_map[name]
+                        values = points.data[var]["values"]
+                        values = np.array(
+                            [self.code_to_cat_map[name][var][val] for val in values]
+                        )
+                        log.add_categorical_point_data(
+                            var, depths, values, cat_to_color_map.get(var, None)
+                        )
 
-                for var in categorical_point_vars:
-                    cat_to_color_map = self.cat_to_color_map[name]
-                    values = points.data[var]["values"]
-                    values = np.array(
-                        [self.code_to_cat_map[name][var][val] for val in values]
-                    )
-                    log.add_categorical_point_data(
-                        var, depths, values, cat_to_color_map.get(var, None)
-                    )
+                        exit_flag = True
+                        break
 
-                for var in continuous_point_vars:
-                    pass
+                    elif var in self.continuous_point_vars:
+                        pass
+
+                    if exit_flag == True:
+                        break
 
             log.create_figure(y_axis_label="Depth (m)")
 
@@ -1004,78 +1001,73 @@ class DrillHoleGroup:
     def drill_log(
         self,
         hole_id,
-        categorical_interval_vars=[],
-        continuous_interval_vars=[],
-        categorical_point_vars=[],
-        continuous_point_vars=[],
+        log_vars=[],
     ):
         if self.intervals or self.points:  # ensure there is data to plot
             log = DrillLog()
+            if len(log_vars) == 0:
+                interval_vars = (
+                    self.categorical_interval_vars + self.continuous_interval_vars
+                )
+                point_vars = self.categorical_point_vars + self.continuous_point_vars
+                log_vars = interval_vars + point_vars
 
-            # check if no variables are passed; if so, use all variables
-            if any(
-                len(_) != 0
-                for _ in [
-                    categorical_interval_vars,
-                    continuous_interval_vars,
-                    categorical_point_vars,
-                    continuous_point_vars,
-                ]
-            ):
-                pass
+            for var in log_vars:
+                for name in self.intervals.keys():
+                    intervals = self.intervals[name]
+                    from_to = intervals.depths[intervals.hole_ids == hole_id]
+                    if var in intervals.categorical_vars:
+                        cat_to_color_map = self.cat_to_color_map[name]
+                        values = intervals.data[var]["values"][
+                            intervals.hole_ids == hole_id
+                        ]
+                        values = np.array(
+                            [self.code_to_cat_map[name][var][val] for val in values]
+                        )
+                        log.add_categorical_interval_data(
+                            var,
+                            from_to,
+                            values,
+                            cat_to_color_map.get(var, None),
+                        )
 
-            else:
-                categorical_interval_vars = self.categorical_interval_vars
-                continuous_interval_vars = self.continuous_interval_vars
-                categorical_point_vars = self.categorical_point_vars
-                continuous_point_vars = self.continuous_point_vars
+                        exit_flag = True
+                        break
 
-            # add interval data
-            if self.intervals:
-                name = list(self.intervals.keys())[0]
-                intervals = self.intervals[name]
-                from_to = intervals.depths[intervals.hole_ids == hole_id]
+                    elif var in intervals.continuous_vars:
+                        values = intervals.data[var]["values"][
+                            intervals.hole_ids == hole_id
+                        ]
 
-                for var in categorical_interval_vars:
-                    cat_to_color_map = self.cat_to_color_map[name]
-                    values = intervals.data[var]["values"][
-                        intervals.hole_ids == hole_id
-                    ]
-                    values = np.array(
-                        [self.code_to_cat_map[name][var][val] for val in values]
-                    )
-                    log.add_categorical_interval_data(
-                        var,
-                        from_to,
-                        values,
-                        cat_to_color_map.get(var, None),
-                    )
+                        log.add_continuous_interval_data(var, from_to, values)
 
-                for var in continuous_interval_vars:
-                    values = intervals.data[var]["values"][
-                        intervals.hole_ids == hole_id
-                    ]
+                        exit_flag = True
+                        break
 
-                    log.add_continuous_interval_data(var, from_to, values)
+                    if exit_flag == True:
+                        break
 
-            # add point data
-            if self.points:
-                name = list(self.points.keys())[0]
-                points = self.points[name]
-                depths = points.depths[points.hole_ids == hole_id]
+                for name in self.points.keys():
+                    points = self.points[name]
+                    depths = points.depths[points.hole_ids == hole_id]
+                    if var in points.categorical_vars:
+                        cat_to_color_map = self.cat_to_color_map[name]
+                        values = points.data[var]["values"][points.hole_ids == hole_id]
+                        values = np.array(
+                            [self.code_to_cat_map[name][var][val] for val in values]
+                        )
+                        log.add_categorical_point_data(
+                            var, depths, values, cat_to_color_map.get(var, None)
+                        )
 
-                for var in categorical_point_vars:
-                    cat_to_color_map = self.cat_to_color_map[name]
-                    values = points.data[var]["values"][points.hole_ids == hole_id]
-                    values = np.array(
-                        [self.code_to_cat_map[name][var][val] for val in values]
-                    )
-                    log.add_categorical_point_data(
-                        var, depths, values, cat_to_color_map.get(var, None)
-                    )
+                        exit_flag = True
+                        break
 
-                for var in continuous_point_vars:
-                    pass
+                    elif var in self.continuous_point_vars:
+                        pass
+
+                    if exit_flag == True:
+                        break
 
             log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
