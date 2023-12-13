@@ -40,7 +40,6 @@ class DrillDownPlotter(Plotter):
         super().__init__(*args, **kwargs)
 
         self.height = 600
-        self.translate_by = None
         self.set_background("white")
         self.enable_trackball_style()
         vtkMapper.SetResolveCoincidentTopologyToPolygonOffset()
@@ -112,7 +111,7 @@ class DrillDownPlotter(Plotter):
             side="left", callback=self._reset_selection, double=True
         )
 
-    def add_mesh(self, name, mesh, pickable=False, *args, **kwargs):
+    def add_mesh(self, mesh, name=None, pickable=False, *args, **kwargs):
         """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene.
 
         Parameters
@@ -136,9 +135,6 @@ class DrillDownPlotter(Plotter):
         """
 
         self._meshes[name] = mesh
-        if self.translate_by is None:
-            self.translate_by = [-1 * val for val in mesh.center]
-        mesh = mesh.translate(self.translate_by)
 
         actor = super(DrillDownPlotter, self).add_mesh(
             mesh, name=name, pickable=pickable, show_scalar_bar=False, *args, **kwargs
@@ -146,29 +142,28 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_collars(self, mesh, *args, **kwargs):
-        name = "collars"
+    def add_collars(self, mesh, name="collars", show_hole_IDs=True, *args, **kwargs):
         actor = self.add_mesh(
-            name,
             mesh,
+            name,
             render_points_as_spheres=True,
             point_size=10,
             *args,
             **kwargs,
         )
-
+        if show_hole_IDs == True:
+            self.add_point_labels(mesh, mesh["hole ID"], shape_opacity=0.5)
         return actor
 
-    def add_surveys(self, mesh, *args, **kwargs):
-        name = "surveys"
-        actor = self.add_mesh(name, mesh, *args, **kwargs)
+    def add_surveys(self, mesh, name="surveys", *args, **kwargs):
+        actor = self.add_mesh(mesh, name, *args, **kwargs)
 
         return actor
 
     def add_hole_data(
         self,
-        name,
         mesh,
+        name=None,
         categorical_vars=[],
         continuous_vars=[],
         selectable=True,
@@ -187,7 +182,7 @@ class DrillDownPlotter(Plotter):
 
         self.nan_opacity = nan_opacity
 
-        actor = self.add_mesh(name, mesh, pickable=selectable, *args, **kwargs)
+        actor = self.add_mesh(mesh, name, pickable=selectable, *args, **kwargs)
         if active_var is None:  # default to first variable
             self.active_var = (name, self.all_vars[name][0])
         else:
@@ -204,8 +199,8 @@ class DrillDownPlotter(Plotter):
 
     def add_intervals(
         self,
-        name,
         mesh,
+        name=None,
         categorical_vars=[],
         continuous_vars=[],
         selectable=True,
@@ -261,8 +256,8 @@ class DrillDownPlotter(Plotter):
 
         mesh = mesh.tube(radius=radius, n_sides=n_sides, capping=capping)
         actor = self.add_hole_data(
-            name,
             mesh,
+            name,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             selectable=selectable,
@@ -283,8 +278,8 @@ class DrillDownPlotter(Plotter):
 
     def add_points(
         self,
-        name,
         mesh,
+        name=None,
         categorical_vars=[],
         continuous_vars=[],
         point_size=10,
@@ -304,8 +299,8 @@ class DrillDownPlotter(Plotter):
         self.n_points[name] = mesh.n_points
 
         actor = self.add_hole_data(
-            name,
             mesh,
+            name,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             point_size=point_size,
@@ -326,7 +321,7 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_holes(self, holes, *args, **kwargs):
+    def add_holes(self, holes, name=None, *args, **kwargs):
         # add color-category and code-category maps
         self.code_to_hole_id_map = holes.code_to_hole_id_map
         self.hole_id_to_code_map = holes.hole_id_to_code_map
@@ -348,8 +343,8 @@ class DrillDownPlotter(Plotter):
         for name in holes.intervals.keys():
             intervals_mesh = holes.make_intervals_mesh(name)
             self.add_intervals(
-                name,
                 intervals_mesh,
+                name,
                 holes.categorical_interval_vars,
                 holes.continuous_interval_vars,
             )
@@ -358,8 +353,8 @@ class DrillDownPlotter(Plotter):
         for name in holes.points.keys():
             points_mesh = holes.make_points_mesh(name)
             self.add_points(
-                name,
                 points_mesh,
+                name,
                 holes.categorical_point_vars,
                 holes.continuous_point_vars,
             )
@@ -623,8 +618,8 @@ class DrillDownPlotter(Plotter):
         self.selection_mesh = selection_mesh
 
         selection_actor = self.add_mesh(
-            selection_name,
             selection_mesh,
+            selection_name,
             scalars=self.active_var[name],
             cmap=self.cmap[name],
             clim=self.cmap_range[name],
@@ -642,8 +637,8 @@ class DrillDownPlotter(Plotter):
         selection_mesh = mesh.extract_points(selected_points)
         self.selection_mesh = selection_mesh
         selection_actor = self.add_mesh(
-            selection_name,
             selection_mesh,
+            selection_name,
             point_size=10,
             render_points_as_spheres=True,
             scalars=self.active_var[name],
@@ -1088,7 +1083,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             self.ctrls, self.iframe(sizing_mode="stretch_both"), height=self.height
         )
 
-    def add_mesh(self, name, mesh, add_show_widgets=True, *args, **kwargs):
+    def add_mesh(self, mesh, name=None, add_show_widgets=True, *args, **kwargs):
         """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene and corresponding widgets to the GUI.
 
         Parameters
@@ -1110,7 +1105,9 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             Actor of the mesh.
 
         """
-        actor = super(DrillDownPanelPlotter, self).add_mesh(name, mesh, *args, **kwargs)
+        actor = super(DrillDownPanelPlotter, self).add_mesh(
+            mesh, name=name, *args, **kwargs
+        )
 
         if name == self.selection_actor_name:
             add_show_widgets = False
@@ -1145,8 +1142,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def add_hole_data(
         self,
-        name,
         mesh,
+        name=None,
         categorical_vars=[],
         continuous_vars=[],
         selectable=True,
@@ -1160,8 +1157,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         **kwargs,
     ):
         actor = super(DrillDownPanelPlotter, self).add_hole_data(
-            name,
             mesh,
+            name=name,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             selectable=selectable,
@@ -1181,8 +1178,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def add_intervals(
         self,
-        name,
         mesh,
+        name=None,
         categorical_vars=[],
         continuous_vars=[],
         active_var=None,
@@ -1206,8 +1203,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         """
 
         super(DrillDownPanelPlotter, self).add_intervals(
-            name,
             mesh,
+            name=name,
             active_var=active_var,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
@@ -1225,8 +1222,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def add_points(
         self,
-        name,
         mesh,
+        name=None,
         categorical_vars=[],
         continuous_vars=[],
         point_size=10,
@@ -1241,8 +1238,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         **kwargs,
     ):
         super(DrillDownPanelPlotter, self).add_points(
-            name,
             mesh,
+            name=name,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             point_size=point_size,
