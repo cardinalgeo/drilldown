@@ -47,6 +47,8 @@ class DrillDownPlotter(Plotter):
         self._meshes = {}
         self.interval_actors = {}
         self.point_actors = {}
+        self.collar_actors = {}
+        self.survey_actor = None
         self.interval_actor_names = []
         self.point_actor_names = []
 
@@ -72,6 +74,8 @@ class DrillDownPlotter(Plotter):
         self.code_to_color_map = None
         self.cat_to_color_map = None
         self.matplotlib_formatted_color_maps = None
+
+        self._show_collar_labels = True
 
         self._visibility = {}
         self._opacity = {}
@@ -142,24 +146,33 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_collars(self, mesh, name="collars", show_hole_IDs=True, *args, **kwargs):
+    def add_collars(
+        self, mesh, name="collars", show_labels=True, selectable=True, *args, **kwargs
+    ):
         actor = self.add_mesh(
             mesh,
             name,
             render_points_as_spheres=True,
             point_size=10,
+            pickable=selectable,
             *args,
             **kwargs,
         )
-        if show_hole_IDs == True:
-            self.add_point_labels(
+        self.collar_actor = actor
+        if show_labels == True:
+            label_actor = self.add_point_labels(
                 mesh, mesh["hole ID"], shape_opacity=0.5, show_points=False
             )
-        return actor
+            self.collar_label_actor = label_actor
+
+            return actor, label_actor
+
+        else:
+            return actor
 
     def add_surveys(self, mesh, name="surveys", *args, **kwargs):
         actor = self.add_mesh(mesh, name, *args, **kwargs)
-
+        self.survey_actor = actor
         return actor
 
     def add_hole_data(
@@ -852,6 +865,20 @@ class DrillDownPlotter(Plotter):
         elif len(filter) == self.n_points[name]:  # filter entire dataset
             self._selected_points = np.arange(self.n_points[name])[self.point_filter]
             self._update_selection_object(name)
+
+    @property
+    def show_collar_labels(self):
+        return self._collar_labels_visible
+
+    @show_collar_labels.setter
+    def show_collar_labels(self, visible):
+        self._collar_labels_visible = visible
+        if visible == True:
+            self.add_actor(
+                self.collar_label_actor, name="collar labels", reset_camera=False
+            )
+        elif visible == False:
+            self.remove_actor(self.collar_label_actor)
 
     def process_data_output(self, name, indices, step=1):
         holes_mesh = self._meshes[name]
