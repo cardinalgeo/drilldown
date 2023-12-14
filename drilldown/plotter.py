@@ -152,7 +152,9 @@ class DrillDownPlotter(Plotter):
             **kwargs,
         )
         if show_hole_IDs == True:
-            self.add_point_labels(mesh, mesh["hole ID"], shape_opacity=0.5)
+            self.add_point_labels(
+                mesh, mesh["hole ID"], shape_opacity=0.5, show_points=False
+            )
         return actor
 
     def add_surveys(self, mesh, name="surveys", *args, **kwargs):
