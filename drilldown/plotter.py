@@ -147,18 +147,30 @@ class DrillDownPlotter(Plotter):
         return actor
 
     def add_collars(
-        self, mesh, name="collars", show_labels=True, selectable=True, *args, **kwargs
+        self,
+        mesh,
+        name="collars",
+        show_labels=True,
+        selectable=True,
+        selection_color="magenta",
+        accelerated_selection=False,
+        *args,
+        **kwargs,
     ):
         actor = self.add_mesh(
             mesh,
             name,
             render_points_as_spheres=True,
-            point_size=10,
+            point_size=15,
             pickable=selectable,
             *args,
             **kwargs,
         )
         self.collar_actor = actor
+
+        if selectable == True:
+            self._make_selectable(actor, selection_color, accelerated_selection)
+
         if show_labels == True:
             label_actor = self.add_point_labels(
                 mesh, mesh["hole ID"], shape_opacity=0.5, show_points=False
@@ -395,6 +407,10 @@ class DrillDownPlotter(Plotter):
             picker = self._make_points_selectable(actor, accelerated_selection)
             self.pickers[name] = picker
 
+        elif name == "collars":
+            picker = self._make_points_selectable(actor, accelerated_selection)
+            self.pickers[name] = picker
+
     def _make_intervals_selectable(self, actor, accelerated_selection=False):
         # set cell picker
         cell_picker = vtkCellPicker()
@@ -415,9 +431,9 @@ class DrillDownPlotter(Plotter):
         return cell_picker
 
     def _make_points_selectable(self, actor, accelerated_selection=False):
-        # set cell picker
+        # set point picker
         point_picker = vtkPointPicker()
-        point_picker.SetTolerance(0.0005)
+        point_picker.SetTolerance(0.005)
 
         if accelerated_selection == True:
             # add locator for acceleration
@@ -442,11 +458,26 @@ class DrillDownPlotter(Plotter):
             name = picked_actor.name
             if name in self.interval_actor_names:
                 self._make_intervals_selection(name, pos)
-                self._update_selection_object(name)
+                self._update_data_selection_object(name)
 
-            if name in self.point_actor_names:
+            elif name in self.point_actor_names:
                 self._make_points_selection(name, pos)
-                self._update_selection_object(name)
+                self._update_data_selection_object(name)
+
+            elif name == "collars":
+                self._make_collars_selection(pos)
+                self._update_collar_selection_object(name)
+
+    def _make_collars_selection(self, pos):
+        point_picker = self.pickers["collars"]
+        point_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
+        picked_point = point_picker.GetPointId()
+        if picked_point is not None:
+            if picked_point == -1:
+                return
+
+            self._make_single_point_selection("collars", picked_point)
+            self._picked_point = picked_point
 
     def _make_intervals_selection(self, name, pos):
         cell_picker = self.pickers[name]
@@ -553,6 +584,15 @@ class DrillDownPlotter(Plotter):
     def _make_continuous_multi_point_selection(self, name, picked_point):
         pass  # not trivial as cell IDs are not inherently sequential along hole
 
+    def _reset_collar_selection(self):
+        self._picked_point = None
+        self._selected_points = []
+        print("resetting collar selection")
+        self.remove_actor(self.selection_actor)
+        self.selection_actor = None
+        self.selection_actor_name = None
+        self.point_selection_actor = None
+
     def _reset_interval_selection(self):
         self._picked_cell = None
         self._selected_intervals = []
@@ -594,8 +634,32 @@ class DrillDownPlotter(Plotter):
         else:
             self._reset_interval_selection()
             self._reset_point_selection()
+        self._reset_collar_selection()
 
-    def _update_selection_object(self, name):
+    def _update_collar_selection_object(self, name):
+        selection_name = "collars selection"
+
+        mesh = self._meshes[name]
+        selected_points = self._selected_points
+        selection_mesh = mesh.extract_points(selected_points)
+        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
+            self.selection_mesh = selection_mesh
+            selection_actor = self.add_mesh(
+                selection_mesh,
+                selection_name,
+                point_size=20,
+                render_points_as_spheres=True,
+                color=self.selection_color[name],
+                reset_camera=False,
+                pickable=False,
+            )
+            self.selection_actor = selection_actor
+
+            self.selected_hole_ids = selection_mesh["hole ID"]
+
+            return selection_actor
+
+    def _update_data_selection_object(self, name):
         selection_name = name + " selection"
         self.selection_actor_name = selection_name
 
@@ -630,18 +694,19 @@ class DrillDownPlotter(Plotter):
         mesh = self._meshes[name]
         selected_cells = self._selected_cells
         selection_mesh = mesh.extract_cells(selected_cells)
-        self.selection_mesh = selection_mesh
+        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
+            self.selection_mesh = selection_mesh
 
-        selection_actor = self.add_mesh(
-            selection_mesh,
-            selection_name,
-            scalars=self.active_var[name],
-            cmap=self.cmap[name],
-            clim=self.cmap_range[name],
-            reset_camera=False,
-            pickable=False,
-        )
-        return selection_actor
+            selection_actor = self.add_mesh(
+                selection_mesh,
+                selection_name,
+                scalars=self.active_var[name],
+                cmap=self.cmap[name],
+                clim=self.cmap_range[name],
+                reset_camera=False,
+                pickable=False,
+            )
+            return selection_actor
 
     def _update_point_selection_object(self, name):
         selection_name = name + " selection"
@@ -650,19 +715,20 @@ class DrillDownPlotter(Plotter):
         mesh = self._meshes[name]
         selected_points = self._selected_points
         selection_mesh = mesh.extract_points(selected_points)
-        self.selection_mesh = selection_mesh
-        selection_actor = self.add_mesh(
-            selection_mesh,
-            selection_name,
-            point_size=10,
-            render_points_as_spheres=True,
-            scalars=self.active_var[name],
-            cmap=self.cmap[name],
-            clim=self.cmap_range[name],
-            reset_camera=False,
-            pickable=False,
-        )
-        return selection_actor
+        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
+            self.selection_mesh = selection_mesh
+            selection_actor = self.add_mesh(
+                selection_mesh,
+                selection_name,
+                point_size=10,
+                render_points_as_spheres=True,
+                scalars=self.active_var[name],
+                cmap=self.cmap[name],
+                clim=self.cmap_range[name],
+                reset_camera=False,
+                pickable=False,
+            )
+            return selection_actor
 
     @property
     def active_var(self):
@@ -811,7 +877,7 @@ class DrillDownPlotter(Plotter):
         self._selected_intervals = intervals
         self._selected_cells = interval_cells
 
-        self._update_selection_object(name)
+        self._update_data_selection_object(name)
 
     @property
     def data_filter(self):
@@ -838,7 +904,7 @@ class DrillDownPlotter(Plotter):
         if len(filter) == len(self._selected_intervals):  # filter only selection
             self._selected_intervals = self._selected_intervals[self._interval_filter]
             self._selected_cells = self._selected_cells[self._interval_cells_filter]
-            self._update_selection_object(name)
+            self._update_data_selection_object(name)
 
         elif len(filter) == self.n_intervals[name]:  # filter entire dataset
             self._selected_intervals = np.arange(self.n_intervals[name])[
@@ -847,7 +913,7 @@ class DrillDownPlotter(Plotter):
             self._selected_cells = np.arange(
                 self.n_intervals[name] * self.cells_per_interval[name]
             )[self._interval_cells_filter]
-            self._update_selection_object(name)
+            self._update_data_selection_object(name)
 
     @property
     def point_filter(self):
@@ -860,11 +926,11 @@ class DrillDownPlotter(Plotter):
 
         if len(filter) == len(self._selected_points):  # filter only selection
             self._selected_points = self._selected_points[self._point_filter]
-            self._update_selection_object(name)
+            self._update_data_selection_object(name)
 
         elif len(filter) == self.n_points[name]:  # filter entire dataset
             self._selected_points = np.arange(self.n_points[name])[self.point_filter]
-            self._update_selection_object(name)
+            self._update_data_selection_object(name)
 
     @property
     def show_collar_labels(self):
