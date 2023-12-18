@@ -469,6 +469,7 @@ class DrillDownPlotter(Plotter):
                 self._update_collar_selection_object(name)
 
     def _make_collars_selection(self, pos):
+        self.actors["intervals"].SetPickable(False)
         point_picker = self.pickers["collars"]
         point_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
         picked_point = point_picker.GetPointId()
@@ -478,6 +479,7 @@ class DrillDownPlotter(Plotter):
 
             self._make_single_point_selection("collars", picked_point)
             self._picked_point = picked_point
+        self.actors["intervals"].SetPickable(True)
 
     def _make_intervals_selection(self, name, pos):
         cell_picker = self.pickers[name]
@@ -587,7 +589,6 @@ class DrillDownPlotter(Plotter):
     def _reset_collar_selection(self):
         self._picked_point = None
         self._selected_points = []
-        print("resetting collar selection")
         self.remove_actor(self.selection_actor)
         self.selection_actor = None
         self.selection_actor_name = None
@@ -656,7 +657,6 @@ class DrillDownPlotter(Plotter):
             self.selection_actor = selection_actor
 
             self.selected_hole_ids = selection_mesh["hole ID"]
-
             return selection_actor
 
     def _update_data_selection_object(self, name):
@@ -673,9 +673,10 @@ class DrillDownPlotter(Plotter):
 
         self.selection_actor = selection_actor
 
-        selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
-            0, -5
-        )
+        if selection_actor is not None:
+            selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
+                0, -5
+            )
 
         # update non-selected
         self.actors[name].prop.opacity = 0.1
