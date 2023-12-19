@@ -29,6 +29,7 @@ from functools import partial
 
 from pyvista.trame.jupyter import show_trame
 from .drill_log import DrillLog
+from .image import ImageViewer
 
 
 class DrillDownPlotter(Plotter):
@@ -1138,6 +1139,16 @@ class DrillDownPlotter(Plotter):
             log.create_figure(y_axis_label="Depth (m)", title=hole_id[0])
 
             return log.fig
+
+    def selected_sample_image(self):
+        data = self.selected_point_data()
+        filename = data["image_filename"].values[0]
+        viewer = ImageViewer()
+        viewer.set_directory_path(
+            "/Users/robertcollar/Documents/CACB_Field_Work_2022/sample_photos/pyramids"
+        )
+
+        return viewer.view_image(filename)
 
     def iframe(self, w="100%", h=None):
         if h is None:
