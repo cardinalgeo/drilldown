@@ -775,7 +775,12 @@ class DrillDownPlotter(Plotter):
         for name in self.interval_actor_names + self.point_actor_names:
             self.actors[name].prop.opacity = 1
 
-        self.remove_actor(self.interval_filter_actor)
+        if self.interval_filter_actor is not None:
+            self.remove_actor(self.interval_filter_actor)
+            self.actors[
+                self.interval_filter_actor_name.replace(" filter", "")
+            ].SetPickable(True)
+
         self.filter_actor = None
         self.filter_actor_name = None
         self.interval_filter_actor = None
@@ -787,7 +792,12 @@ class DrillDownPlotter(Plotter):
         for name in self.interval_actor_names + self.point_actor_names:
             self.actors[name].prop.opacity = 1
 
-        self.remove_actor(self.selection_actor)
+        if self.point_filter_actor is not None:
+            self.remove_actor(self.selection_actor)
+            self.actors[
+                self.point_filter_actor_name.replace(" filter", "")
+            ].SetPickable(True)
+
         self.filter_actor = None
         self.filter_actor_name = None
         self.point_filter_actor = None
