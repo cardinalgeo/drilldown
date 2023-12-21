@@ -505,6 +505,7 @@ class DrillDownPlotter(Plotter):
                 selection_on_filter = False
 
             if name in self.interval_actor_names:
+                self._reset_point_selection()
                 self._make_intervals_selection(
                     name, pos, selection_on_filter=selection_on_filter
                 )
@@ -512,9 +513,8 @@ class DrillDownPlotter(Plotter):
                     name, selection_on_filter=selection_on_filter
                 )
 
-            elif (name in self.point_actor_names) or (
-                name == self.point_filter_actor_name
-            ):
+            elif name in self.point_actor_names:
+                self._reset_interval_selection()
                 self._make_points_selection(
                     name, pos, selection_on_filter=selection_on_filter
                 )
@@ -739,6 +739,7 @@ class DrillDownPlotter(Plotter):
 
         self.remove_actor(self.selection_actor)
         self.selection_actor = None
+        self.selection_mesh = None
         self.selection_actor_name = None
         self.interval_selection_actor = None
         self.interval_selection_actor_name = None
@@ -749,6 +750,7 @@ class DrillDownPlotter(Plotter):
 
         self.remove_actor(self.selection_actor)
         self.selection_actor = None
+        self.selection_mesh = None
         self.selection_actor_name = None
         self.point_selection_actor = None
         self.point_selection_actor_name = None
@@ -974,6 +976,9 @@ class DrillDownPlotter(Plotter):
             )
             self.point_selection_actor = selection_actor
 
+        else:
+            return
+
         self.selection_actor = selection_actor
 
         if selection_actor is not None:
@@ -981,11 +986,11 @@ class DrillDownPlotter(Plotter):
                 0, -6
             )
 
-        # update selected holes
-        self._selected_hole_ids = [
-            self.code_to_hole_id_map[name][id]
-            for id in np.unique(self.selection_mesh["hole ID"])
-        ]
+            # update selected holes
+            self._selected_hole_ids = [
+                self.code_to_hole_id_map[name][id]
+                for id in np.unique(self.selection_mesh["hole ID"])
+            ]
         self.render()
 
     def _update_interval_selection_object(self, name, selection_on_filter=False):
