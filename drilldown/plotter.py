@@ -126,7 +126,7 @@ class DrillDownPlotter(Plotter):
         # track clicks
         self.track_click_position(side="left", callback=self._make_selection)
         self.track_click_position(
-            side="left", callback=self._reset_selection, double=True
+            side="left", callback=self._reset_data, double=True
         )
 
     def add_mesh(
@@ -737,9 +737,6 @@ class DrillDownPlotter(Plotter):
         self._selected_intervals = []
         self._selected_cells = []
 
-        for name in self.interval_actor_names + self.point_actor_names:
-            self.actors[name].prop.opacity = 1
-
         self.remove_actor(self.selection_actor)
         self.selection_actor = None
         self.selection_actor_name = None
@@ -749,15 +746,12 @@ class DrillDownPlotter(Plotter):
         self._picked_point = None
         self._selected_points = []
 
-        for name in self.interval_actor_names + self.point_actor_names:
-            self.actors[name].prop.opacity = 1
-
         self.remove_actor(self.selection_actor)
         self.selection_actor = None
         self.selection_actor_name = None
         self.point_selection_actor = None
 
-    def _reset_selection(self, *args):
+    def _reset_data_selection(self, *args):
         pos = self.click_position + (0,)
         actor_picker = self.actor_picker
         actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
@@ -775,6 +769,56 @@ class DrillDownPlotter(Plotter):
             self._reset_point_selection()
         # self._reset_collar_selection()
 
+    def _reset_interval_filter(self):
+        self._picked_cell = None
+        self._filtered_intervals = []
+        self._filtered_cells = []
+
+        for name in self.interval_actor_names + self.point_actor_names:
+            self.actors[name].prop.opacity = 1
+
+        self.remove_actor(self.interval_filter_actor)
+        self.filter_actor = None
+        self.filter_actor_name = None
+        self.interval_filter_actor = None
+
+    def _reset_point_filter(self):
+        self._picked_point = None
+        self._filtered_points = []
+
+        for name in self.interval_actor_names + self.point_actor_names:
+            self.actors[name].prop.opacity = 1
+
+        self.remove_actor(self.selection_actor)
+        self.filter_actor = None
+        self.filter_actor_name = None
+        self.point_filter_actor = None
+
+    def _reset_data_filter(self, *args):
+        pos = self.click_position + (0,)
+        actor_picker = self.actor_picker
+        actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
+        picked_actor = actor_picker.GetActor()
+        if picked_actor is not None:
+            name = picked_actor.name
+            if name in self.interval_actor_names:
+                self._reset_point_filter()
+            elif name in self.point_actor_names:
+                self._reset_interval_filter()
+            else:
+                return
+        else:
+            self._reset_interval_filter()
+            self._reset_point_filter()
+        # self._reset_collar_filter
+
+    def _reset_data(self, *args): 
+        if self.selection_actor is not None:
+            self._reset_data_selection()
+            return 
+        else: 
+            self._reset_data_filter()
+            return
     # def
     # def _update_collar_filter_object(self, name):
     #     filtered_name = "collars filter"
