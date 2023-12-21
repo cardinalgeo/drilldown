@@ -112,6 +112,8 @@ class DrillDownPlotter(Plotter):
         self.interval_selection_actor = None
         self.point_selection_actor = None
         self.selection_actor = None
+        self.interval_selection_actor_name = None
+        self.point_selection_actor_name = None
         self.selection_actor_name = None
 
         self._picked_cell = None
@@ -739,6 +741,7 @@ class DrillDownPlotter(Plotter):
         self.selection_actor = None
         self.selection_actor_name = None
         self.interval_selection_actor = None
+        self.interval_selection_actor_name = None
 
     def _reset_point_selection(self):
         self._picked_point = None
@@ -748,6 +751,7 @@ class DrillDownPlotter(Plotter):
         self.selection_actor = None
         self.selection_actor_name = None
         self.point_selection_actor = None
+        self.point_selection_actor_name = None
 
     def _reset_data_selection(self, *args):
         pos = self.click_position + (0,)
@@ -784,6 +788,7 @@ class DrillDownPlotter(Plotter):
         self.filter_actor = None
         self.filter_actor_name = None
         self.interval_filter_actor = None
+        self.interval_filter_actor_name = None
 
     def _reset_point_filter(self):
         self._picked_point = None
@@ -801,6 +806,7 @@ class DrillDownPlotter(Plotter):
         self.filter_actor = None
         self.filter_actor_name = None
         self.point_filter_actor = None
+        self.interval_filter_actor_name = None
 
     def _reset_data_filter(self, *args):
         pos = self.click_position + (0,)
@@ -955,12 +961,14 @@ class DrillDownPlotter(Plotter):
         self.selection_actor_name = selection_name
 
         if name in self.interval_actor_names:
+            self.interval_selection_actor_name = selection_name
             selection_actor = self._update_interval_selection_object(
                 name, selection_on_filter=selection_on_filter
             )
             self.interval_selection_actor = selection_actor
 
         elif name in self.point_actor_names:
+            self.point_selection_actor_name = selection_name
             selection_actor = self._update_point_selection_object(
                 name, selection_on_filter=selection_on_filter
             )
@@ -1254,6 +1262,47 @@ class DrillDownPlotter(Plotter):
         self._filtered_points = np.arange(self.n_points[name])[self.point_filter]
 
         self._update_data_filter_object(name)
+
+    def convert_selection_to_filter(self):
+        if self.interval_selection_actor_name is not None:
+            self.convert_interval_selection_to_filter()
+        elif self.point_selection_actor_name is not None:
+            self.convert_point_selection_to_filter()
+
+    def convert_filter_to_selection(self, keep_filter=False):
+        if self.interval_filter_actor_name is not None:
+            self.convert_interval_filter_to_selection(keep_filter)
+        elif self.point_filter_actor_name is not None:
+            self.convert_point_filter_to_selection(keep_filter)
+
+    def convert_interval_selection_to_filter(self):
+        name = self.interval_selection_actor_name.replace(" selection", "")
+        n_intervals = self.n_intervals[name]
+        filter = np.isin(np.arange(n_intervals), self._selected_intervals)
+        self._reset_interval_selection()
+        self.interval_filter = (name, filter)
+
+    def convert_interval_filter_to_selection(self, keep_filter=False):
+        self._selected_cells = self._filtered_cells
+        self._selected_intervals = self._filtered_intervals
+        name = self.interval_filter_actor_name.replace(" filter", "")
+        if keep_filter == False:
+            self._reset_interval_filter()
+        self._update_data_selection_object(name)
+
+    def convert_point_selection_to_filter(self):
+        name = self.point_selection_actor_name.replace(" selection", "")
+        n_points = self.n_points[name]
+        filter = np.isin(np.arange(n_points), self._selected_points)
+        self._reset_point_selection()
+        self.point_filter = (name, filter)
+
+    def convert_point_filter_to_selection(self, keep_filter=False):
+        self._selected_points = self._filtered_points
+        name = self.point_filter_actor_name.replace(" filter", "")
+        if keep_filter == False:
+            self._reset_point_filter()
+        self._update_data_selection_object(name)
 
     @property
     def show_collar_labels(self):
