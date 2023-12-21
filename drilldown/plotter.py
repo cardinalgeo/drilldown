@@ -1127,55 +1127,80 @@ class DrillDownPlotter(Plotter):
         return self._data_filter
 
     @data_filter.setter
-    def data_filter(self, key_value_pair):
-        name, filter = key_value_pair
+    def data_filter(self, filter_input):
+        if isinstance(filter_input, tuple):
+            name, filter = filter_input
+        else:
+            filter = filter_input
+            data_names = self.interval_actor_names + self.point_actor_names
+            if len(data_names) != 1:
+                raise ValueError(
+                    "Multiple datasets are present. Please specify name of dataset to filter."
+                )
+            name = data_names[0]
+
         if name in self.interval_actor_names:
-            self.interval_filter = key_value_pair
+            self.interval_filter = (name, filter)
         elif name in self.point_actor_names:
-            self.point_filter = key_value_pair
+            self.point_filter = (name, filter)
 
     @property
     def interval_filter(self):
         return self._interval_filter
 
     @interval_filter.setter
-    def interval_filter(self, key_value_pair):
-        name, filter = key_value_pair
+    def interval_filter(self, filter_input):
+        if isinstance(filter_input, tuple):
+            name, filter = filter_input
+        else:
+            filter = filter_input
+            if len(self.interval_actor_names) != 1:
+                raise ValueError(
+                    "Multiple interval datasets are present. Please specify name of dataset to filter."
+                )
+            name = self.interval_actor_names[0]
+
+        if len(filter) != self.n_intervals[name]:  # filter entire dataset
+            raise ValueError(
+                "Filter must be of length equal to number of intervals in dataset."
+            )
         self._interval_filter = np.array(filter)
         self._interval_cells_filter = np.repeat(filter, self.cells_per_interval[name])
 
-        # if len(filter) == len(self._selected_intervals):  # filter only selection
-        #     self._selected_intervals = self._selected_intervals[self._interval_filter]
-        #     self._selected_cells = self._selected_cells[self._interval_cells_filter]
-        #     self._update_data_selection_object(name)
+        self._filtered_intervals = np.arange(self.n_intervals[name])[
+            self.interval_filter
+        ]
+        self._filtered_cells = np.arange(
+            self.n_intervals[name] * self.cells_per_interval[name]
+        )[self._interval_cells_filter]
 
-        # elif len(filter) == self.n_intervals[name]:  # filter entire dataset
-        if len(filter) == self.n_intervals[name]:  # filter entire dataset
-            self._filtered_intervals = np.arange(self.n_intervals[name])[
-                self.interval_filter
-            ]
-            self._filtered_cells = np.arange(
-                self.n_intervals[name] * self.cells_per_interval[name]
-            )[self._interval_cells_filter]
-            self._update_data_filter_object(name)
+        self._update_data_filter_object(name)
 
     @property
     def point_filter(self):
         return self._point_filter
 
     @point_filter.setter
-    def point_filter(self, key_value_pair):
-        name, filter = key_value_pair
+    def point_filter(self, filter_input):
+        if isinstance(filter_input, tuple):
+            name, filter = filter_input
+        else:
+            filter = filter_input
+            if len(self.point_actor_names) != 1:
+                raise ValueError(
+                    "Multiple point datasets are present. Please specify name of dataset to filter."
+                )
+            name = self.point_actor_names[0]
+
+        if len(filter) != self.n_points[name]:  # filter entire dataset
+            raise ValueError(
+                "Filter must be of length equal to number of points in dataset."
+            )
+
         self._point_filter = np.array(filter)
+        self._filtered_points = np.arange(self.n_points[name])[self.point_filter]
 
-        # if len(filter) == len(self._selected_points):  # filter only selection
-        #     self._selected_points = self._selected_points[self._point_filter]
-        #     self._update_data_selection_object(name)
-
-        # elif len(filter) == self.n_points[name]:  # filter entire dataset
-        if len(filter) == self.n_points[name]:  # filter entire dataset
-            self._filtered_points = np.arange(self.n_points[name])[self.point_filter]
-            self._update_data_filter_object(name)
+        self._update_data_filter_object(name)
 
     @property
     def show_collar_labels(self):
