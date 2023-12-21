@@ -572,9 +572,9 @@ class DrillDownPlotter(Plotter):
                 )
 
             if selection_on_filter == True:
-                self._picked_cell = self._filtered_cells[picked_cell]
-            else:
-                self._picked_cell = picked_cell
+                picked_cell = self._filtered_cells[picked_cell]
+
+            self._picked_cell = picked_cell
 
     def _make_points_selection(self, name, pos, selection_on_filter=False):
         if selection_on_filter == True:
@@ -610,9 +610,9 @@ class DrillDownPlotter(Plotter):
                 )
 
             if selection_on_filter == True:
-                self._picked_point = self._filtered_points[picked_point]
-            else:
-                self._picked_point = picked_point
+                picked_point = self._filtered_points[picked_point]
+
+            self._picked_point = picked_point
 
     def _make_single_interval_selection(
         self, name, picked_cell, selection_on_filter=False
@@ -667,9 +667,15 @@ class DrillDownPlotter(Plotter):
         cells_per_interval = self.cells_per_interval[name]
         if selection_on_filter == True:
             prev_picked_cell = np.where(self._filtered_cells == self._picked_cell)[0][0]
-            prev_selected_intervals = list(
-                np.where(np.isin(self._filtered_intervals, self._selected_intervals))
-            )
+            prev_selected_intervals = np.where(
+                np.isin(self._filtered_intervals, self._selected_intervals[:-1])
+            )[0].tolist()
+            prev_selected_intervals += np.where(
+                np.isin(self._filtered_intervals, self._selected_intervals[-1])
+            )[
+                0
+            ].tolist()  #  needed as np.isin or np.where seems to sort the output and the resulting first interval should be last
+
         else:
             prev_picked_cell = self._picked_cell
             prev_selected_intervals = self._selected_intervals
@@ -686,13 +692,13 @@ class DrillDownPlotter(Plotter):
                 ).tolist()
 
                 if selection_on_filter == True:
-                    self._selected_intervals += list(
+                    selected_intervals = list(
                         self._filtered_intervals[selected_intervals]
                     )
-                    self._selected_cells += list(self._filtered_cells[selected_cells])
-                else:
-                    self._selected_intervals += selected_intervals
-                    self._selected_cells += selected_cells
+                    selected_cells = list(self._filtered_cells[selected_cells])
+
+                self._selected_intervals += selected_intervals
+                self._selected_cells += selected_cells
 
             else:  # reverse direction (up the hole)
                 selected_intervals = np.arange(
@@ -705,19 +711,13 @@ class DrillDownPlotter(Plotter):
                 ).tolist()
 
                 if selection_on_filter == True:
-                    self._selected_intervals = (
-                        list(self._filtered_intervals[selected_intervals])
-                        + selected_intervals
+                    selected_intervals = list(
+                        self._filtered_intervals[selected_intervals]
                     )
-                    self._selected_cells = (
-                        list(self._filtered_cells[selected_cells])
-                        + self._selected_cells
-                    )
-                else:
-                    self._selected_intervals = (
-                        selected_intervals + self._selected_intervals
-                    )
-                    self._selected_cells = selected_cells + self._selected_cells
+                    selected_cells = list(self._filtered_cells[selected_cells])
+
+                self._selected_intervals = selected_intervals + self._selected_intervals
+                self._selected_cells = selected_cells + self._selected_cells
 
     def _make_continuous_multi_point_selection(
         self, name, picked_point, selection_on_filter
