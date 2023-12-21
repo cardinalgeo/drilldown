@@ -125,9 +125,7 @@ class DrillDownPlotter(Plotter):
 
         # track clicks
         self.track_click_position(side="left", callback=self._make_selection)
-        self.track_click_position(
-            side="left", callback=self._reset_data, double=True
-        )
+        self.track_click_position(side="left", callback=self._reset_data, double=True)
 
     def add_mesh(
         self,
@@ -812,13 +810,14 @@ class DrillDownPlotter(Plotter):
             self._reset_point_filter()
         # self._reset_collar_filter
 
-    def _reset_data(self, *args): 
+    def _reset_data(self, *args):
         if self.selection_actor is not None:
             self._reset_data_selection()
-            return 
-        else: 
+            return
+        else:
             self._reset_data_filter()
             return
+
     # def
     # def _update_collar_filter_object(self, name):
     #     filtered_name = "collars filter"
@@ -1260,7 +1259,7 @@ class DrillDownPlotter(Plotter):
         elif visible == False:
             self.remove_actor(self.collar_label_actor)
 
-    def process_data_output(self, name, indices, step=1):
+    def _process_data_output(self, name, indices, step=1):
         holes_mesh = self._meshes[name]
         exclude_vars = [
             "TubeNormals",
@@ -1282,10 +1281,10 @@ class DrillDownPlotter(Plotter):
 
         return data
 
-    def process_selected_data_output(self, indices, step=1):
+    def _process_selected_data_output(self, indices, step=1):
         selection_name = self.selection_actor_name
         name = selection_name.replace(" selection", "")
-        data = self.process_data_output(name, indices, step)
+        data = self._process_data_output(name, indices, step)
 
         return data
 
@@ -1293,7 +1292,7 @@ class DrillDownPlotter(Plotter):
         intervals = self._selected_intervals
         selection_name = self.selection_actor_name
         name = selection_name.replace(" selection", "")
-        data = self.process_selected_data_output(
+        data = self._process_selected_data_output(
             intervals, self.cells_per_interval[name]
         )
 
@@ -1301,7 +1300,7 @@ class DrillDownPlotter(Plotter):
 
     def selected_point_data(self):
         points = self._selected_points
-        data = self.process_selected_data_output(points)
+        data = self._process_selected_data_output(points)
 
         return data
 
@@ -1321,7 +1320,7 @@ class DrillDownPlotter(Plotter):
         all_data = {}
         for name in names:
             intervals = np.arange(self.n_intervals[name])
-            data = self.process_data_output(
+            data = self._process_data_output(
                 name, intervals, self.cells_per_interval[name]
             )
             all_data[name] = data
@@ -1340,7 +1339,7 @@ class DrillDownPlotter(Plotter):
         all_data = {}
         for name in names:
             points = np.arange(self.n_points[name])
-            data = self.process_data_output(name, points)
+            data = self._process_data_output(name, points)
             all_data[name] = data
 
         if len(names) == 1:
