@@ -302,7 +302,7 @@ class Points(HoleData):
 
         return meshes
 
-    def show(self, show_collars=True, show_surveys=True, *args, **kwargs):
+    def show(self, show_collars=False, show_surveys=False, *args, **kwargs):
         if self.mesh is None:
             self._construct_categorical_cmap()
 
@@ -444,7 +444,7 @@ class Intervals(HoleData):
 
         return meshes
 
-    def show(self, show_collars=True, show_surveys=True, *args, **kwargs):
+    def show(self, show_collars=False, show_surveys=False, *args, **kwargs):
         if self.mesh is None:
             self._construct_categorical_cmap()
 
@@ -590,7 +590,7 @@ class Surveys:
 
         return mesh
 
-    def show(self, show_collars=True, *args, **kwargs):
+    def show(self, show_collars=False, *args, **kwargs):
         p = DrillDownPlotter()
         p.add_surveys(self, *args, **kwargs)
 
@@ -778,7 +778,7 @@ class DrillHole:
 
         return p.show()
 
-    def show_survey(self, show_collar=True, *args, **kwargs):
+    def show_survey(self, show_collar=False, *args, **kwargs):
         survey_mesh = self.make_survey_mesh()
         p = DrillDownPlotter()
         p.add_surveys(survey_mesh, *args, **kwargs)
@@ -790,7 +790,7 @@ class DrillHole:
         return p.show()
 
     def show_intervals(
-        self, name=None, show_collar=True, show_survey=True, *args, **kwargs
+        self, name=None, show_collar=False, show_survey=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.intervals.keys())[0]
@@ -817,7 +817,7 @@ class DrillHole:
         return p.show()
 
     def show_points(
-        self, name=None, show_collar=True, show_survey=True, *args, **kwargs
+        self, name=None, show_collar=False, show_survey=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.points.keys())[0]
@@ -1165,7 +1165,7 @@ class DrillHoleGroup:
 
         return p.show()
 
-    def show_surveys(self, show_collars=True, *args, **kwargs):
+    def show_surveys(self, show_collars=False, *args, **kwargs):
         surveys_mesh = self.make_surveys_mesh()
         p = DrillDownPlotter()
         p.add_surveys(surveys_mesh, *args, **kwargs)
@@ -1177,7 +1177,7 @@ class DrillHoleGroup:
         return p.show()
 
     def show_intervals(
-        self, name=None, show_collars=True, show_surveys=True, *args, **kwargs
+        self, name=None, show_collars=False, show_surveys=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.intervals.keys())[0]
@@ -1204,7 +1204,7 @@ class DrillHoleGroup:
         return p.show()
 
     def show_points(
-        self, name=None, show_collars=True, show_surveys=True, *args, **kwargs
+        self, name=None, show_collars=False, show_surveys=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.points.keys())[0]
