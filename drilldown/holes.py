@@ -308,13 +308,13 @@ class Points(HoleData):
 
         p = DrillDownPlotter()
         p.matplotlib_formatted_color_maps = self.matplotlib_formatted_color_maps
-        p.add_points(self, "points", *args, **kwargs)
+        p.add_points(self, "points", selectable=False, *args, **kwargs)
 
         if show_collars == True:
-            p.add_collars(self.collars, "collars")
+            p.add_collars(self.collars)
 
         if show_surveys == True:
-            p.add_surveys(self.surveys, "surveys")
+            p.add_surveys(self.surveys)
 
         return p.show()
 
@@ -460,10 +460,10 @@ class Intervals(HoleData):
         )
 
         if show_collars == True:
-            p.add_collars(self.collars, "collars")
+            p.add_collars(self.collars)
 
         if show_surveys == True:
-            p.add_surveys(self.surveys, "surveys")
+            p.add_surveys(self.surveys)
 
         return p.show()
 
@@ -525,7 +525,7 @@ class Collars:
 
     def show(self, *args, **kwargs):
         p = DrillDownPlotter()
-        p.add_collars(self, "collars", *args, **kwargs)
+        p.add_collars(self, *args, **kwargs)
 
         return p.show()
 
@@ -592,10 +592,10 @@ class Surveys:
 
     def show(self, show_collars=True, *args, **kwargs):
         p = DrillDownPlotter()
-        p.add_surveys(self, "surveys", *args, **kwargs)
+        p.add_surveys(self, *args, **kwargs)
 
         if show_collars == True:
-            p.add_collars(self.collars, "collars")
+            p.add_collars(self.collars)
 
         return p.show()
 

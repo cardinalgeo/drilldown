@@ -391,8 +391,9 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_collars(self, collars, name="collars"):
+    def add_collars(self, collars):
         self.collars = collars
+        name = "collars"
         if collars.mesh is None:
             collars.make_mesh()
 
@@ -400,8 +401,9 @@ class DrillDownPlotter(Plotter):
 
         return collars_actor
 
-    def add_surveys(self, surveys, name="surveys"):
+    def add_surveys(self, surveys):
         self.surveys = surveys
+        name = "surveys"
         if surveys.mesh is None:
             surveys.make_mesh()
 
@@ -489,7 +491,7 @@ class DrillDownPlotter(Plotter):
         self.points[name] = points
         self.categorical_point_vars += points.categorical_vars
         self.continuous_point_vars += points.continuous_vars
-        self._add_hole_data(self, points, name)
+        self._add_hole_data(points, name)
 
         if points.mesh is None:
             points.make_mesh()
