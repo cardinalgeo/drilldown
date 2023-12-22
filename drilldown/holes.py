@@ -236,6 +236,10 @@ class Points(HoleData):
     def __init__(self):
         super().__init__()
 
+        self.mesh = None
+        self.surveys = None
+        self.collars = None
+
     def add_data(
         self,
         var_names,
@@ -253,6 +257,73 @@ class Points(HoleData):
             return_data=return_data,
             construct_categorical_cmap=construct_categorical_cmap,
         )
+
+    def desurvey(self, surveys):
+        self.surveys = surveys
+        self.collars = surveys.collars
+
+        self.depths_desurveyed = np.empty((self.depths.shape[0], 3))
+
+        for id in self.unique_hole_ids:
+            hole_filter = self.hole_ids == id
+            hole = self.surveys._holes[id]
+            depths = self.depths[hole_filter]
+            depths_desurveyed = hole.desurvey(depths)
+            self.depths_desurveyed[hole_filter] = depths_desurveyed
+
+    def make_mesh(self):
+        meshes = None
+
+        for id in self.unique_hole_ids:
+            hole_filter = self.hole_ids == id
+            depths = self.depths[hole_filter]
+
+            if self.depths.shape[0] > 0:
+                depths_desurveyed = self.depths_desurveyed[hole_filter]
+
+                mesh = pv.PolyData(depths_desurveyed)
+
+                for var in self.vars_all:
+                    data = self.data[var]["values"][hole_filter]
+                    _type = self.data[var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.point_data[var] = data
+                mesh.point_data["hole ID"] = [
+                    self.hole_id_to_code_map[id]
+                ] * depths.shape[0]
+                if meshes is None:
+                    meshes = mesh
+                else:
+                    meshes += mesh
+
+        self.mesh = meshes
+
+        return meshes
+
+    def show(self, show_collars=True, show_surveys=True, *args, **kwargs):
+        if self.mesh is None:
+            self.make_mesh()
+            self._construct_categorical_cmap()
+
+        p = DrillDownPlotter()
+        p.matplotlib_formatted_color_maps = self.matplotlib_formatted_color_maps
+        p.add_points(self.mesh, "points", ["sample ID"], *args, **kwargs)
+
+        if show_collars == True:
+            if self.collars.mesh is None:
+                self.collars.make_mesh()
+
+            p.add_collars(self.collars.mesh)
+
+        if show_surveys == True:
+            if self.surveys.mesh is None:
+                self.surveys.make_mesh()
+
+            p.add_surveys(self.surveys.mesh)
+
+        return p.show()
 
     def drill_log(self, hole_id, log_vars=[]):
         if self.construct_categorical_cmap == True:
@@ -314,35 +385,45 @@ class Intervals(HoleData):
         self.surveys = surveys
         self.collars = surveys.collars
 
-        self.from_depths = np.empty((self.depths.shape[0], 3))
-        self.to_depths = np.empty((self.depths.shape[0], 3))
-        self.intermediate_depths = np.empty((self.depths.shape[0], 3))
+        self.from_depths_desurveyed = np.empty((self.depths.shape[0], 3))
+        self.to_depths_desurveyed = np.empty((self.depths.shape[0], 3))
+        self.intermediate_depths_desurveyed = np.empty((self.depths.shape[0], 3))
 
         for id in self.unique_hole_ids:
             hole_filter = self.hole_ids == id
             from_to = self.depths[hole_filter]
             hole = self.surveys._holes[id]
 
-            from_depths = hole.desurvey(from_to[:, 0])
-            to_depths = hole.desurvey(from_to[:, 1])
-            intermediate_depths = np.mean([from_depths, to_depths], axis=0)
+            from_depths_desurveyed = hole.desurvey(from_to[:, 0])
+            to_depths_desurveyed = hole.desurvey(from_to[:, 1])
+            intermediate_depths_desurveyed = np.mean(
+                [from_depths_desurveyed, to_depths_desurveyed], axis=0
+            )
 
-            self.from_depths[hole_filter] = from_depths
-            self.to_depths[hole_filter] = to_depths
-            self.intermediate_depths[hole_filter] = intermediate_depths
+            self.from_depths_desurveyed[hole_filter] = from_depths_desurveyed
+            self.to_depths_desurveyed[hole_filter] = to_depths_desurveyed
+            self.intermediate_depths_desurveyed[
+                hole_filter
+            ] = intermediate_depths_desurveyed
 
     def make_mesh(self):
         meshes = None
+
         for id in self.unique_hole_ids:
             hole = self.surveys._holes[id]
             hole_filter = self.hole_ids == id
-            if self.from_depths.shape[0] > 0:
-                from_to = self.depths[hole_filter]
-                from_depths = self.from_depths[hole_filter]
-                to_depths = self.to_depths[hole_filter]
-                intermediate_depths = self.intermediate_depths[hole_filter]
+            from_to = self.depths[hole_filter]
 
-                mesh = hole._make_line_mesh(from_depths, to_depths)
+            if from_to.shape[0] > 0:
+                from_depths_desurveyed = self.from_depths_desurveyed[hole_filter]
+                to_depths_desurveyed = self.to_depths_desurveyed[hole_filter]
+                intermediate_depths_desurveyed = self.intermediate_depths_desurveyed[
+                    hole_filter
+                ]
+
+                mesh = hole._make_line_mesh(
+                    from_depths_desurveyed, to_depths_desurveyed
+                )
 
                 mesh.cell_data["from"] = from_to[:, 0]
                 mesh.cell_data["to"] = from_to[:, 1]
@@ -350,9 +431,9 @@ class Intervals(HoleData):
                     self.hole_id_to_code_map[id]
                 ] * from_to.shape[0]
 
-                mesh.cell_data["x"] = intermediate_depths[:, 0]
-                mesh.cell_data["y"] = intermediate_depths[:, 1]
-                mesh.cell_data["z"] = intermediate_depths[:, 2]
+                mesh.cell_data["x"] = intermediate_depths_desurveyed[:, 0]
+                mesh.cell_data["y"] = intermediate_depths_desurveyed[:, 1]
+                mesh.cell_data["z"] = intermediate_depths_desurveyed[:, 2]
 
                 for var in self.vars_all:
                     data = self.data[var]["values"][hole_filter]
@@ -388,14 +469,14 @@ class Intervals(HoleData):
         if show_collars == True:
             if self.collars.mesh is None:
                 self.collars.make_mesh()
-            collars_mesh = self.collars.make_mesh()
-            p.add_collars(collars_mesh)
+
+            p.add_collars(self.collars.mesh)
 
         if show_surveys == True:
             if self.surveys.mesh is None:
                 self.surveys.make_mesh()
-            surveys_mesh = self.surveys.make_mesh()
-            p.add_surveys(surveys_mesh)
+
+            p.add_surveys(self.surveys.mesh)
 
         return p.show()
 
