@@ -304,24 +304,17 @@ class Points(HoleData):
 
     def show(self, show_collars=True, show_surveys=True, *args, **kwargs):
         if self.mesh is None:
-            self.make_mesh()
             self._construct_categorical_cmap()
 
         p = DrillDownPlotter()
         p.matplotlib_formatted_color_maps = self.matplotlib_formatted_color_maps
-        p.add_points(self.mesh, "points", ["sample ID"], *args, **kwargs)
+        p.add_points(self, "points", *args, **kwargs)
 
         if show_collars == True:
-            if self.collars.mesh is None:
-                self.collars.make_mesh()
-
-            p.add_collars(self.collars.mesh)
+            p.add_collars(self.collars, "collars")
 
         if show_surveys == True:
-            if self.surveys.mesh is None:
-                self.surveys.make_mesh()
-
-            p.add_surveys(self.surveys.mesh)
+            p.add_surveys(self.surveys, "surveys")
 
         return p.show()
 
@@ -453,30 +446,24 @@ class Intervals(HoleData):
 
     def show(self, show_collars=True, show_surveys=True, *args, **kwargs):
         if self.mesh is None:
-            self.make_mesh()
+            self._construct_categorical_cmap()
 
         p = DrillDownPlotter()
         p.add_intervals(
-            self.mesh,
+            self,
             "intervals",
-            ["Stratigraphy"],  # self.categorical_vars,
-            ["Co_ppm"],  # self.continuous_vars,
+            # ["Stratigraphy"],  # self.categorical_vars,
+            # ["Co_ppm"],  # self.continuous_vars,
             selectable=False,
             *args,
             **kwargs
         )
 
         if show_collars == True:
-            if self.collars.mesh is None:
-                self.collars.make_mesh()
-
-            p.add_collars(self.collars.mesh)
+            p.add_collars(self.collars, "collars")
 
         if show_surveys == True:
-            if self.surveys.mesh is None:
-                self.surveys.make_mesh()
-
-            p.add_surveys(self.surveys.mesh)
+            p.add_surveys(self.surveys, "surveys")
 
         return p.show()
 
@@ -537,10 +524,8 @@ class Collars:
         return mesh
 
     def show(self, *args, **kwargs):
-        if self.mesh == None:
-            self.make_mesh()
         p = DrillDownPlotter()
-        p.add_collars(self.mesh, *args, **kwargs)
+        p.add_collars(self, "collars", *args, **kwargs)
 
         return p.show()
 
@@ -606,15 +591,11 @@ class Surveys:
         return mesh
 
     def show(self, show_collars=True, *args, **kwargs):
-        if self.mesh is None:
-            self.make_mesh()
         p = DrillDownPlotter()
-        p.add_surveys(self.mesh, *args, **kwargs)
+        p.add_surveys(self, "surveys", *args, **kwargs)
 
         if show_collars == True:
-            if self.collars.mesh is None:
-                self.collars.make_mesh()
-            p.add_collars(self.collars.mesh)
+            p.add_collars(self.collars, "collars")
 
         return p.show()
 
