@@ -1,4 +1,4 @@
-from .holes import DrillHole, DrillHoleGroup, Intervals, Points
+from .holes import DrillHole, DrillHoleGroup, Intervals, Points, Collars, Surveys
 from .plotter import DrillDownPlotter, DrillDownPanelPlotter
 
 __all__ = [
@@ -6,6 +6,8 @@ __all__ = [
     "DrillHoleGroup",
     "Intervals",
     "Points",
+    "Collars",
+    "Surveys",
     "DrillDownPlotter",
     "DrillDownPanelPlotter",
 ]

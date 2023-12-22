@@ -99,9 +99,10 @@ class HoleData:
         if isinstance(hole_ids, pd.core.series.Series):
             hole_ids = hole_ids.values
         self.hole_ids = hole_ids
+        self.unique_hole_ids = np.unique(hole_ids)
 
         # encode hole IDs, as strings are wiped in pyvista meshes
-        self.hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
+        shole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
         self.hole_id_to_code_map = {
             hole_id: code for code, hole_id in enumerate(hole_ids_unique)
         }
@@ -140,6 +141,15 @@ class HoleData:
 
         if return_data == True:
             return self.data
+
+    def _desurvey(self, hole_id, depths=None):  # NEW
+        return self._holes[hole_id].desurvey(depths=depths)
+
+    def desurvey(self, surveys):
+        self.surveys = surveys
+        for hole_id in self.hole_ids:
+            hole = survey._holes[hole_id]
+            depths = hole.desurvey()
 
     def _construct_categorical_cmap(self):
         var_names = [
@@ -278,6 +288,10 @@ class Intervals(HoleData):
     def __init__(self):
         super().__init__()
 
+        self.mesh = None
+        self.surveys = None
+        self.collars = None
+
     def add_data(
         self,
         var_names,
@@ -295,6 +309,95 @@ class Intervals(HoleData):
             return_data=return_data,
             construct_categorical_cmap=construct_categorical_cmap,
         )
+
+    def desurvey(self, surveys):
+        self.surveys = surveys
+        self.collars = surveys.collars
+
+        self.from_depths = np.empty((self.depths.shape[0], 3))
+        self.to_depths = np.empty((self.depths.shape[0], 3))
+        self.intermediate_depths = np.empty((self.depths.shape[0], 3))
+
+        for id in self.unique_hole_ids:
+            hole_filter = self.hole_ids == id
+            from_to = self.depths[hole_filter]
+            hole = self.surveys._holes[id]
+
+            from_depths = hole.desurvey(from_to[:, 0])
+            to_depths = hole.desurvey(from_to[:, 1])
+            intermediate_depths = np.mean([from_depths, to_depths], axis=0)
+
+            self.from_depths[hole_filter] = from_depths
+            self.to_depths[hole_filter] = to_depths
+            self.intermediate_depths[hole_filter] = intermediate_depths
+
+    def make_mesh(self):
+        meshes = None
+        for id in self.unique_hole_ids:
+            hole = self.surveys._holes[id]
+            hole_filter = self.hole_ids == id
+            if self.from_depths.shape[0] > 0:
+                from_to = self.depths[hole_filter]
+                from_depths = self.from_depths[hole_filter]
+                to_depths = self.to_depths[hole_filter]
+                intermediate_depths = self.intermediate_depths[hole_filter]
+
+                mesh = hole._make_line_mesh(from_depths, to_depths)
+
+                mesh.cell_data["from"] = from_to[:, 0]
+                mesh.cell_data["to"] = from_to[:, 1]
+                mesh.cell_data["hole ID"] = [
+                    self.hole_id_to_code_map[id]
+                ] * from_to.shape[0]
+
+                mesh.cell_data["x"] = intermediate_depths[:, 0]
+                mesh.cell_data["y"] = intermediate_depths[:, 1]
+                mesh.cell_data["z"] = intermediate_depths[:, 2]
+
+                for var in self.vars_all:
+                    data = self.data[var]["values"][hole_filter]
+                    _type = self.data[var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.cell_data[var] = data
+                if meshes is None:
+                    meshes = mesh
+                else:
+                    meshes += mesh
+
+        self.mesh = meshes
+
+        return meshes
+
+    def show(self, show_collars=True, show_surveys=True, *args, **kwargs):
+        if self.mesh is None:
+            self.make_mesh()
+
+        p = DrillDownPlotter()
+        p.add_intervals(
+            self.mesh,
+            "intervals",
+            ["Stratigraphy"],  # self.categorical_vars,
+            ["Co_ppm"],  # self.continuous_vars,
+            selectable=False,
+            *args,
+            **kwargs
+        )
+
+        if show_collars == True:
+            if self.collars.mesh is None:
+                self.collars.make_mesh()
+            collars_mesh = self.collars.make_mesh()
+            p.add_collars(collars_mesh)
+
+        if show_surveys == True:
+            if self.surveys.mesh is None:
+                self.surveys.make_mesh()
+            surveys_mesh = self.surveys.make_mesh()
+            p.add_surveys(surveys_mesh)
+
+        return p.show()
 
     def drill_log(self, hole_id, log_vars=[]):
         if self.construct_categorical_cmap == True:
@@ -327,6 +430,112 @@ class Intervals(HoleData):
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
         return log.fig
+
+
+class Collars:
+    def __init__(self):
+        self.unique_hole_ids = None
+        self.coords = None
+        self.mesh = None
+        pass
+
+    def add_data(self, hole_ids, coords):
+        if isinstance(hole_ids, pd.core.series.Series):
+            hole_ids = hole_ids.values
+
+        if isinstance(coords, pd.core.frame.DataFrame):
+            coords = coords.values
+
+        self.unique_hole_ids = np.unique(hole_ids)
+        self.coords = np.c_[hole_ids, coords]
+
+    def make_mesh(self):
+        mesh = pv.PolyData(np.asarray(self.coords[:, 1:], dtype="float"))
+        mesh["hole ID"] = self.coords[:, 0]
+        self.mesh = mesh
+        return mesh
+
+    def show(self, *args, **kwargs):
+        if self.mesh == None:
+            self.make_mesh()
+        p = DrillDownPlotter()
+        p.add_collars(self.mesh, *args, **kwargs)
+
+        return p.show()
+
+
+class Surveys:
+    def __init__(self):
+        self.unique_hole_ids = None
+        self.measurements = None
+        self.collars = None
+        self._holes = {}
+        self.mesh = None
+
+    def add_data(self, hole_ids, dist, azm, dip):
+        if isinstance(hole_ids, pd.core.series.Series):
+            hole_ids = hole_ids.values
+
+        if isinstance(dist, pd.core.series.Series):
+            dist = dist.values
+
+        if isinstance(azm, pd.core.series.Series):
+            azm = azm.values
+
+        if isinstance(dip, pd.core.series.Series):
+            dip = dip.values
+
+        self.unique_hole_ids = np.unique(hole_ids)
+        self.measurements = np.c_[hole_ids, dist, azm, dip]
+
+        if self.collars is not None:
+            self._create_holes()
+
+    def locate(self, collars):
+        self.collars = collars
+        for hole_id in self.unique_hole_ids:
+            hole = DrillHole()
+
+            hole.add_collar(collars.coords[collars.coords[:, 0] == hole_id, 1:][0])
+
+            measurements = np.hsplit(
+                self.measurements[self.measurements[:, 0] == hole_id, 1:], 3
+            )
+            if (measurements[0].shape[0]) > 0:
+                hole.add_survey(measurements[0], measurements[1], measurements[2])
+
+                hole._create_hole()
+
+                self._holes[hole_id] = hole
+
+    def make_mesh(self):
+        mesh = None
+        for hole_id in self._holes.keys():
+            hole = self._holes[hole_id]
+            depths = hole.desurvey()
+            from_to = hole._make_from_to(depths)
+            if from_to.shape[0] > 0:
+                if mesh is None:
+                    mesh = hole._make_line_mesh(from_to[:, 0], from_to[:, 1])
+                else:
+                    mesh += hole._make_line_mesh(from_to[:, 0], from_to[:, 1])
+
+        self.mesh = mesh
+
+        return mesh
+
+    def show(self, show_collars=True, *args, **kwargs):
+        if self.mesh is None:
+            self.make_mesh()
+        p = DrillDownPlotter()
+        p.add_surveys(self.mesh, *args, **kwargs)
+
+        if show_collars == True:
+            if self.collars.mesh is None:
+                self.collars.make_mesh()
+            p.add_collars(self.collars.mesh)
+
+        return p.show()
 
 
 class DrillHole:
