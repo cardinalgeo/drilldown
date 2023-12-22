@@ -44,6 +44,11 @@ class DrillDownPlotter(Plotter):
         self.enable_trackball_style()
         vtkMapper.SetResolveCoincidentTopologyToPolygonOffset()
 
+        self.collars = None
+        self.surveys = None
+        self.intervals = {}
+        self.points = {}
+
         self._meshes = {}
         self.interval_actors = {}
         self.point_actors = {}
@@ -67,13 +72,13 @@ class DrillDownPlotter(Plotter):
         self.categorical_point_vars = []
         self.continuous_point_vars = []
 
-        self.code_to_hole_id_map = None
-        self.hole_id_to_code_map = None
-        self.code_to_cat_map = None
-        self.cat_to_code_map = None
-        self.code_to_color_map = None
-        self.cat_to_color_map = None
-        self.matplotlib_formatted_color_maps = None
+        self.code_to_hole_id_map = {}
+        self.hole_id_to_code_map = {}
+        self.code_to_cat_map = {}
+        self.cat_to_code_map = {}
+        self.code_to_color_map = {}
+        self.cat_to_color_map = {}
+        self.matplotlib_formatted_color_maps = {}
 
         self._show_collar_labels = True
 
@@ -173,7 +178,7 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_collars(
+    def add_collars_mesh(
         self,
         mesh,
         name="collars",
@@ -210,12 +215,12 @@ class DrillDownPlotter(Plotter):
         else:
             return actor
 
-    def add_surveys(self, mesh, name="surveys", *args, **kwargs):
+    def add_surveys_mesh(self, mesh, name="surveys", *args, **kwargs):
         actor = self.add_mesh(mesh, name, *args, **kwargs)
         self.survey_actor = actor
         return actor
 
-    def add_hole_data(
+    def _add_hole_data_mesh(
         self,
         mesh,
         name=None,
@@ -232,9 +237,9 @@ class DrillDownPlotter(Plotter):
         *args,
         **kwargs,
     ):
-        self.continuous_vars[name] = continuous_vars
-        self.categorical_vars[name] = categorical_vars
-        self.all_vars[name] = continuous_vars + categorical_vars
+        # self.continuous_vars[name] = continuous_vars
+        # self.categorical_vars[name] = categorical_vars
+        # self.all_vars[name] = continuous_vars + categorical_vars
 
         self.nan_opacity = nan_opacity
 
@@ -262,7 +267,7 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_intervals(
+    def add_intervals_mesh(
         self,
         mesh,
         name=None,
@@ -312,8 +317,8 @@ class DrillDownPlotter(Plotter):
             increases selection speed but decreases selection accuracy. By default False
         """
         self.interval_actor_names.append(name)
-        self.categorical_interval_vars += categorical_vars
-        self.continuous_interval_vars += continuous_vars
+        # self.categorical_interval_vars += categorical_vars
+        # self.continuous_interval_vars += continuous_vars
         self.n_intervals[name] = mesh.n_lines
         if capping == True:
             self.cells_per_interval[name] = n_sides + 2
@@ -321,7 +326,7 @@ class DrillDownPlotter(Plotter):
             self.cells_per_interval[name] = n_sides
 
         mesh = mesh.tube(radius=radius, n_sides=n_sides, capping=capping)
-        actor = self.add_hole_data(
+        actor = self._add_hole_data_mesh(
             mesh,
             name,
             categorical_vars=categorical_vars,
@@ -341,7 +346,7 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_points(
+    def add_points_mesh(
         self,
         mesh,
         name=None,
@@ -364,7 +369,7 @@ class DrillDownPlotter(Plotter):
         self.continuous_point_vars += continuous_vars
         self.n_points[name] = mesh.n_points
 
-        actor = self.add_hole_data(
+        actor = self._add_hole_data_mesh(
             mesh,
             name,
             categorical_vars=categorical_vars,
@@ -386,6 +391,129 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
+    def add_collars(self, collars):
+        self.collars = collars
+        name = "collars"
+        if collars.mesh is None:
+            collars.make_mesh()
+
+        collars_actor = self.add_collars_mesh(collars.mesh, name)
+
+        return collars_actor
+
+    def add_surveys(self, surveys):
+        self.surveys = surveys
+        name = "surveys"
+        if surveys.mesh is None:
+            surveys.make_mesh()
+
+        surveys_actor = self.add_surveys_mesh(surveys.mesh, name)
+
+        return surveys_actor
+
+    def _add_hole_data(self, data, name):
+        self.continuous_vars[name] = data.continuous_vars
+        self.categorical_vars[name] = data.categorical_vars
+        self.all_vars[name] = data.continuous_vars + data.categorical_vars
+
+        self.hole_id_to_code_map[name] = data.hole_id_to_code_map
+        self.code_to_hole_id_map[name] = data.code_to_hole_id_map
+        self.cat_to_code_map[name] = data.cat_to_code_map
+        self.code_to_cat_map[name] = data.code_to_cat_map
+        self.code_to_color_map[name] = data.code_to_color_map
+        self.cat_to_color_map[name] = data.cat_to_color_map
+        self.matplotlib_formatted_color_maps[
+            name
+        ] = data.matplotlib_formatted_color_maps
+
+    def add_intervals(
+        self,
+        intervals,
+        name,
+        selectable=True,
+        radius=1.5,
+        n_sides=20,
+        capping=False,
+        active_var=None,
+        cmap="Blues",
+        cmap_range=None,
+        selection_color="magenta",
+        filter_opacity=0.1,
+        accelerated_selection=False,
+        nan_opacity=1,
+        *args,
+        **kwargs,
+    ):
+        self.intervals[name] = intervals
+        self.categorical_interval_vars += intervals.categorical_vars
+        self.continuous_interval_vars += intervals.continuous_vars
+        self._add_hole_data(intervals, name)
+
+        if intervals.mesh is None:
+            intervals.make_mesh()
+
+        intervals_actor = self.add_intervals_mesh(
+            intervals.mesh,
+            name,
+            selectable=selectable,
+            radius=radius,
+            n_sides=n_sides,
+            capping=capping,
+            active_var=active_var,
+            cmap=cmap,
+            cmap_range=cmap_range,
+            selection_color=selection_color,
+            filter_opacity=filter_opacity,
+            accelerated_selection=accelerated_selection,
+            nan_opacity=nan_opacity,
+            *args,
+            **kwargs,
+        )
+
+        return intervals_actor
+
+    def add_points(
+        self,
+        points,
+        name,
+        point_size=10,
+        selectable=True,
+        active_var=None,
+        cmap="Blues",
+        cmap_range=None,
+        selection_color="magenta",
+        filter_opacity=0.1,
+        accelerated_selection=False,
+        nan_opacity=1,
+        *args,
+        **kwargs,
+    ):
+        self.points[name] = points
+        self.categorical_point_vars += points.categorical_vars
+        self.continuous_point_vars += points.continuous_vars
+        self._add_hole_data(points, name)
+
+        if points.mesh is None:
+            points.make_mesh()
+
+        points_actor = self.add_points_mesh(
+            points.mesh,
+            name,
+            point_size=point_size,
+            selectable=selectable,
+            active_var=active_var,
+            cmap=cmap,
+            cmap_range=cmap_range,
+            selection_color=selection_color,
+            filter_opacity=filter_opacity,
+            accelerated_selection=accelerated_selection,
+            nan_opacity=nan_opacity,
+            *args,
+            **kwargs,
+        )
+
+        return points_actor
+
     def add_holes(self, holes, name=None, *args, **kwargs):
         # add color-category and code-category maps
         self.code_to_hole_id_map = holes.code_to_hole_id_map
@@ -398,16 +526,16 @@ class DrillDownPlotter(Plotter):
 
         # make and add collars mesh
         collars_mesh = holes.make_collars_mesh()
-        self.add_collars(collars_mesh)
+        self.add_collars_mesh(collars_mesh)
 
         # make and add surveys mesh
         surveys_mesh = holes.make_surveys_mesh()
-        self.add_surveys(surveys_mesh)
+        self.add_surveys_mesh(surveys_mesh)
 
         # make and add intervals mesh(es)
         for name in holes.intervals.keys():
             intervals_mesh = holes.make_intervals_mesh(name)
-            self.add_intervals(
+            self.add_intervals_mesh(
                 intervals_mesh,
                 name,
                 holes.categorical_interval_vars,
@@ -417,7 +545,7 @@ class DrillDownPlotter(Plotter):
         # make and add points mesh(es)
         for name in holes.points.keys():
             points_mesh = holes.make_points_mesh(name)
-            self.add_points(
+            self.add_points_mesh(
                 points_mesh,
                 name,
                 holes.categorical_point_vars,
@@ -1612,7 +1740,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         return actor
 
-    def add_hole_data(
+    def _add_hole_data_mesh(
         self,
         mesh,
         name=None,
@@ -1628,7 +1756,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         *args,
         **kwargs,
     ):
-        actor = super(DrillDownPanelPlotter, self).add_hole_data(
+        actor = super(DrillDownPanelPlotter, self)._add_hole_data_mesh(
             mesh,
             name=name,
             categorical_vars=categorical_vars,
@@ -1648,7 +1776,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
         return actor
 
-    def add_intervals(
+    def add_intervals_mesh(
         self,
         mesh,
         name=None,
@@ -1674,7 +1802,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             Minimum and maximum value between which color map is applied. By default None
         """
 
-        super(DrillDownPanelPlotter, self).add_intervals(
+        super(DrillDownPanelPlotter, self).add_intervals_mesh(
             mesh,
             name=name,
             active_var=active_var,
@@ -1692,7 +1820,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         if cmap_range != None:
             self.cmap_range = (name, cmap_range)
 
-    def add_points(
+    def add_points_mesh(
         self,
         mesh,
         name=None,
@@ -1709,7 +1837,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         *args,
         **kwargs,
     ):
-        super(DrillDownPanelPlotter, self).add_points(
+        super(DrillDownPanelPlotter, self).add_points_mesh(
             mesh,
             name=name,
             categorical_vars=categorical_vars,
