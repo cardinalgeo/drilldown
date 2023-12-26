@@ -50,6 +50,7 @@ class DrillDownPlotter(Plotter):
         self.points = {}
 
         self._meshes = {}
+        self.mesh_names = []
         self.interval_actors = {}
         self.point_actors = {}
         self.collar_actors = {}
@@ -67,8 +68,10 @@ class DrillDownPlotter(Plotter):
         self.continuous_vars = {}
         self.all_vars = {}
 
+        self.interval_vars = {}
         self.categorical_interval_vars = []
         self.continuous_interval_vars = []
+        self.point_vars = {}
         self.categorical_point_vars = []
         self.continuous_point_vars = []
 
@@ -138,6 +141,7 @@ class DrillDownPlotter(Plotter):
         self,
         mesh,
         name=None,
+        opacity=1,
         pickable=False,
         filter_opacity=0.1,
         selection_color="magenta",
@@ -168,13 +172,22 @@ class DrillDownPlotter(Plotter):
         """
 
         self._meshes[name] = mesh
+        self.mesh_names.append(name)
         self.filter_opacity[name] = filter_opacity
         actor = super(DrillDownPlotter, self).add_mesh(
-            mesh, name=name, pickable=pickable, show_scalar_bar=False, *args, **kwargs
+            mesh,
+            name=name,
+            pickable=pickable,
+            show_scalar_bar=False,
+            opacity=1,
+            *args,
+            **kwargs,
         )
 
         if pickable == True:
             self._make_selectable(actor, selection_color, accelerated_selection)
+
+        self.opacity[name] = opacity
 
         return actor
 
@@ -182,6 +195,7 @@ class DrillDownPlotter(Plotter):
         self,
         mesh,
         name="collars",
+        opacity=1,
         show_labels=True,
         selectable=True,
         selection_color="magenta",
@@ -193,6 +207,7 @@ class DrillDownPlotter(Plotter):
         actor = self.add_mesh(
             mesh,
             name,
+            opacity=opacity,
             render_points_as_spheres=True,
             point_size=15,
             pickable=selectable,
@@ -215,8 +230,8 @@ class DrillDownPlotter(Plotter):
         else:
             return actor
 
-    def add_surveys_mesh(self, mesh, name="surveys", *args, **kwargs):
-        actor = self.add_mesh(mesh, name, *args, **kwargs)
+    def add_surveys_mesh(self, mesh, name="surveys", opacity=1, *args, **kwargs):
+        actor = self.add_mesh(mesh, name, opacity=opacity, *args, **kwargs)
         self.survey_actor = actor
         return actor
 
@@ -224,11 +239,12 @@ class DrillDownPlotter(Plotter):
         self,
         mesh,
         name=None,
+        opacity=1,
         categorical_vars=[],
         continuous_vars=[],
         selectable=True,
         active_var=None,
-        cmap="Blues",
+        cmap=None,
         cmap_range=None,
         selection_color="magenta",
         filter_opacity=0.1,
@@ -240,12 +256,34 @@ class DrillDownPlotter(Plotter):
         # self.continuous_vars[name] = continuous_vars
         # self.categorical_vars[name] = categorical_vars
         # self.all_vars[name] = continuous_vars + categorical_vars
+        if active_var is None:  # default to first variable
+            self._active_var[name] = self.all_vars[name][0]
+        else:
+            self._active_var[name] = active_var
+
+        if cmap is None:
+            cmap = "Blues"
+        self.cmap[name] = cmap
+
+        if cmap_range is None:
+            print("cmap_range is None")
+            if name in self.interval_actor_names + self.point_actor_names:
+                print("name in interval_actor_names or point_actor_names")
+                if name in self.interval_actor_names:
+                    array = mesh.cell_data[self.active_var[name]]
+                else:
+                    array = mesh.point_data[self.active_var[name]]
+                min, max = array.min(), array.max()
+                cmap_range = (min, max)
+
+        self._cmap_range[name] = cmap_range
 
         self.nan_opacity = nan_opacity
 
         actor = self.add_mesh(
             mesh,
             name,
+            opacity=opacity,
             pickable=selectable,
             filter_opacity=filter_opacity,
             selection_color=selection_color,
@@ -271,6 +309,7 @@ class DrillDownPlotter(Plotter):
         self,
         mesh,
         name=None,
+        opacity=1,
         categorical_vars=[],
         continuous_vars=[],
         selectable=True,
@@ -278,7 +317,7 @@ class DrillDownPlotter(Plotter):
         n_sides=20,
         capping=False,
         active_var=None,
-        cmap="Blues",
+        cmap=None,
         cmap_range=None,
         selection_color="magenta",
         filter_opacity=0.1,
@@ -329,6 +368,7 @@ class DrillDownPlotter(Plotter):
         actor = self._add_hole_data_mesh(
             mesh,
             name,
+            opacity=opacity,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             selectable=selectable,
@@ -350,12 +390,13 @@ class DrillDownPlotter(Plotter):
         self,
         mesh,
         name=None,
+        opacity=1,
         categorical_vars=[],
         continuous_vars=[],
         point_size=10,
         selectable=True,
         active_var=None,
-        cmap="Blues",
+        cmap=None,
         cmap_range=None,
         selection_color="magenta",
         filter_opacity=0.1,
@@ -372,6 +413,7 @@ class DrillDownPlotter(Plotter):
         actor = self._add_hole_data_mesh(
             mesh,
             name,
+            opacity=opacity,
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             point_size=point_size,
@@ -391,23 +433,23 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def add_collars(self, collars):
+    def add_collars(self, collars, opacity=1):
         self.collars = collars
         name = "collars"
         if collars.mesh is None:
             collars.make_mesh()
 
-        collars_actor = self.add_collars_mesh(collars.mesh, name)
+        collars_actor = self.add_collars_mesh(collars.mesh, name, opacity=opacity)
 
         return collars_actor
 
-    def add_surveys(self, surveys):
+    def add_surveys(self, surveys, opacity=1):
         self.surveys = surveys
         name = "surveys"
         if surveys.mesh is None:
             surveys.make_mesh()
 
-        surveys_actor = self.add_surveys_mesh(surveys.mesh, name)
+        surveys_actor = self.add_surveys_mesh(surveys.mesh, name, opacity=opacity)
 
         return surveys_actor
 
@@ -430,12 +472,13 @@ class DrillDownPlotter(Plotter):
         self,
         intervals,
         name,
+        opacity=1,
         selectable=True,
         radius=1.5,
         n_sides=20,
         capping=False,
         active_var=None,
-        cmap="Blues",
+        cmap=None,
         cmap_range=None,
         selection_color="magenta",
         filter_opacity=0.1,
@@ -445,6 +488,7 @@ class DrillDownPlotter(Plotter):
         **kwargs,
     ):
         self.intervals[name] = intervals
+        self.interval_vars[name] = intervals.vars_all
         self.categorical_interval_vars += intervals.categorical_vars
         self.continuous_interval_vars += intervals.continuous_vars
         self._add_hole_data(intervals, name)
@@ -455,6 +499,7 @@ class DrillDownPlotter(Plotter):
         intervals_actor = self.add_intervals_mesh(
             intervals.mesh,
             name,
+            opacity=opacity,
             selectable=selectable,
             radius=radius,
             n_sides=n_sides,
@@ -476,10 +521,11 @@ class DrillDownPlotter(Plotter):
         self,
         points,
         name,
+        opacity=1,
         point_size=10,
         selectable=True,
         active_var=None,
-        cmap="Blues",
+        cmap=None,
         cmap_range=None,
         selection_color="magenta",
         filter_opacity=0.1,
@@ -489,6 +535,7 @@ class DrillDownPlotter(Plotter):
         **kwargs,
     ):
         self.points[name] = points
+        self.point_vars[name] = points.vars_all
         self.categorical_point_vars += points.categorical_vars
         self.continuous_point_vars += points.continuous_vars
         self._add_hole_data(points, name)
@@ -499,6 +546,7 @@ class DrillDownPlotter(Plotter):
         points_actor = self.add_points_mesh(
             points.mesh,
             name,
+            opacity=opacity,
             point_size=point_size,
             selectable=selectable,
             active_var=active_var,
@@ -1170,13 +1218,14 @@ class DrillDownPlotter(Plotter):
         self.prev_active_var[name] = active_var
         self._active_var[name] = active_var
 
-        actor = self.actors[name]
-        actor.mapper.dataset.set_active_scalars(active_var)
+        actor = self.actors.get(name, None)
+        if actor is not None:
+            actor.mapper.dataset.set_active_scalars(active_var)
 
-        if (self.selection_actor is not None) and (
-            self.selection_actor_name == name + " selection"
-        ):
-            self.selection_actor.mapper.dataset.set_active_scalars(active_var)
+            if (self.selection_actor is not None) and (
+                self.selection_actor_name == name + " selection"
+            ):
+                self.selection_actor.mapper.dataset.set_active_scalars(active_var)
 
         if active_var in self.categorical_vars[name]:
             cmap = self.matplotlib_formatted_color_maps.get(active_var, None)
@@ -1205,20 +1254,22 @@ class DrillDownPlotter(Plotter):
         self._cmap[name] = cmap
 
         actors = []
-        actor = self.actors[name]
+        actor = self.actors.get(name, None)
         actors.append(actor)
-        if (self.selection_actor is not None) and (
-            self.selection_actor_name == name + " selection"
-        ):
-            actors.append(self.selection_actor)
-        for actor in actors:
-            if self.active_var[name] in self.continuous_vars[name]:
-                actor.mapper.lookup_table.cmap = cmap
-                self.prev_continuous_cmap[name] = cmap
+        if actor is not None:
+            if (self.selection_actor is not None) and (
+                self.selection_actor_name == name + " selection"
+            ):
+                actors.append(self.selection_actor)
+            for actor in actors:
+                print("updating cmap")
+                if self.active_var[name] in self.continuous_vars[name]:
+                    actor.mapper.lookup_table.cmap = cmap
+                    self.prev_continuous_cmap[name] = cmap
 
-            else:
-                actor.mapper.lookup_table = pv.LookupTable(cmap)
-            actor.mapper.lookup_table.nan_color = "white"  # self.nan_opacity
+                else:
+                    actor.mapper.lookup_table = pv.LookupTable(cmap)
+                actor.mapper.lookup_table.nan_color = "white"  # self.nan_opacity
 
         self.render()
 
@@ -1232,22 +1283,23 @@ class DrillDownPlotter(Plotter):
         self._cmap_range[name] = cmap_range
 
         actors = []
-        actor = self.actors[name]
-        actors.append(actor)
-        if (self.selection_actor is not None) and (
-            self.selection_actor_name == name + " selection"
-        ):
-            actors.append(self.selection_actor)
+        actor = self.actors.get(name, None)
+        if actor is not None:
+            actors.append(actor)
+            if (self.selection_actor is not None) and (
+                self.selection_actor_name == name + " selection"
+            ):
+                actors.append(self.selection_actor)
 
-        for actor in actors:
-            actor.mapper.lookup_table.scalar_range = cmap_range
-            actor.mapper.SetUseLookupTableScalarRange(True)
+            for actor in actors:
+                actor.mapper.lookup_table.scalar_range = cmap_range
+                actor.mapper.SetUseLookupTableScalarRange(True)
 
         self.render()
 
     def reset_cmap_range(self, name=None):
         if name is None:
-            names = self.actors.keys()
+            names = self._mesh.keys()
         else:
             names = [name]
         for name in names:
@@ -1267,10 +1319,13 @@ class DrillDownPlotter(Plotter):
     def visibility(self, key_value_pair):
         name, visible = key_value_pair
         self._visibility[name] = visible
-        if visible == True:
-            self.actors[name].prop.opacity = 1
-        else:
-            self.actors[name].prop.opacity = 0
+
+        actor = self.actors.get(name, None)
+        if actor is not None:
+            if visible == True:
+                self.actors[name].prop.opacity = 1
+            else:
+                self.actors[name].prop.opacity = 0
 
         self.render()
 
@@ -1282,7 +1337,9 @@ class DrillDownPlotter(Plotter):
     def opacity(self, key_value_pair):
         name, opacity = key_value_pair
         self._opacity[name] = opacity
-        self.actors[name].prop.opacity = opacity
+        actor = self.actors.get(name, None)
+        if actor is not None:
+            self.actors[name].prop.opacity = opacity
 
         self.render()
 
