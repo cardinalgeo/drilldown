@@ -191,7 +191,7 @@ class DrillDownPlotter(Plotter):
         if pickable == True:
             self._make_selectable(actor, selection_color, accelerated_selection)
 
-        self.opacity[name] = opacity
+        self.opacity = (name, opacity)
 
         return actor
 

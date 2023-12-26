@@ -202,6 +202,8 @@ class DrillDownTramePlotter(DrillDownPlotter):
                     state.cmap_visible = False
                     state.cmap_range_visible = False
 
+            state.opacity = self.opacity[ctrl_mesh_name]
+
         @state.change("opacity")
         def update_opacity(opacity, **kwargs):
             name = state.ctrl_mesh_name
