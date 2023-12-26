@@ -305,8 +305,6 @@ class DrillDownPlotter(Plotter):
         else:
             self.cmap_range = (name, cmap_range)
 
-        self.reset_camera()
-
         return actor
 
     def add_intervals_mesh(
