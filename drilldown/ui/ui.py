@@ -1,10 +1,14 @@
-from trame.widgets import vuetify
+from trame.widgets import vuetify, markdown
+
 from trame.ui.vuetify import SinglePageWithDrawerLayout
 from trame.app import get_server
 from trame_server.utils.browser import open_browser
 
 from pyvista.trame import PyVistaRemoteView
 from pyvista.trame.jupyter import elegantly_launch
+
+import panel as pn
+from functools import partial
 
 from ..plotter import DrillDownPlotter
 
@@ -54,6 +58,12 @@ class DrillDownTramePlotter(DrillDownPlotter):
         ctrl = self.server.controller
         ctrl_mesh_name = self.mesh_names[-1]
         with SinglePageWithDrawerLayout(self.server) as layout:
+            layout.title.set_text("")
+            with layout.footer as footer:
+                footer.clear()
+                footer.style = "z-index: 1000"
+                md = markdown.Markdown()
+                md.update("DrillDown")
             with layout.content:
                 with vuetify.VContainer(
                     fluid=True,
@@ -178,7 +188,6 @@ class DrillDownTramePlotter(DrillDownPlotter):
 
                 # update cmap
                 if state.active_var in self.continuous_vars[ctrl_mesh_name]:
-                    print(state.active_var)
                     state.cmap_visible = True
                     state.cmap = self.cmap[ctrl_mesh_name]
                     state.cmap_fields = self.cmaps
@@ -190,7 +199,6 @@ class DrillDownTramePlotter(DrillDownPlotter):
                     state.cmap_range_max = self.cmap_range[ctrl_mesh_name][1]
 
                 elif state.active_var in self.categorical_vars[ctrl_mesh_name]:
-                    print(state.active_var, "cannot")
                     state.cmap_visible = False
                     state.cmap_range_visible = False
 
@@ -201,7 +209,6 @@ class DrillDownTramePlotter(DrillDownPlotter):
 
         @state.change("active_var")
         def update_active_var(active_var, **kwargs):
-            print(active_var, "wohohoho")
             name = state.ctrl_mesh_name
             if name in self.interval_actor_names + self.point_actor_names:
                 self.active_var = (name, active_var)
@@ -223,9 +230,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
         @state.change("cmap")
         def update_cmap(cmap, **kwargs):
             name = state.ctrl_mesh_name
-            print("made it)")
             if name in self.interval_actor_names + self.point_actor_names:
-                print("made it further")
                 self.cmap = (name, cmap)
 
         @state.change("cmap_range")
@@ -304,344 +309,394 @@ class DrillDownTramePlotter(DrillDownPlotter):
                     self.state.ctrl_mesh_name = name
                     self.state.flush()
 
-    # def add_mesh(self, mesh, name=None, add_show_widgets=True, *args, **kwargs):
-    #     """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene and corresponding widgets to the GUI.
 
-    #     Parameters
-    #     ----------
-    #     mesh : pyvista.DataSet or pyvista.MultiBlock or vtk.vtkAlgorithm
-    #         Any PyVista or VTK mesh is supported. Also, any dataset
-    #         that pyvista.wrap() can handle including NumPy arrays of XYZ points.
-    #         Plotting also supports VTK algorithm objects (vtk.vtkAlgorithm
-    #         and vtk.vtkAlgorithmOutput). When passing an algorithm, the
-    #         rendering pipeline will be connected to the passed algorithm
-    #         to dynamically update the scene.
+class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
+    """Plotting object for displaying drillholes and related datasets with simple GUI."""
 
-    #     name : str, optional
-    #         Name assigned to mesh
+    def __init__(self, *args, **kwargs):
+        """Initialize plotter."""
+        self.ctrl_widget_width = 300
+        self.active_var_widgets = {}
+        self.cmap_widgets = {}
+        self.cmap_range_widgets = {}
+        self.show_widgets = {}
+        self.opacity_widgets = {}
 
-    #     Returns
-    #     -------
-    #     pyvista.plotting.actor.Actor
-    #         Actor of the mesh.
+        # create control panel
+        self.ctrls = pn.Accordion(
+            ("mesh visibility", self._make_mesh_visibility_card()),
+            toggle=True,
+            width=self.ctrl_widget_width,
+            height=self.height,
+        )
 
-    #     """
-    #     actor = super().add_mesh(mesh, name=name, *args, **kwargs)
+        super(DrillDownPanelPlotter, self).__init__(*args, **kwargs)
 
-    #     if name == self.selection_actor_name:
-    #         add_show_widgets = False
+        super(pn.Row, self).__init__(
+            self.ctrls, self.iframe(sizing_mode="stretch_both"), height=self.height
+        )
 
-    #     if add_show_widgets == True:
-    #         # set up widget to show and hide mesh
-    #         show_widget = pn.widgets.Checkbox(value=True)
-    #         self.show_widgets[name] = show_widget
-    #         # self.show_widgets.append(show_widget)
-    #         show_widget.param.watch(partial(self._on_mesh_show_change, name), "value")
+    def add_mesh(self, mesh, name=None, add_show_widgets=True, *args, **kwargs):
+        """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene and corresponding widgets to the GUI.
 
-    #         # set up widget to control mesh opacity
-    #         opacity_widget = pn.widgets.FloatSlider(
-    #             start=0,
-    #             end=1,
-    #             step=0.01,
-    #             value=1,
-    #             show_value=False,
-    #             width=int(2 * self.ctrl_widget_width / 3),
-    #         )
-    #         self.opacity_widgets[name] = opacity_widget
-    #         opacity_widget.param.watch(
-    #             partial(self._on_mesh_opacity_change, name), "value"
-    #         )
+        Parameters
+        ----------
+        mesh : pyvista.DataSet or pyvista.MultiBlock or vtk.vtkAlgorithm
+            Any PyVista or VTK mesh is supported. Also, any dataset
+            that pyvista.wrap() can handle including NumPy arrays of XYZ points.
+            Plotting also supports VTK algorithm objects (vtk.vtkAlgorithm
+            and vtk.vtkAlgorithmOutput). When passing an algorithm, the
+            rendering pipeline will be connected to the passed algorithm
+            to dynamically update the scene.
 
-    #         # situate show and opacity widgets; add to mesh visibility widget
-    #         self.mesh_visibility_card.append(pn.pane.Markdown(f"{name}"))
-    #         self.mesh_visibility_card.append(pn.Row(show_widget, opacity_widget))
-    #         self.mesh_visibility_card.append(pn.layout.Divider())
+        name : str, optional
+            Name assigned to mesh
 
-    #     return actor
+        Returns
+        -------
+        pyvista.plotting.actor.Actor
+            Actor of the mesh.
 
-    # def _add_hole_data_mesh(
-    #     self,
-    #     mesh,
-    #     name=None,
-    #     categorical_vars=[],
-    #     continuous_vars=[],
-    #     selectable=True,
-    #     active_var=None,
-    #     cmap="Blues",
-    #     cmap_range=None,
-    #     selection_color="magenta",
-    #     accelerated_selection=False,
-    #     nan_opacity=1,
-    #     *args,
-    #     **kwargs,
-    # ):
-    #     actor = super()._add_hole_data_mesh(
-    #         mesh,
-    #         name=name,
-    #         categorical_vars=categorical_vars,
-    #         continuous_vars=continuous_vars,
-    #         selectable=selectable,
-    #         active_var=active_var,
-    #         cmap=cmap,
-    #         cmap_range=cmap_range,
-    #         selection_color=selection_color,
-    #         accelerated_selection=accelerated_selection,
-    #         nan_opacity=nan_opacity,
-    #         *args,
-    #         **kwargs,
-    #     )
+        """
+        actor = super(DrillDownPanelPlotter, self).add_mesh(
+            mesh, name=name, *args, **kwargs
+        )
 
-    #     self._make_hole_ctrl_card(name, active_var, cmap, cmap_range)
+        if name == self.selection_actor_name:
+            add_show_widgets = False
 
-    #     return actor
+        if add_show_widgets == True:
+            # set up widget to show and hide mesh
+            show_widget = pn.widgets.Checkbox(value=True)
+            self.show_widgets[name] = show_widget
+            # self.show_widgets.append(show_widget)
+            show_widget.param.watch(partial(self._on_mesh_show_change, name), "value")
 
-    # def add_intervals_mesh(
-    #     self,
-    #     mesh,
-    #     name=None,
-    #     categorical_vars=[],
-    #     continuous_vars=[],
-    #     active_var=None,
-    #     cmap="Blues",
-    #     cmap_range=None,
-    #     *args,
-    #     **kwargs,
-    # ):
-    #     """Add a PyVista mesh/VTK dataset representing drillhole intervals to the scene. Add corresponding widgets to GUI.
+            # set up widget to control mesh opacity
+            opacity_widget = pn.widgets.FloatSlider(
+                start=0,
+                end=1,
+                step=0.01,
+                value=1,
+                show_value=False,
+                width=int(2 * self.ctrl_widget_width / 3),
+            )
+            self.opacity_widgets[name] = opacity_widget
+            opacity_widget.param.watch(
+                partial(self._on_mesh_opacity_change, name), "value"
+            )
 
-    #     Parameters
-    #     ----------
-    #     mesh : pyvista.PolyData or vtk.vtkPolyData
-    #         PyVista mesh/VTK dataset representing drillhole intervals.
-    #     active_var : str, optional
-    #         Variable corresponding to default scalar array used to color hole intervals. By default None.
-    #     cmap : str, optional
-    #         Matplotlib color map used to color interval data. By default "Blues"
-    #     cmap_range : tuple, optional
-    #         Minimum and maximum value between which color map is applied. By default None
-    #     """
+            # situate show and opacity widgets; add to mesh visibility widget
+            self.mesh_visibility_card.append(pn.pane.Markdown(f"{name}"))
+            self.mesh_visibility_card.append(pn.Row(show_widget, opacity_widget))
+            self.mesh_visibility_card.append(pn.layout.Divider())
 
-    #     super(DrillDownPanelPlotter, self).add_intervals_mesh(
-    #         mesh,
-    #         name=name,
-    #         active_var=active_var,
-    #         categorical_vars=categorical_vars,
-    #         continuous_vars=continuous_vars,
-    #         cmap=cmap,
-    #         cmap_range=cmap_range,
-    #         *args,
-    #         **kwargs,
-    #     )
-    #     # set up widget to show and hide mesh
-    #     if active_var is not None:
-    #         self.active_var = (name, active_var)
-    #     self.cmap = (name, cmap)
-    #     if cmap_range != None:
-    #         self.cmap_range = (name, cmap_range)
+        return actor
 
-    # def add_points_mesh(
-    #     self,
-    #     mesh,
-    #     name=None,
-    #     categorical_vars=[],
-    #     continuous_vars=[],
-    #     point_size=10,
-    #     selectable=True,
-    #     active_var=None,
-    #     cmap="Blues",
-    #     cmap_range=None,
-    #     selection_color="magenta",
-    #     accelerated_selection=False,
-    #     nan_opacity=1,
-    #     *args,
-    #     **kwargs,
-    # ):
-    #     super(DrillDownPanelPlotter, self).add_points_mesh(
-    #         mesh,
-    #         name=name,
-    #         categorical_vars=categorical_vars,
-    #         continuous_vars=continuous_vars,
-    #         point_size=point_size,
-    #         selectable=selectable,
-    #         active_var=active_var,
-    #         cmap=cmap,
-    #         cmap_range=cmap_range,
-    #         selection_color=selection_color,
-    #         accelerated_selection=accelerated_selection,
-    #         nan_opacity=nan_opacity,
-    #         *args,
-    #         **kwargs,
-    #     )
-    #     # set up widget to show and hide mesh
-    #     if active_var is not None:
-    #         self._active_var[name] = active_var
-    #     self._cmap[name] = cmap
-    #     if cmap_range != None:
-    #         self._cmap_range[name] = cmap_range
+    def _add_hole_data_mesh(
+        self,
+        mesh,
+        name=None,
+        categorical_vars=[],
+        continuous_vars=[],
+        selectable=True,
+        active_var=None,
+        cmap="Blues",
+        cmap_range=None,
+        selection_color="magenta",
+        accelerated_selection=False,
+        nan_opacity=1,
+        *args,
+        **kwargs,
+    ):
+        actor = super(DrillDownPanelPlotter, self)._add_hole_data_mesh(
+            mesh,
+            name=name,
+            categorical_vars=categorical_vars,
+            continuous_vars=continuous_vars,
+            selectable=selectable,
+            active_var=active_var,
+            cmap=cmap,
+            cmap_range=cmap_range,
+            selection_color=selection_color,
+            accelerated_selection=accelerated_selection,
+            nan_opacity=nan_opacity,
+            *args,
+            **kwargs,
+        )
 
-    # def _make_active_var_widget(self, name, active_var=None):
-    #     options = self.all_vars[name]
-    #     if active_var is None:
-    #         active_var = options[0]
-    #     widget = pn.widgets.Select(
-    #         name=f"{name} active variable",
-    #         options=options,
-    #         value=active_var,
-    #         width=int(0.9 * self.ctrl_widget_width),
-    #     )
-    #     widget.param.watch(partial(self._on_active_var_change, name), "value")
+        self._make_hole_ctrl_card(name, active_var, cmap, cmap_range)
 
-    #     self.active_var_widgets[name] = widget
-    #     return widget
+        return actor
 
-    # def _make_cmap_widget(self, name, cmap=None):
-    #     widget = pn.widgets.Select(
-    #         name=f"{name} color map",
-    #         options=self.cmaps,
-    #         value=cmap,
-    #         width=int(0.9 * self.ctrl_widget_width),
-    #     )
-    #     widget.param.watch(partial(self._on_cmap_change, name), "value")
+    def add_intervals_mesh(
+        self,
+        mesh,
+        name=None,
+        categorical_vars=[],
+        continuous_vars=[],
+        active_var=None,
+        cmap="Blues",
+        cmap_range=None,
+        *args,
+        **kwargs,
+    ):
+        """Add a PyVista mesh/VTK dataset representing drillhole intervals to the scene. Add corresponding widgets to GUI.
 
-    #     self.cmap_widgets[name] = widget
-    #     return widget
+        Parameters
+        ----------
+        mesh : pyvista.PolyData or vtk.vtkPolyData
+            PyVista mesh/VTK dataset representing drillhole intervals.
+        active_var : str, optional
+            Variable corresponding to default scalar array used to color hole intervals. By default None.
+        cmap : str, optional
+            Matplotlib color map used to color interval data. By default "Blues"
+        cmap_range : tuple, optional
+            Minimum and maximum value between which color map is applied. By default None
+        """
 
-    # def _make_cmap_range_widget(self, name, cmap_range=None):
-    #     min = self.actors[name].mapper.dataset.active_scalars.min()
-    #     max = self.actors[name].mapper.dataset.active_scalars.max()
-    #     if cmap_range == None:
-    #         cmap_range = (min, max)
-    #     widget = pn.widgets.RangeSlider(
-    #         name=f"{name} color map range",
-    #         start=min,
-    #         end=max,
-    #         step=min - max / 1000,
-    #         value=cmap_range,
-    #         width=int(0.9 * self.ctrl_widget_width),
-    #     )
-    #     widget.param.watch(partial(self._on_cmap_range_change, name), "value")
-    #     widget.param.default = cmap_range
+        super(DrillDownPanelPlotter, self).add_intervals_mesh(
+            mesh,
+            name=name,
+            active_var=active_var,
+            categorical_vars=categorical_vars,
+            continuous_vars=continuous_vars,
+            cmap=cmap,
+            cmap_range=cmap_range,
+            *args,
+            **kwargs,
+        )
+        # set up widget to show and hide mesh
+        if active_var is not None:
+            self.active_var = (name, active_var)
+        self.cmap = (name, cmap)
+        if cmap_range != None:
+            self.cmap_range = (name, cmap_range)
 
-    #     self.cmap_range_widgets[name] = widget
-    #     return widget
+    def add_points_mesh(
+        self,
+        mesh,
+        name=None,
+        categorical_vars=[],
+        continuous_vars=[],
+        point_size=10,
+        selectable=True,
+        active_var=None,
+        cmap="Blues",
+        cmap_range=None,
+        selection_color="magenta",
+        accelerated_selection=False,
+        nan_opacity=1,
+        *args,
+        **kwargs,
+    ):
+        super(DrillDownPanelPlotter, self).add_points_mesh(
+            mesh,
+            name=name,
+            categorical_vars=categorical_vars,
+            continuous_vars=continuous_vars,
+            point_size=point_size,
+            selectable=selectable,
+            active_var=active_var,
+            cmap=cmap,
+            cmap_range=cmap_range,
+            selection_color=selection_color,
+            accelerated_selection=accelerated_selection,
+            nan_opacity=nan_opacity,
+            *args,
+            **kwargs,
+        )
+        # set up widget to show and hide mesh
+        if active_var is not None:
+            self._active_var[name] = active_var
+        self._cmap[name] = cmap
+        if cmap_range != None:
+            self._cmap_range[name] = cmap_range
 
-    # def _make_hole_ctrl_card(
-    #     self, name, active_var=None, cmap="Blues", cmap_range=None
-    # ):
-    #     self.hole_ctrl_card = pn.Column(
-    #         width=self.ctrl_widget_width,
-    #     )
-    #     self.hole_ctrl_card.append(self._make_active_var_widget(name, active_var))
-    #     self.hole_ctrl_card.append(self._make_cmap_widget(name, cmap))
-    #     self.hole_ctrl_card.append(self._make_cmap_range_widget(name, cmap_range))
+    def _make_active_var_widget(self, name, active_var=None):
+        options = self.all_vars[name]
+        if active_var is None:
+            active_var = options[0]
+        widget = pn.widgets.Select(
+            name=f"{name} active variable",
+            options=options,
+            value=active_var,
+            width=int(0.9 * self.ctrl_widget_width),
+        )
+        widget.param.watch(partial(self._on_active_var_change, name), "value")
 
-    #     self.ctrls.append((f"{name} controls", self.hole_ctrl_card))
-    #     return self.hole_ctrl_card
+        self.active_var_widgets[name] = widget
+        return widget
 
-    # def _make_mesh_visibility_card(self):
-    #     self.mesh_visibility_card = pn.Column(scroll=True, width=self.ctrl_widget_width)
+    def _make_cmap_widget(self, name, cmap=None):
+        widget = pn.widgets.Select(
+            name=f"{name} color map",
+            options=self.cmaps,
+            value=cmap,
+            width=int(0.9 * self.ctrl_widget_width),
+        )
+        widget.param.watch(partial(self._on_cmap_change, name), "value")
 
-    #     return self.mesh_visibility_card
+        self.cmap_widgets[name] = widget
+        return widget
 
-    # @property
-    # def active_var(self):
-    #     return self._active_var
+    def _make_cmap_range_widget(self, name, cmap_range=None):
+        min = self.actors[name].mapper.dataset.active_scalars.min()
+        max = self.actors[name].mapper.dataset.active_scalars.max()
+        if cmap_range == None:
+            cmap_range = (min, max)
+        widget = pn.widgets.RangeSlider(
+            name=f"{name} color map range",
+            start=min,
+            end=max,
+            step=min - max / 1000,
+            value=cmap_range,
+            width=int(0.9 * self.ctrl_widget_width),
+        )
+        widget.param.watch(partial(self._on_cmap_range_change, name), "value")
+        widget.param.default = cmap_range
 
-    # @active_var.setter
-    # def active_var(self, key_value_pair):
-    #     super(DrillDownPanelPlotter, DrillDownPanelPlotter).active_var.fset(
-    #         self, key_value_pair
-    #     )
-    #     name, active_var = key_value_pair
-    #     if name in self.active_var_widgets.keys():
-    #         self.active_var_widgets[name].value = active_var
+        self.cmap_range_widgets[name] = widget
+        return widget
 
-    #         if active_var in self.continuous_vars[name]:
-    #             self.cmap_widgets[name].visible = True
-    #             self.cmap_range_widgets[name].visible = True
+    def _make_hole_ctrl_card(
+        self, name, active_var=None, cmap="Blues", cmap_range=None
+    ):
+        self.hole_ctrl_card = pn.Column(
+            width=self.ctrl_widget_width,
+        )
+        self.hole_ctrl_card.append(self._make_active_var_widget(name, active_var))
+        self.hole_ctrl_card.append(self._make_cmap_widget(name, cmap))
+        self.hole_ctrl_card.append(self._make_cmap_range_widget(name, cmap_range))
 
-    #         elif active_var in self.categorical_vars[name]:
-    #             self.cmap_widgets[name].visible = False
-    #             self.cmap_range_widgets[name].visible = False
+        self.ctrls.append((f"{name} controls", self.hole_ctrl_card))
+        return self.hole_ctrl_card
 
-    # @property
-    # def cmap(self):
-    #     return self._cmap
+    def _make_mesh_visibility_card(self):
+        self.mesh_visibility_card = pn.Column(scroll=True, width=self.ctrl_widget_width)
 
-    # @cmap.setter
-    # def cmap(self, key_value_pair):
-    #     super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap.fset(
-    #         self, key_value_pair
-    #     )
-    #     name, cmap = key_value_pair
-    #     if (name in self.cmap_widgets.keys()) and (
-    #         name in self.cmap_range_widgets.keys()
-    #     ):
-    #         if isinstance(cmap, str):
-    #             self.cmap_widgets[name].value = cmap
+        return self.mesh_visibility_card
 
-    # @property
-    # def cmap_range(self):
-    #     return self._cmap_range
+    @property
+    def active_var(self):
+        return self._active_var
 
-    # @cmap_range.setter
-    # def cmap_range(self, key_value_pair):
-    #     super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap_range.fset(
-    #         self, key_value_pair
-    #     )
-    #     name, cmap_range = key_value_pair
-    #     if name in self.cmap_range_widgets.keys():
-    #         self.cmap_range_widgets[name].value = cmap_range
-    #         self.cmap_range_widgets[name].step = (cmap_range[1] - cmap_range[0]) / 1000
+    @active_var.setter
+    def active_var(self, key_value_pair):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).active_var.fset(
+            self, key_value_pair
+        )
+        name, active_var = key_value_pair
+        if name in self.active_var_widgets.keys():
+            self.active_var_widgets[name].value = active_var
 
-    # @property
-    # def visibility(self):
-    #     return self._visibility
+            if active_var in self.continuous_vars[name]:
+                self.cmap_widgets[name].visible = True
+                self.cmap_range_widgets[name].visible = True
 
-    # @visibility.setter
-    # def visibility(self, key_value_pair):
-    #     super(DrillDownPanelPlotter, DrillDownPanelPlotter).visibility.fset(
-    #         self, key_value_pair
-    #     )
-    #     name, visible = key_value_pair
-    #     self.show_widgets[name].value = visible
+            elif active_var in self.categorical_vars[name]:
+                self.cmap_widgets[name].visible = False
+                self.cmap_range_widgets[name].visible = False
 
-    # @property
-    # def opacity(self):
-    #     return self._opacity
+    @property
+    def cmap(self):
+        return self._cmap
 
-    # @opacity.setter
-    # def opacity(self, key_value_pair):
-    #     super(DrillDownPanelPlotter, DrillDownPanelPlotter).opacity.fset(
-    #         self, key_value_pair
-    #     )
-    #     name, opacity = key_value_pair
-    #     self.opacity_widgets[name].value = opacity
+    @cmap.setter
+    def cmap(self, key_value_pair):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap.fset(
+            self, key_value_pair
+        )
+        name, cmap = key_value_pair
+        if (name in self.cmap_widgets.keys()) and (
+            name in self.cmap_range_widgets.keys()
+        ):
+            if isinstance(cmap, str):
+                self.cmap_widgets[name].value = cmap
 
-    # def _on_active_var_change(self, name, event):
-    #     active_var = event.new
-    #     self.active_var = (name, active_var)
+    @property
+    def cmap_range(self):
+        return self._cmap_range
 
-    #     active_scalars = self.actors[name].mapper.dataset.active_scalars
-    #     self.cmap_range_widgets[name].start = active_scalars.min()
-    #     self.cmap_range_widgets[name].end = active_scalars.max()
+    @cmap_range.setter
+    def cmap_range(self, key_value_pair):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap_range.fset(
+            self, key_value_pair
+        )
+        name, cmap_range = key_value_pair
+        if name in self.cmap_range_widgets.keys():
+            self.cmap_range_widgets[name].value = cmap_range
+            self.cmap_range_widgets[name].step = (cmap_range[1] - cmap_range[0]) / 1000
 
-    # def _on_cmap_change(self, name, event):
-    #     cmap = event.new
-    #     self.cmap = (name, cmap)
+    @property
+    def visibility(self):
+        return self._visibility
 
-    #     active_scalars = self.actors[name].mapper.dataset.active_scalars
-    #     self.cmap_range_widgets[name].start = active_scalars.min()
-    #     self.cmap_range_widgets[name].end = active_scalars.max()
+    @visibility.setter
+    def visibility(self, key_value_pair):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).visibility.fset(
+            self, key_value_pair
+        )
+        name, visible = key_value_pair
+        self.show_widgets[name].value = visible
 
-    # def _on_cmap_range_change(self, name, event):
-    #     cmap_range = event.new
-    #     self.cmap_range = (name, cmap_range)
+    @property
+    def opacity(self):
+        return self._opacity
 
-    # def _on_mesh_show_change(self, name, event):
-    #     visible = event.new
-    #     self.visibility = (name, visible)
+    @opacity.setter
+    def opacity(self, key_value_pair):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).opacity.fset(
+            self, key_value_pair
+        )
+        name, opacity = key_value_pair
+        self.opacity_widgets[name].value = opacity
 
-    # def _on_mesh_opacity_change(self, name, event):
-    #     opacity = event.new
-    #     self.opacity = (name, opacity)
+    def _on_active_var_change(self, name, event):
+        active_var = event.new
+        self.active_var = (name, active_var)
+
+        active_scalars = self.actors[name].mapper.dataset.active_scalars
+        self.cmap_range_widgets[name].start = active_scalars.min()
+        self.cmap_range_widgets[name].end = active_scalars.max()
+
+    def _on_cmap_change(self, name, event):
+        cmap = event.new
+        self.cmap = (name, cmap)
+
+        active_scalars = self.actors[name].mapper.dataset.active_scalars
+        self.cmap_range_widgets[name].start = active_scalars.min()
+        self.cmap_range_widgets[name].end = active_scalars.max()
+
+    def _on_cmap_range_change(self, name, event):
+        cmap_range = event.new
+        self.cmap_range = (name, cmap_range)
+
+    def _on_mesh_show_change(self, name, event):
+        visible = event.new
+        self.visibility = (name, visible)
+
+    def _on_mesh_opacity_change(self, name, event):
+        opacity = event.new
+        self.opacity = (name, opacity)
+
+    def iframe(self, sizing_mode="fixed", w="100%", h=None):
+        _iframe = super(DrillDownPanelPlotter, self).iframe()
+        _src = _iframe.src
+        if h is None:
+            h = self.height
+        if sizing_mode == "stretch_width":
+            w = "100%"
+        elif sizing_mode == "stretch_height":
+            h = "100%"
+        elif sizing_mode == "stretch_both":
+            w = "100%"
+            h = "100%"
+
+        html = f"""<iframe frameborder="0" title="panel app" style="width: {w};height: {h};flex-grow: 1" src="{_src}"></iframe>"""
+        _iframe = pn.pane.HTML(html, sizing_mode=sizing_mode)
+        self._iframe = _iframe
+
+        return pn.Column(
+            pn.panel(_iframe, sizing_mode=sizing_mode), sizing_mode=sizing_mode
+        )
