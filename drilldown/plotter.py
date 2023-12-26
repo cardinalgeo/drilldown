@@ -1215,7 +1215,6 @@ class DrillDownPlotter(Plotter):
     @active_var.setter
     def active_var(self, key_value_pair):
         name, active_var = key_value_pair
-        self.prev_active_var[name] = active_var
         self._active_var[name] = active_var
 
         actor = self.actors.get(name, None)
@@ -1236,11 +1235,13 @@ class DrillDownPlotter(Plotter):
                 (0, cmap_range),
             )
         elif active_var in self.continuous_vars[name]:
-            if self.prev_active_var[name] in self.categorical_vars[name]:
+            if self.prev_active_var.get(name, None) in self.categorical_vars[name]:
                 cmap = self.prev_continuous_cmap[name]
                 self.cmap = (name, cmap)
 
             self.reset_cmap_range(name)
+
+        self.prev_active_var[name] = active_var
 
         self.render()
 
@@ -1262,7 +1263,6 @@ class DrillDownPlotter(Plotter):
             ):
                 actors.append(self.selection_actor)
             for actor in actors:
-                print("updating cmap")
                 if self.active_var[name] in self.continuous_vars[name]:
                     actor.mapper.lookup_table.cmap = cmap
                     self.prev_continuous_cmap[name] = cmap
