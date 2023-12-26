@@ -169,13 +169,13 @@ class DrillDownTramePlotter(DrillDownPlotter):
 
         @state.change("ctrl_mesh_name")
         def update_controls_mesh(ctrl_mesh_name, **kwargs):
-            if ctrl_mesh_name in ["collars", "surveys"]:
+            if ctrl_mesh_name not in self.interval_actor_names + self.point_actor_names:
                 state.divider_visible = False
                 state.active_var_visible = False
                 state.cmap_visible = False
                 state.cmap_range_visible = False
 
-            elif ctrl_mesh_name in self.interval_actor_names + self.point_actor_names:
+            else:
                 state.divider_visible = True
 
                 # update active var
@@ -306,9 +306,28 @@ class DrillDownTramePlotter(DrillDownPlotter):
         )
         if self._ui:
             if name not in self.state.ctrl_mesh_name_fields:
-                if name in self.mesh_names:
+                if name in self.mesh_names:  # ignore selection or filter meshes
                     self.state.ctrl_mesh_name_fields = self.mesh_names.copy()
                     self.state.ctrl_mesh_name = name
+
+                    if name in self.point_actor_names + self.interval_actor_names:
+                        self.state.divider_visible = True
+                        self.state.active_var_visible = True
+
+                        if self.active_var[name] in self.continuous_vars[name]:
+                            self.state.cmap_visible = True
+                            self.state.cmap_range_visible = True
+
+                        else:
+                            self.state.cmap_visible = False
+                            self.state.cmap_range_visible = False
+
+                    else:
+                        self.state.divider_visible = False
+                        self.state.active_var_visible = False
+                        self.state.cmap_visible = False
+                        self.state.cmap_range_visible = False
+
                     self.state.flush()
 
 
