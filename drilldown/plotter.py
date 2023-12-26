@@ -146,6 +146,8 @@ class DrillDownPlotter(Plotter):
         filter_opacity=0.1,
         selection_color="magenta",
         accelerated_selection=False,
+        as_filter=False,
+        as_selection=False,
         *args,
         **kwargs,
     ):
@@ -172,8 +174,10 @@ class DrillDownPlotter(Plotter):
         """
 
         self._meshes[name] = mesh
-        self.mesh_names.append(name)
-        self.filter_opacity[name] = filter_opacity
+        if (as_filter == False) and (as_selection == False):
+            self.mesh_names.append(name)
+            self.filter_opacity[name] = filter_opacity
+
         actor = super(DrillDownPlotter, self).add_mesh(
             mesh,
             name=name,
@@ -1085,6 +1089,7 @@ class DrillDownPlotter(Plotter):
                 pickable=True,
                 selection_color=self.selection_color[name],
                 accelerated_selection=self.accelerated_selection[name],
+                as_filter=True,
             )
             return filter_actor
 
@@ -1109,6 +1114,7 @@ class DrillDownPlotter(Plotter):
                 pickable=True,
                 selection_color=self.selection_color[name],
                 accelerated_selection=self.accelerated_selection[name],
+                as_filter=True,
             )
             return filter_actor
 
@@ -1185,6 +1191,7 @@ class DrillDownPlotter(Plotter):
                 color=self.selection_color[name],
                 reset_camera=False,
                 pickable=False,
+                as_selection=True,
             )
             return selection_actor
 
@@ -1205,6 +1212,7 @@ class DrillDownPlotter(Plotter):
                 color=self.selection_color[name],
                 reset_camera=False,
                 pickable=False,
+                as_selection=True,
             )
             return selection_actor
 

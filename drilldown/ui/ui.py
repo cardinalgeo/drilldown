@@ -29,6 +29,8 @@ class DrillDownTramePlotter(DrillDownPlotter):
         self.state = self.server.state
         self.server.client_type = "vue2"
 
+        self._ui = None
+
     def show(self, inline=True):
         self._ui = self._initialize_ui()
         self._initialize_engine()
@@ -65,7 +67,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
                     vuetify.VSelect(
                         label="controls mesh",
                         v_model=("ctrl_mesh_name", ctrl_mesh_name),
-                        items=("data_fields", self.mesh_names),
+                        items=("ctrl_mesh_name_fields", self.mesh_names.copy()),
                         classes="pt-1",
                         # **DROPDOWN_STYLES,
                     )
@@ -271,6 +273,36 @@ class DrillDownTramePlotter(DrillDownPlotter):
         if name == self.state.ctrl_mesh_name:
             self.state.cmap_range = cmap_range
             self.state.flush()
+
+    def add_mesh(
+        self,
+        mesh,
+        name=None,
+        opacity=1,
+        pickable=False,
+        filter_opacity=0.1,
+        selection_color="magenta",
+        accelerated_selection=False,
+        *args,
+        **kwargs,
+    ):
+        super(DrillDownTramePlotter, self).add_mesh(
+            mesh,
+            name=name,
+            opacity=opacity,
+            pickable=pickable,
+            filter_opacity=filter_opacity,
+            selection_color=selection_color,
+            accelerated_selection=accelerated_selection,
+            *args,
+            **kwargs,
+        )
+        if self._ui:
+            if name not in self.state.ctrl_mesh_name_fields:
+                if name in self.mesh_names:
+                    self.state.ctrl_mesh_name_fields = self.mesh_names.copy()
+                    self.state.ctrl_mesh_name = name
+                    self.state.flush()
 
     # def add_mesh(self, mesh, name=None, add_show_widgets=True, *args, **kwargs):
     #     """Add any PyVista mesh/VTK dataset that PyVista can wrap to the scene and corresponding widgets to the GUI.
