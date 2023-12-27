@@ -259,9 +259,6 @@ class DrillDownPlotter(Plotter):
         *args,
         **kwargs,
     ):
-        # self.continuous_vars[name] = continuous_vars
-        # self.categorical_vars[name] = categorical_vars
-        # self.all_vars[name] = continuous_vars + categorical_vars
         if active_var is None:  # default to first variable
             self._active_var[name] = self.all_vars[name][0]
         else:
@@ -272,9 +269,7 @@ class DrillDownPlotter(Plotter):
         self.cmap[name] = cmap
 
         if cmap_range is None:
-            print("cmap_range is None")
             if name in self.interval_actor_names + self.point_actor_names:
-                print("name in interval_actor_names or point_actor_names")
                 if name in self.interval_actor_names:
                     array = mesh.cell_data[self.active_var[name]]
                 else:
@@ -360,8 +355,6 @@ class DrillDownPlotter(Plotter):
             increases selection speed but decreases selection accuracy. By default False
         """
         self.interval_actor_names.append(name)
-        # self.categorical_interval_vars += categorical_vars
-        # self.continuous_interval_vars += continuous_vars
         self.n_intervals[name] = mesh.n_lines
         if capping == True:
             self.cells_per_interval[name] = n_sides + 2
@@ -768,12 +761,8 @@ class DrillDownPlotter(Plotter):
         picked_point = point_picker.GetPointId()
         if picked_point is not None:
             if picked_point == -1:
-                # or (
-                #     point_picker.GetActor().name in self.interval_actor_names
-                # ):
                 return
-            # if name == self.point_filter_actor_name:
-            #     name = name.split(" ")[0]
+            
             shift_pressed = self.iren.interactor.GetShiftKey()
             ctrl_pressed = self.iren.interactor.GetControlKey()
             if shift_pressed == True:

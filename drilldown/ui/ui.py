@@ -90,9 +90,8 @@ class DrillDownTramePlotter(DrillDownPlotter):
                     fluid=True,
                     classes="fill-height pa-0 ma-0",
                 ):
-                    view = PyVistaRemoteView(self)
-                    # ctrl.view_update = view.update
-                    # ctrl.reset_camera = view.reset_camera
+                    PyVistaRemoteView(self)
+
             with layout.drawer as drawer:
                 with ui_card("Controls", "controls"):
                     vuetify.VSelect(
@@ -413,7 +412,6 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             # set up widget to show and hide mesh
             show_widget = pn.widgets.Checkbox(value=True)
             self.show_widgets[name] = show_widget
-            # self.show_widgets.append(show_widget)
             show_widget.param.watch(partial(self._on_mesh_show_change, name), "value")
 
             # set up widget to control mesh opacity
