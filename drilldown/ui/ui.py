@@ -293,7 +293,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
         *args,
         **kwargs,
     ):
-        super(DrillDownTramePlotter, self).add_mesh(
+        actor = super(DrillDownTramePlotter, self).add_mesh(
             mesh,
             name=name,
             opacity=opacity,
@@ -329,6 +329,8 @@ class DrillDownTramePlotter(DrillDownPlotter):
                         self.state.cmap_range_visible = False
 
                     self.state.flush()
+
+        return actor
 
 
 class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):

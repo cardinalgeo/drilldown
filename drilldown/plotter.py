@@ -96,6 +96,7 @@ class DrillDownPlotter(Plotter):
 
         # filter attributes
         self.filter_opacity = {}
+        self.filter_opacity_factor = {}
         self._data_filter = None
         self._interval_filter = None
         self._interval_cells_filter = None
@@ -177,6 +178,7 @@ class DrillDownPlotter(Plotter):
         if (as_filter == False) and (as_selection == False):
             self.mesh_names.append(name)
             self.filter_opacity[name] = filter_opacity
+            self.filter_opacity_factor[name] = filter_opacity
 
         actor = super(DrillDownPlotter, self).add_mesh(
             mesh,
@@ -1223,14 +1225,16 @@ class DrillDownPlotter(Plotter):
         name, active_var = key_value_pair
         self._active_var[name] = active_var
 
+        actors = []
         actor = self.actors.get(name, None)
+        actors.append(actor)
         if actor is not None:
-            actor.mapper.dataset.set_active_scalars(active_var)
-
-            if (self.selection_actor is not None) and (
-                self.selection_actor_name == name + " selection"
+            if (self.filter_actor is not None) and (
+                self.filter_actor_name == name + " filter"
             ):
-                self.selection_actor.mapper.dataset.set_active_scalars(active_var)
+                actors.append(self.filter_actor)
+        for actor in actors:
+            actor.mapper.dataset.set_active_scalars(active_var)
 
         if active_var in self.categorical_vars[name]:
             cmap = self.matplotlib_formatted_color_maps.get(active_var, None)
@@ -1264,10 +1268,10 @@ class DrillDownPlotter(Plotter):
         actor = self.actors.get(name, None)
         actors.append(actor)
         if actor is not None:
-            if (self.selection_actor is not None) and (
-                self.selection_actor_name == name + " selection"
+            if (self.filter_actor is not None) and (
+                self.filter_actor_name == name + " filter"
             ):
-                actors.append(self.selection_actor)
+                actors.append(self.filter_actor)
             for actor in actors:
                 if self.active_var[name] in self.continuous_vars[name]:
                     actor.mapper.lookup_table.cmap = cmap
@@ -1292,10 +1296,10 @@ class DrillDownPlotter(Plotter):
         actor = self.actors.get(name, None)
         if actor is not None:
             actors.append(actor)
-            if (self.selection_actor is not None) and (
-                self.selection_actor_name == name + " selection"
+            if (self.filter_actor is not None) and (
+                self.filter_actor_name == name + " filter"
             ):
-                actors.append(self.selection_actor)
+                actors.append(self.filter_actor)
 
             for actor in actors:
                 actor.mapper.lookup_table.scalar_range = cmap_range
@@ -1345,7 +1349,20 @@ class DrillDownPlotter(Plotter):
         self._opacity[name] = opacity
         actor = self.actors.get(name, None)
         if actor is not None:
-            self.actors[name].prop.opacity = opacity
+            if (self.filter_actor is not None) and (
+                self.filter_actor_name == name + " filter"
+            ):
+                self.filter_actor.prop.opacity = opacity
+                opacity_factor = self.filter_opacity_factor[name]
+            else:
+                opacity_factor = 1
+
+            self.actors[name].prop.opacity = opacity * opacity_factor
+
+            if (self.selection_actor is not None) and (
+                self.selection_actor_name == name + " selection"
+            ):
+                self.selection_actor.prop.opacity = opacity
 
         self.render()
 
