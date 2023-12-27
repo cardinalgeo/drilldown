@@ -1,4 +1,4 @@
-# drilldown
+# DrillDown
 Visualization tools for "drilling down" into ore deposits datasets
 
 ## Installation for development
