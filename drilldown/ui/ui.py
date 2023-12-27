@@ -50,7 +50,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
 
         self._ui = None
 
-    def show(self, inline=True):
+    def show(self, inline=False):
         self._ui = self._initialize_ui()
         self._initialize_engine()
 
