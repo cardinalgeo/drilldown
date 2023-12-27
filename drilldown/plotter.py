@@ -458,6 +458,8 @@ class DrillDownPlotter(Plotter):
         return surveys_actor
 
     def _add_hole_data(self, data, name):
+        data._construct_categorical_cmap()
+
         self.continuous_vars[name] = data.continuous_vars
         self.categorical_vars[name] = data.categorical_vars
         self.all_vars[name] = data.continuous_vars + data.categorical_vars
@@ -1278,6 +1280,9 @@ class DrillDownPlotter(Plotter):
                     self.prev_continuous_cmap[name] = cmap
 
                 else:
+                    cmap = self.matplotlib_formatted_color_maps[name].get(
+                        self.active_var[name], None
+                    )
                     actor.mapper.lookup_table = pv.LookupTable(cmap)
                 actor.mapper.lookup_table.nan_color = "white"  # self.nan_opacity
 
