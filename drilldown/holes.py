@@ -102,7 +102,7 @@ class HoleData:
         self.unique_hole_ids = np.unique(hole_ids)
 
         # encode hole IDs, as strings are wiped in pyvista meshes
-        shole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
+        hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
         self.hole_id_to_code_map = {
             hole_id: code for code, hole_id in enumerate(hole_ids_unique)
         }
@@ -449,15 +449,7 @@ class Intervals(HoleData):
             self._construct_categorical_cmap()
 
         p = DrillDownPlotter()
-        p.add_intervals(
-            self,
-            "intervals",
-            # ["Stratigraphy"],  # self.categorical_vars,
-            # ["Co_ppm"],  # self.continuous_vars,
-            selectable=False,
-            *args,
-            **kwargs
-        )
+        p.add_intervals(self, "intervals", selectable=False, *args, **kwargs)
 
         if show_collars == True:
             p.add_collars(self.collars)
