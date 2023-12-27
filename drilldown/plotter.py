@@ -279,7 +279,7 @@ class DrillDownPlotter(Plotter):
                     array = mesh.cell_data[self.active_var[name]]
                 else:
                     array = mesh.point_data[self.active_var[name]]
-                min, max = array.min(), array.max()
+                min, max = np.nanmin(array), np.nanmax(array)
                 cmap_range = (min, max)
 
         self._cmap_range[name] = cmap_range
@@ -1323,7 +1323,7 @@ class DrillDownPlotter(Plotter):
                 array = mesh.cell_data[self.active_var[name]]
             elif name in self.point_actor_names:
                 array = mesh.point_data[self.active_var[name]]
-            min, max = array.min(), array.max()
+            min, max = np.nanmin(array), np.nanmax(array)
             self.cmap_range = (name, (min, max))
 
     @property
