@@ -13,6 +13,21 @@ from functools import partial
 from ..plotter import DrillDownPlotter
 
 
+def is_jupyter():
+    from IPython import get_ipython
+
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == "ZMQInteractiveShell":
+            return True  # Jupyter notebook or qtconsole
+        elif shell == "TerminalInteractiveShell":
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False
+
+
 def ui_card(title, ui_name):
     with vuetify.VCard():
         vuetify.VCardSubtitle(
@@ -45,11 +60,17 @@ class DrillDownTramePlotter(DrillDownPlotter):
             return self._ui
 
         else:
-            self.server.start(
-                exec_mode="task",
-                port=0,
-                open_browser=True,
-            )
+            if is_jupyter():
+                self.server.start(
+                    exec_mode="task",
+                    port=0,
+                    open_browser=True,
+                )
+            else:
+                self.server.start(
+                    port=0,
+                    open_browser=True,
+                )
 
             ctrl = self.server.controller
             ctrl.on_server_ready.add(lambda **kwargs: open_browser(self.server))
