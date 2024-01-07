@@ -1,3 +1,4 @@
+import collections.abc
 import pyvista as pv
 from geoh5py.workspace import Workspace
 from geoh5py.groups import DrillholeGroup
@@ -8,6 +9,7 @@ import distinctipy
 
 from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
+from .utils import convert_to_numpy_array
 
 from matplotlib.colors import ListedColormap
 
@@ -43,10 +45,17 @@ def make_color_map_fractional(map):
     for name in map.keys():
         if max(map[name]) > 1:
             map[name] = tuple([val / 255 for val in map[name]])
+        elif max(map[name]) >= 0:
+            raise ValueError("Color is already fractional.")
+        else:
+            raise ValueError("Color values cannot be negative.")
+
     return map
 
 
 def encode_categorical_data(data):
+    data = convert_to_numpy_array(data)
+
     data_encoded, categories = pd.factorize(data)
     codes = np.arange(len(categories))
 
@@ -96,8 +105,7 @@ class HoleData:
         self.construct_categorical_cmap = construct_categorical_cmap
 
         # add hole IDs
-        if isinstance(hole_ids, pd.core.series.Series):
-            hole_ids = hole_ids.values
+        hole_ids = convert_to_numpy_array(hole_ids)
         self.hole_ids = hole_ids
         self.unique_hole_ids = np.unique(hole_ids)
 
@@ -111,13 +119,11 @@ class HoleData:
         }
 
         # add from-to depths
+        depths = convert_to_numpy_array(depths)
         self.depths = depths
 
         # add data
-        if (isinstance(data, pd.core.series.Series)) | (
-            isinstance(data, pd.core.frame.DataFrame)
-        ):
-            data = data.values
+        data = convert_to_numpy_array(data, collapse_dim=False)
         for dataset, var_name in zip(data.T, var_names):
             dataset, _type = convert_array_type(dataset, return_type=True)
 
@@ -142,14 +148,17 @@ class HoleData:
         if return_data == True:
             return self.data
 
-    def _desurvey(self, hole_id, depths=None):  # NEW
-        return self._holes[hole_id].desurvey(depths=depths)
+    # def _desurvey(self, hole_id, depths=None):  # NEW
+    #     return self._holes[hole_id].desurvey(depths=depths)
 
-    def desurvey(self, surveys):
-        self.surveys = surveys
-        for hole_id in self.hole_ids:
-            hole = survey._holes[hole_id]
-            depths = hole.desurvey()
+    # def desurvey(self, surveys):
+    #     if not isinstance(surveys, Surveys):
+    #         raise TypeError("Surveys must be a Surveys object.")
+
+    #     self.surveys = surveys
+    #     for hole_id in self.hole_ids:
+    #         hole = surveys._holes[hole_id]
+    #         depths = hole.desurvey()
 
     def _construct_categorical_cmap(self):
         var_names = [
@@ -184,6 +193,12 @@ class HoleData:
             ] = make_matplotlib_categorical_color_map(colors)
 
     def add_categorical_cmap(self, var_name, cmap):
+        if var_name not in self.categorical_vars:
+            raise ValueError(f"Data for {var_name} not present.")
+
+        if not isinstance(cmap, dict):
+            raise TypeError("Categorical color map must be a dictionary.")
+
         # ensure categorical color map colors are fractional
         cmap = make_color_map_fractional(cmap)
 
@@ -227,8 +242,8 @@ class HoleData:
 
     @depths.setter
     def depths(self, depths):
-        if isinstance(depths, pd.core.frame.DataFrame):
-            depths = depths.values
+        if depths is not None:
+            depths = convert_to_numpy_array(depths)
         self._depths = depths.astype(np.float64)
 
 
@@ -259,6 +274,9 @@ class Points(HoleData):
         )
 
     def desurvey(self, surveys):
+        if not isinstance(surveys, Surveys):
+            raise TypeError("Surveys must be a Surveys object.")
+
         self.surveys = surveys
         self.collars = surveys.collars
 
@@ -319,6 +337,9 @@ class Points(HoleData):
         return p.show()
 
     def drill_log(self, hole_id, log_vars=[]):
+        if hole_id not in self.unique_hole_ids:
+            raise ValueError(f"Hole ID {hole_id} not present.")
+
         if self.construct_categorical_cmap == True:
             # ensure that color maps exist for categorical vars
             self._construct_categorical_cmap()
@@ -342,6 +363,9 @@ class Points(HoleData):
                 values = self.data[var]["values"][self.hole_ids == hole_id]
 
                 log.add_continuous_point_data(var, depths, values)
+
+            else:
+                raise ValueError(f"Data for variable {var} not present.")
 
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
@@ -375,6 +399,9 @@ class Intervals(HoleData):
         )
 
     def desurvey(self, surveys):
+        if not isinstance(surveys, Surveys):
+            raise TypeError("Surveys must be a Surveys object.")
+
         self.surveys = surveys
         self.collars = surveys.collars
 
@@ -460,6 +487,9 @@ class Intervals(HoleData):
         return p.show()
 
     def drill_log(self, hole_id, log_vars=[]):
+        if hole_id not in self.unique_hole_ids:
+            raise ValueError(f"Hole ID {hole_id} not present.")
+
         if self.construct_categorical_cmap == True:
             # ensure that color maps exist for categorical vars
             self._construct_categorical_cmap()
@@ -487,6 +517,9 @@ class Intervals(HoleData):
 
                 log.add_continuous_interval_data(var, from_to, values)
 
+            else:
+                raise ValueError(f"Data for variable {var} not present.")
+
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
         return log.fig
@@ -497,14 +530,19 @@ class Collars:
         self.unique_hole_ids = None
         self.coords = None
         self.mesh = None
-        pass
 
     def add_data(self, hole_ids, coords):
-        if isinstance(hole_ids, pd.core.series.Series):
-            hole_ids = hole_ids.values
+        hole_ids = convert_to_numpy_array(hole_ids)
+        coords = convert_to_numpy_array(coords)
 
-        if isinstance(coords, pd.core.frame.DataFrame):
-            coords = coords.values
+        if coords.ndim != 2:
+            raise ValueError("Coordinates must be 2-dimensional.")
+
+        if coords.shape[1] != 3:
+            raise ValueError("Coordinates must have 3 columns.")
+
+        if hole_ids.shape[0] != coords.shape[0]:
+            raise ValueError("Hole IDs and coordinates must have the same length.")
 
         self.unique_hole_ids = np.unique(hole_ids)
         self.coords = np.c_[hole_ids, coords]
@@ -531,17 +569,18 @@ class Surveys:
         self.mesh = None
 
     def add_data(self, hole_ids, dist, azm, dip):
-        if isinstance(hole_ids, pd.core.series.Series):
-            hole_ids = hole_ids.values
+        hole_ids = convert_to_numpy_array(hole_ids)
+        dist = convert_to_numpy_array(dist)
+        azm = convert_to_numpy_array(azm)
+        dip = convert_to_numpy_array(dip)
 
-        if isinstance(dist, pd.core.series.Series):
-            dist = dist.values
+        if (dist.ndim != 1) | (azm.ndim != 1) | (dip.ndim != 1):
+            raise ValueError("Survey measurements must be 1-dimensional.")
 
-        if isinstance(azm, pd.core.series.Series):
-            azm = azm.values
-
-        if isinstance(dip, pd.core.series.Series):
-            dip = dip.values
+        if not hole_ids.shape[0] == dist.shape[0] == azm.shape[0] == dip.shape[0]:
+            raise ValueError(
+                "Hole IDs and survey measurements must have the same length."
+            )
 
         self.unique_hole_ids = np.unique(hole_ids)
         self.measurements = np.c_[hole_ids, dist, azm, dip]
@@ -795,7 +834,7 @@ class DrillHole:
             self.categorical_interval_vars,
             self.continuous_interval_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collar == True:
@@ -822,7 +861,7 @@ class DrillHole:
             self.categorical_point_vars,
             self.continuous_point_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collar == True:
@@ -1182,7 +1221,7 @@ class DrillHoleGroup:
             self.categorical_point_vars,
             self.continuous_point_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collars == True:
@@ -1209,7 +1248,7 @@ class DrillHoleGroup:
             self.categorical_point_vars,
             self.continuous_point_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collars == True:

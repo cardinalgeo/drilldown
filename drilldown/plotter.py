@@ -29,6 +29,11 @@ from functools import partial
 
 from pyvista.trame.jupyter import show_trame
 from .drill_log import DrillLog
+from .utils import convert_to_numpy_array
+
+
+def is_numeric_tuple(tup):
+    return all(isinstance(x, (int, float)) for x in tup)
 
 
 class DrillDownPlotter(Plotter):
@@ -431,6 +436,11 @@ class DrillDownPlotter(Plotter):
         return actor
 
     def add_collars(self, collars, opacity=1):
+        from .holes import Collars
+
+        if not isinstance(collars, Collars):
+            raise TypeError("collars must be a DrillDown.Collars object.")
+
         self.collars = collars
         name = "collars"
         if collars.mesh is None:
@@ -441,6 +451,11 @@ class DrillDownPlotter(Plotter):
         return collars_actor
 
     def add_surveys(self, surveys, opacity=1):
+        from .holes import Surveys
+
+        if not isinstance(surveys, Surveys):
+            raise TypeError("surveys must be a DrillDown.Surveys object.")
+
         self.surveys = surveys
         name = "surveys"
         if surveys.mesh is None:
@@ -486,6 +501,11 @@ class DrillDownPlotter(Plotter):
         *args,
         **kwargs,
     ):
+        from .holes import Intervals
+
+        if not isinstance(intervals, Intervals):
+            raise TypeError("intervals must be a DrillDown.Intervals object.")
+
         self.intervals[name] = intervals
         self.interval_vars[name] = intervals.vars_all
         self.categorical_interval_vars += intervals.categorical_vars
@@ -533,6 +553,10 @@ class DrillDownPlotter(Plotter):
         *args,
         **kwargs,
     ):
+        from .holes import Points
+
+        if not isinstance(points, Points):
+            raise TypeError("points must be a DrillDown.Points object.")
         self.points[name] = points
         self.point_vars[name] = points.vars_all
         self.categorical_point_vars += points.categorical_vars
@@ -762,7 +786,7 @@ class DrillDownPlotter(Plotter):
         if picked_point is not None:
             if picked_point == -1:
                 return
-            
+
             shift_pressed = self.iren.interactor.GetShiftKey()
             ctrl_pressed = self.iren.interactor.GetControlKey()
             if shift_pressed == True:
@@ -1213,7 +1237,31 @@ class DrillDownPlotter(Plotter):
 
     @active_var.setter
     def active_var(self, key_value_pair):
-        name, active_var = key_value_pair
+        if isinstance(key_value_pair, tuple):
+            if len(key_value_pair) == 2:
+                name, active_var = key_value_pair
+            else:
+                raise ValueError(
+                    "Input must be a tuple of length 2, where the first element is the name of the dataset and the second element is the name of the active variable."
+                )
+        elif isinstance(key_value_pair, str):
+            if len(self.mesh_names) == 1:
+                active_var = key_value_pair
+                name = self.mesh_names[0]
+            else:
+                raise ValueError(
+                    "Multiple datasets are present. Please specify name of dataset."
+                )
+        else:
+            raise ValueError("Input must be a tuple or a str.")
+
+        if name not in self.all_vars.keys():
+            raise ValueError(
+                f"No dataset corresponding to {name} is present. Dataset names are {self.all_vars.keys()}."
+            )
+
+        if active_var not in self.all_vars[name]:
+            raise ValueError(f"{active_var} is not a valid variable for {name}.")
         self._active_var[name] = active_var
 
         actors = []
@@ -1252,7 +1300,24 @@ class DrillDownPlotter(Plotter):
 
     @cmap.setter
     def cmap(self, key_value_pair):
-        name, cmap = key_value_pair
+        if isinstance(key_value_pair, tuple):
+            if len(key_value_pair) == 2:
+                name, cmap = key_value_pair
+            else:
+                raise ValueError(
+                    "Input must be a tuple of length 2, where the first element is the name of the dataset and the second element is the colormap."
+                )
+        elif isinstance(key_value_pair, str):
+            if len(self.mesh_names) == 1:
+                cmap = key_value_pair
+                name = self.mesh_names[0]
+            else:
+                raise ValueError(
+                    "Multiple datasets are present. Please specify name of dataset."
+                )
+        else:
+            raise ValueError("Input must be a tuple or a str.")
+
         self._cmap[name] = cmap
 
         actors = []
@@ -1283,7 +1348,30 @@ class DrillDownPlotter(Plotter):
 
     @cmap_range.setter
     def cmap_range(self, key_value_pair):
-        name, cmap_range = key_value_pair
+        if isinstance(key_value_pair, tuple):
+            if len(key_value_pair) == 2:
+                if isinstance(key_value_pair[0], str):
+                    name, cmap_range = key_value_pair
+                elif is_numeric_tuple(key_value_pair):
+                    if len(self.mesh_names) == 1:
+                        cmap_range = key_value_pair
+                        name = self.mesh_names[0]
+                    else:
+                        raise ValueError(
+                            "Multiple datasets are present. Please specify name of dataset."
+                        )
+                else:
+                    raise TypeError(
+                        "Input must either be a tuple containing the dataset name and a cmap_range tuple, or just the cmap_range tuple."
+                    )
+            else:
+                raise ValueError("Input must be a tuple of length 2.")
+        else:
+            raise TypeError("Input must be a tuple.")
+
+        if (not isinstance(cmap_range, tuple)) or (len(cmap_range) != 2):
+            raise ValueError("cmap range should be a tuple of length 2.")
+
         self._cmap_range[name] = cmap_range
 
         actors = []
@@ -1312,6 +1400,9 @@ class DrillDownPlotter(Plotter):
                 array = mesh.cell_data[self.active_var[name]]
             elif name in self.point_actor_names:
                 array = mesh.point_data[self.active_var[name]]
+            else:
+                raise ValueError(f"Dataset with name {name} not present.")
+
             min, max = np.nanmin(array), np.nanmax(array)
             self.cmap_range = (name, (min, max))
 
@@ -1321,7 +1412,24 @@ class DrillDownPlotter(Plotter):
 
     @visibility.setter
     def visibility(self, key_value_pair):
-        name, visible = key_value_pair
+        if isinstance(key_value_pair, tuple):
+            if len(key_value_pair) == 2:
+                name, visible = key_value_pair
+            else:
+                raise ValueError(
+                    "Input must be a tuple of length 2, where the first element is the name of the dataset and the second element is the visibility."
+                )
+        elif isinstance(key_value_pair, bool):
+            if len(self.mesh_names) == 1:
+                visible = key_value_pair
+                name = self.mesh_names[0]
+            else:
+                raise ValueError(
+                    "Multiple datasets are present. Please specify name of dataset."
+                )
+        else:
+            raise ValueError("Input must be a tuple or a bool.")
+
         self._visibility[name] = visible
 
         actor = self.actors.get(name, None)
@@ -1339,7 +1447,24 @@ class DrillDownPlotter(Plotter):
 
     @opacity.setter
     def opacity(self, key_value_pair):
-        name, opacity = key_value_pair
+        if isinstance(key_value_pair, tuple):
+            if len(key_value_pair) == 2:
+                name, opacity = key_value_pair
+            else:
+                raise ValueError(
+                    "Input must be a tuple of length 2, where the first element is the name of the dataset and the second element is the opacity."
+                )
+        elif isinstance(key_value_pair, (float, int)):
+            if len(self.mesh_names) == 1:
+                opacity = key_value_pair
+                name = self.mesh_names[0]
+            else:
+                raise ValueError(
+                    "Multiple datasets are present. Please specify name of dataset."
+                )
+        else:
+            raise ValueError("Input must be a tuple, float, or integer.")
+
         self._opacity[name] = opacity
         actor = self.actors.get(name, None)
         if actor is not None:
@@ -1370,7 +1495,38 @@ class DrillDownPlotter(Plotter):
 
     @selected_intervals.setter
     def selected_intervals(self, key_value_pair):
-        name, intervals = key_value_pair
+        if isinstance(key_value_pair, tuple):
+            if len(key_value_pair) == 2:
+                name, intervals = key_value_pair
+
+            else:
+                raise ValueError(
+                    "Input must be a tuple of length 2, where the first element is the name of the dataset and the second element is the selected intervals."
+                )
+        else:
+            try:
+                intervals = convert_to_numpy_array(key_value_pair)
+            except:
+                raise ValueError(
+                    "Input must be a tuple, or a sequence, pandas object, or numpy array."
+                )
+
+            if len(self.interval_actor_names) == 1:
+                intervals = key_value_pair
+                name = self.interval_actor_names[0]
+            else:
+                raise ValueError(
+                    "Multiple interval datasets are present. Please specify name of dataset."
+                )
+
+        if name not in self.interval_actor_names:
+            raise ValueError(
+                f"No interval dataset corresponding to {name} is present. Interval dataset name(s) are {self.interval_actor_names}."
+            )
+        if (intervals > self.n_intervals[name]) or (intervals < 0):
+            raise ValueError(
+                f"Intervals must be between 0 and the number of intervals in the dataset, {self.n_intervals[name] - 1}."
+            )
         interval_cells = []
         for interval in intervals:
             interval_cells += np.arange(
@@ -1397,15 +1553,28 @@ class DrillDownPlotter(Plotter):
     @data_filter.setter
     def data_filter(self, filter_input):
         if isinstance(filter_input, tuple):
-            name, filter = filter_input
+            if len(filter_input) == 2:
+                name, filter = filter_input
+            else:
+                raise ValueError(
+                    "Filter must be a tuple of length 2, where the first element is the name of the dataset and the second element is the boolean filter."
+                )
         else:
-            filter = filter_input
+            try:
+                filter = convert_to_numpy_array(filter_input)
+            except:
+                raise ValueError(
+                    "Input must be a tuple, or a sequence, pandas object, or numpy array."
+                )
+
             data_names = self.interval_actor_names + self.point_actor_names
-            if len(data_names) != 1:
+            if len(data_names) == 1:
+                filter = filter_input
+                name = data_names[0]
+            else:
                 raise ValueError(
                     "Multiple datasets are present. Please specify name of dataset to filter."
                 )
-            name = data_names[0]
 
         if name in self.interval_actor_names:
             self.interval_filter = (name, filter)
@@ -1419,14 +1588,26 @@ class DrillDownPlotter(Plotter):
     @interval_filter.setter
     def interval_filter(self, filter_input):
         if isinstance(filter_input, tuple):
-            name, filter = filter_input
+            if len(filter_input) == 2:
+                name, filter = filter_input
+            else:
+                raise ValueError(
+                    "Filter must be a tuple of length 2, where the first element is the name of the dataset and the second element is the boolean filter."
+                )
         else:
-            filter = filter_input
-            if len(self.interval_actor_names) != 1:
+            try:
+                filter = convert_to_numpy_array(filter_input)
+            except:
+                raise ValueError(
+                    "Input must be a tuple, or a sequence, pandas object, or numpy array."
+                )
+            if len(self.interval_actor_names) == 1:
+                filter = filter_input
+                name = self.interval_actor_names[0]
+            else:
                 raise ValueError(
                     "Multiple interval datasets are present. Please specify name of dataset to filter."
                 )
-            name = self.interval_actor_names[0]
 
         if len(filter) != self.n_intervals[name]:  # filter entire dataset
             raise ValueError(
@@ -1451,14 +1632,26 @@ class DrillDownPlotter(Plotter):
     @point_filter.setter
     def point_filter(self, filter_input):
         if isinstance(filter_input, tuple):
-            name, filter = filter_input
+            if len(filter_input) == 2:
+                name, filter = filter_input
+            else:
+                raise ValueError(
+                    "Filter must be a tuple of length 2, where the first element is the name of the dataset and the second element is the boolean filter."
+                )
         else:
-            filter = filter_input
-            if len(self.point_actor_names) != 1:
+            try:
+                filter = convert_to_numpy_array(filter_input)
+            except:
+                raise ValueError(
+                    "Input must be a tuple, or a sequence, pandas object, or numpy array."
+                )
+            if len(self.point_actor_names) == 1:
+                filter = filter_input
+                name = self.point_actor_names[0]
+            else:
                 raise ValueError(
                     "Multiple point datasets are present. Please specify name of dataset to filter."
                 )
-            name = self.point_actor_names[0]
 
         if len(filter) != self.n_points[name]:  # filter entire dataset
             raise ValueError(
@@ -1581,7 +1774,10 @@ class DrillDownPlotter(Plotter):
         if name is None:
             names = self.interval_actor_names
         else:
-            names = [name]
+            if name in self.interval_actor_names:
+                names = [name]
+            else:
+                raise ValueError(f"{name} is not a valid dataset name.")
 
         all_data = {}
         for name in names:
@@ -1600,7 +1796,10 @@ class DrillDownPlotter(Plotter):
         if name is None:
             names = self.point_actor_names
         else:
-            names = [name]
+            if name in self.point_actor_names:
+                names = [name]
+            else:
+                raise ValueError(f"{name} is not a valid dataset name.")
 
         all_data = {}
         for name in names:
@@ -1619,6 +1818,8 @@ class DrillDownPlotter(Plotter):
                 return self.all_interval_data(name)
             elif name in self.point_actor_names:
                 return self.all_point_data(name)
+            else:
+                raise ValueError(f"{name} is not a valid dataset name.")
         else:
             all_point_data = self.all_point_data()
             all_interval_data = self.all_interval_data()
@@ -1684,12 +1885,14 @@ class DrillDownPlotter(Plotter):
                         exit_flag = True
                         break
 
-                    if var in self.continuous_vars[name]:
+                    elif var in self.continuous_vars[name]:
                         values = interval_data[var].values
                         log.add_continuous_interval_data(var, depths, values)
 
                         exit_flag = True
                         break
+                    else:
+                        raise ValueError(f"Data for variable {var} not present.")
 
                     if exit_flag == True:
                         break
