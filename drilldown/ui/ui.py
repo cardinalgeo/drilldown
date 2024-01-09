@@ -44,7 +44,7 @@ def ui_card(title, ui_name):
 class DrillDownTramePlotter(DrillDownPlotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.server = get_server()
+        self.server = get_server(name="pyvista")
         self.state = self.server.state
         self.server.client_type = "vue2"
 
@@ -55,9 +55,13 @@ class DrillDownTramePlotter(DrillDownPlotter):
         self._initialize_engine()
 
         if inline == True:
-            elegantly_launch(self.server)  # launch server in nb w/o using await
+            if is_jupyter():
+                elegantly_launch(self.server)  # launch server in nb w/o using await
 
-            return self._ui
+                return self._ui
+
+            else:
+                raise ValueError("Inline mode only available in Jupyter notebook.")
 
         else:
             if is_jupyter():
