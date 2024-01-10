@@ -6,6 +6,9 @@ from trame_server.utils.browser import open_browser
 from trame.ui.vuetify import SinglePageLayout
 
 from plotly import express as px
+import numpy as np
+
+from ..utils import convert_to_numpy_array
 
 
 def is_jupyter():
@@ -31,7 +34,13 @@ class PlotlyPlot:
         self.server.client_type = "vue2"
 
         self._ui = self._initialize_ui()
-        self._initialize_engine()
+        # self._initialize_engine()
+
+        self.data = None
+        self.ids = None
+        self.selected_ids = None
+
+        self.plotter = None
 
     def show(self, inline=True):
         if inline == True:
@@ -70,7 +79,7 @@ class PlotlyPlot:
                 ):
                     html_plot = plotly.Figure(
                         selected=(
-                            self.ctrl.on_plotly_plot_selection,
+                            self._on_plot_selection,
                             "[$event?.points.map(({pointIndex}) => pointIndex)]",
                         ),
                         click=(
@@ -82,20 +91,34 @@ class PlotlyPlot:
 
         return layout
 
-    def _initialize_engine(self):
-        self.ctrl.on_scatter_plot_selection = self._on_scatter_plot_selection
-        self.ctrl.on_scatter_plot_click = self._on_scatter_plot_click
+    # def _initialize_engine(self):
+    #     self.ctrl.on_scatter_plot_selection = self._on_plot_selection
+    #     self.ctrl.on_scatter_plot_click = self._on_scatter_plot_click
 
-    def _on_scatter_plot_selection(self, ids):
-        pass
+    def _on_plot_selection(self, ids):
+        if ids is not None:
+            self.selected_ids = ids
+
+            if self.plotter is not None:
+                name = self.actor_name
+                self.plotter.selected_intervals = (name, np.array(self.ids)[ids])
+
+        # # temporary fix for selected intervals not updating w/o clicking on pyvista plotter first
+        # pv_state = self.plotter.show(return_viewer=True).viewer.server.state
+        # pv_state.flush()
 
     def _on_scatter_plot_click(self, ids):
         pass
+
+    def reset_resolution(self, app):
+        app.reset_resolution()
 
 
 class ScatterPlot(PlotlyPlot):
     def __init__(self, data, x, y, **kwargs):
         super().__init__()
+
+        self.data = data
         fig = px.scatter(data, x=x, y=y, **kwargs)
         self.fig = fig
         self.ctrl.plotly_plot_view_update(fig)
@@ -109,45 +132,45 @@ class ScatterPlot(PlotlyPlot):
     #     return self.fig
 
 
-def on_scatter_plot_selection(self, ids):
-    selected_interval_cells = []
-    if ids:
-        holes = scene.filters["drillhole_intervals"]
-        for id in ids:
-            selected_interval_cells += np.arange(
-                self.cells_per_interval * id,
-                self.cells_per_interval * id + self.cells_per_interval,
-            ).tolist()
-    state.selected_interval_cells = selected_interval_cells
-    state.selected_intervals = ids
+# def on_scatter_plot_selection(self, ids):
+#     selected_interval_cells = []
+#     if ids:
+#         holes = scene.filters["drillhole_intervals"]
+#         for id in ids:
+#             selected_interval_cells += np.arange(
+#                 self.cells_per_interval * id,
+#                 self.cells_per_interval * id + self.cells_per_interval,
+#             ).tolist()
+#     state.selected_interval_cells = selected_interval_cells
+#     state.selected_intervals = ids
 
-    ctrl.update_deposit_viewer_selection("interval", state.selected_interval_cells)
+#     ctrl.update_deposit_viewer_selection("interval", state.selected_interval_cells)
 
-    ctrl.deposit_viewer_view_update()
-
-
-def on_scatter_plot_click(self, ids):
-    self.on_scatter_plot_selection(ids)
-
-    scatter = ctrl.get_scatter_plot()
-    scatter.update_selection(state.selected_intervals)
-    ctrl.scatter_plot_view_update(scatter.fig)
+#     ctrl.deposit_viewer_view_update()
 
 
-def on_scatter_plot_relayout(self, event):
-    state.scatter_x_range = {state.scatter_x: None}
-    state.scatter_y_range = {state.scatter_y: None}
-    for key in event.keys():
-        if "autorange" in key:
-            return
-        elif "xaxis" in key:
-            state.scatter_x_range = {
-                state.scatter_x: [event["xaxis.range[0]"], event["xaxis.range[1]"]]
-            }
+# def on_scatter_plot_click(self, ids):
+#     self.on_scatter_plot_selection(ids)
 
-        elif "yaxis" in key:
-            state.scatter_y_range = {
-                state.scatter_y: [event["yaxis.range[0]"], event["yaxis.range[1]"]]
-            }
+#     scatter = ctrl.get_scatter_plot()
+#     scatter.update_selection(state.selected_intervals)
+#     ctrl.scatter_plot_view_update(scatter.fig)
 
-    return
+
+# def on_scatter_plot_relayout(self, event):
+#     state.scatter_x_range = {state.scatter_x: None}
+#     state.scatter_y_range = {state.scatter_y: None}
+#     for key in event.keys():
+#         if "autorange" in key:
+#             return
+#         elif "xaxis" in key:
+#             state.scatter_x_range = {
+#                 state.scatter_x: [event["xaxis.range[0]"], event["xaxis.range[1]"]]
+#             }
+
+#         elif "yaxis" in key:
+#             state.scatter_y_range = {
+#                 state.scatter_y: [event["yaxis.range[0]"], event["yaxis.range[1]"]]
+#             }
+
+#     return
