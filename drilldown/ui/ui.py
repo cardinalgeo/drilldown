@@ -44,8 +44,9 @@ def ui_card(title, ui_name):
 class DrillDownTramePlotter(DrillDownPlotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = "plotter"
-        self.server = get_server(name=self.name)
+        # self.name = "plotter"
+        self.server = get_server(name="pyvista")
+        # self.server = get_server(name=self.name)
         self.state = self.server.state
         self.server.client_type = "vue2"
 
@@ -88,7 +89,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
     def _initialize_ui(self):
         ctrl = self.server.controller
         ctrl_mesh_name = self.mesh_names[-1]
-        with SinglePageWithDrawerLayout(self.server, template_name=self.name) as layout:
+        with SinglePageWithDrawerLayout(self.server) as layout:
             layout.title.set_text("")
             with layout.footer as footer:
                 footer.clear()
