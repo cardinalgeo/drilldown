@@ -27,8 +27,13 @@ def is_jupyter():
 
 
 class PlotlyPlot:
-    def __init__(self, *args, **kwargs):
-        self.server = get_server(name="plotly")
+    def __init__(self, server=None, *args, **kwargs):
+        self.name = "plotly"
+        if server is not None:
+            self.server = server
+        else:
+            self.server = get_server(self.name)
+
         self.state = self.server.state
         self.ctrl = self.server.controller
         self.server.client_type = "vue2"
@@ -69,7 +74,7 @@ class PlotlyPlot:
             ctrl.on_server_ready.add(lambda **kwargs: open_browser(self.server))
 
     def _initialize_ui(self):
-        with SinglePageLayout(self.server) as layout:
+        with SinglePageLayout(self.server, template_name=self.name) as layout:
             layout.toolbar.hide()
             layout.footer.hide()
             with layout.content:
@@ -116,7 +121,9 @@ class PlotlyPlot:
 
 class ScatterPlot(PlotlyPlot):
     def __init__(self, data, x, y, **kwargs):
-        super().__init__()
+        server = kwargs.get("server", None)
+        super().__init__(server)
+        kwargs.pop("server", None)
 
         self.data = data
         fig = px.scatter(data, x=x, y=y, **kwargs)

@@ -1938,10 +1938,21 @@ class DrillDownPlotter(Plotter):
 
         return self._iframe
 
+    def _get_server(self):
+        pv_viewer = show_trame(self, mode="server")
+        trame_viewer = pv_viewer.viewer
+        server = trame_viewer.server
+
+        return server
+
     def selected_scatter_plot(self, x, y, **kwargs):
         from .plots.plotly_plots import ScatterPlot
 
+        # plot_server = self._get_server().create_child_server()
+
+        # fig = ScatterPlot(self.selected_data(), x, y, server=plot_server, **kwargs)
         fig = ScatterPlot(self.selected_data(), x, y, **kwargs)
+
         fig.plotter = self
         fig.actor_name = self.selection_actor_name.split(" ")[0]
         if fig.actor_name in self.interval_actor_names:
