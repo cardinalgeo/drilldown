@@ -117,3 +117,45 @@ class ScatterPlot(PlotlyPlot):
         fig = px.scatter(data, x=x, y=y, **kwargs)
         self.fig = fig
         self.ctrl.plotly_plot_view_update(fig)
+
+
+class ScatterTernaryPlot(PlotlyPlot):
+    def __init__(self, data, a, b, c, **kwargs):
+        server = kwargs.get("server", None)
+        super().__init__(server)
+        kwargs.pop("server", None)
+
+        self.data = data
+        fig = px.scatter_ternary(data, a=a, b=b, c=c, **kwargs)
+        self.fig = fig
+        self.ctrl.plotly_plot_view_update(fig)
+
+
+class ScatterDimensionsPlot(PlotlyPlot):
+    def __init__(self, data, dimensions, **kwargs):
+        server = kwargs.get("server", None)
+        super().__init__(server)
+        kwargs.pop("server", None)
+
+        self.data = data
+        fig = px.scatter_matrix(data, dimensions=dimensions, **kwargs)
+        self.fig = fig
+        self.ctrl.plotly_plot_view_update(fig)
+
+
+class BarPlot(PlotlyPlot):
+    def __init__(self, data, x, y, **kwargs):
+        super().__init__()
+        self.data = data
+        fig = px.bar(data, x=x, y=y, **kwargs)
+        self.fig = fig
+        self.ctrl.plotly_plot_view_update(fig)
+
+
+class Histogram(PlotlyPlot):
+    def __init__(self, data, x, **kwargs):
+        super().__init__()
+        self.data = data
+        fig = px.histogram(data, x=x, **kwargs)
+        self.fig = fig
+        self.ctrl.plotly_plot_view_update(fig)
