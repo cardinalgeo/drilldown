@@ -1,3 +1,4 @@
+import collections.abc
 from plotly.subplots import make_subplots
 from plotly import graph_objects as go
 import numpy as np
@@ -5,6 +6,12 @@ import pandas as pd
 
 
 def interleave_intervals(depths, values=None, connected=True):
+    if not isinstance(depths, np.ndarray):
+        raise TypeError("depths must be a numpy array.")
+
+    if depths.ndim not in [1, 2]:
+        raise ValueError("depths must be one- or two-dimensional.")
+
     if connected == True:
         # construct new depths
         depths_new = np.empty(depths.shape[0] * 2)
@@ -12,6 +19,12 @@ def interleave_intervals(depths, values=None, connected=True):
         depths_new[1::2] = depths[:, 1]
 
         if values is not None:
+            if not isinstance(values, np.ndarray):
+                raise TypeError("values must be a numpy array.")
+
+            if values.ndim != 1:
+                raise ValueError("values must be one-dimensional.")
+
             # construct new values
             if np.issubdtype(values.dtype, np.number):  # if values is numeric
                 values_new = np.empty(values.shape[0] * 2)
@@ -58,6 +71,12 @@ def clean_missing_intervals(depths, values):
 
 
 def convert_fractional_rgb_to_rgba_for_plotly(rgb, opacity=1):
+    if not isinstance(rgb, collections.abc.Sequence):
+        raise TypeError("rgb must be a sequence.")
+
+    if len(rgb) != 3:
+        raise ValueError("rgb must have three elements.")
+
     return "rgba({},{},{}, {})".format(
         rgb[0] * 255, rgb[1] * 255, rgb[2] * 255, opacity
     )
@@ -102,6 +121,12 @@ class DrillLog:
             + self.categorical_point_vars
             + self.continuous_point_vars
         )
+
+        if len(self.vars) == 0:
+            raise ValueError(
+                "No data has been added to the drill log. Please add data."
+            )
+
         # get number of columns
         self.n_categorical_interval_cols = len(self.categorical_interval_vars)
         self.n_continuous_interval_cols = len(self.continuous_interval_vars)
@@ -197,26 +222,58 @@ class DrillLog:
     def add_categorical_interval_data(
         self, name, depths, values, cat_to_color_map=None
     ):
+        if depths.shape[0] != values.shape[0]:
+            raise ValueError("The number of intervals and values must be equal.")
+
+        if depths.shape[1] > 2:
+            raise ValueError("The number of columns in depths must be one or two.")
+
         self.categorical_interval_data[name] = {"depths": depths, "values": values}
         self.categorical_interval_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
+
+        if not isinstance(cat_to_color_map, dict):
+            raise TypeError("cat_to_color_map must be a dictionary.")
+
         self.cat_to_color_map[name] = cat_to_color_map
 
     def add_continuous_interval_data(self, name, depths, values):
+        if depths.shape[0] != values.shape[0]:
+            raise ValueError("The number of intervals and values must be equal.")
+
+        if depths.shape[1] > 2:
+            raise ValueError("The number of columns in depths must be one or two.")
+
         self.continuous_interval_data[name] = {"depths": depths, "values": values}
         self.continuous_interval_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
     def add_categorical_point_data(self, name, depths, values, cat_to_color_map=None):
+        if depths.shape[0] != values.shape[0]:
+            raise ValueError("The number of intervals and values must be equal.")
+
+        if depths.shape[1] > 2:
+            raise ValueError("The number of columns in depths must be one or two.")
+
         self.categorical_point_data[name] = {"depths": depths, "values": values}
         self.categorical_point_vars += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
+
+        if not isinstance(cat_to_color_map, dict):
+            raise TypeError("cat_to_color_map must be a dictionary.")
+
         self.cat_to_color_map[name] = cat_to_color_map
 
     def add_continuous_point_data(self, name, depths, values):
+        if depths.shape[0] != values.shape[0]:
+            raise ValueError("The number of intervals and values must be equal.")
+
+        if depths.shape[1] > 2:
+            raise ValueError("The number of columns in depths must be one or two.")
+
         self.continuous_point_data[name] = {"depths": depths, "values": values}
         self.continuous_point_vars += [name]
         self.subplot_titles += [name]
@@ -248,7 +305,13 @@ class DrillLog:
         values_unique = np.unique(values_unique)
         for cat in values_unique:
             if cat_to_color_map is not None:
-                color = cat_to_color_map[cat]
+                try:
+                    color = cat_to_color_map[cat]
+                except:
+                    raise KeyError(
+                        f"cat_to_color_map does not contain a color for the category {cat}."
+                    )
+
                 color = convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)
             else:
                 color = "#636EFA"  # default plotly color
@@ -323,6 +386,15 @@ class DrillLog:
             self._create_figure()
 
         if cat_to_color_map is not None:
+            # check for values missing in color map
+            values_unique = set(values)
+            cmap_keys = set(cat_to_color_map.keys())
+            missing_keys = values_unique - cmap_keys
+            if missing_keys:
+                raise KeyError(
+                    f"cat_to_color_map does not contain a color for the categories {missing_keys}."
+                )
+
             colors = [cat_to_color_map[val] for val in values]
             colors = [
                 convert_fractional_rgb_to_rgba_for_plotly(color, opacity=1)

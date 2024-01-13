@@ -1,3 +1,4 @@
+import collections.abc
 import pyvista as pv
 from geoh5py.workspace import Workspace
 from geoh5py.groups import DrillholeGroup
@@ -8,6 +9,7 @@ import distinctipy
 
 from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
+from .utils import convert_to_numpy_array
 
 from matplotlib.colors import ListedColormap
 
@@ -43,10 +45,17 @@ def make_color_map_fractional(map):
     for name in map.keys():
         if max(map[name]) > 1:
             map[name] = tuple([val / 255 for val in map[name]])
+        elif max(map[name]) >= 0:
+            raise ValueError("Color is already fractional.")
+        else:
+            raise ValueError("Color values cannot be negative.")
+
     return map
 
 
 def encode_categorical_data(data):
+    data = convert_to_numpy_array(data)
+
     data_encoded, categories = pd.factorize(data)
     codes = np.arange(len(categories))
 
@@ -96,12 +105,12 @@ class HoleData:
         self.construct_categorical_cmap = construct_categorical_cmap
 
         # add hole IDs
-        if isinstance(hole_ids, pd.core.series.Series):
-            hole_ids = hole_ids.values
+        hole_ids = convert_to_numpy_array(hole_ids)
         self.hole_ids = hole_ids
+        self.unique_hole_ids = np.unique(hole_ids)
 
         # encode hole IDs, as strings are wiped in pyvista meshes
-        self.hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
+        hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
         self.hole_id_to_code_map = {
             hole_id: code for code, hole_id in enumerate(hole_ids_unique)
         }
@@ -110,13 +119,11 @@ class HoleData:
         }
 
         # add from-to depths
+        depths = convert_to_numpy_array(depths)
         self.depths = depths
 
         # add data
-        if (isinstance(data, pd.core.series.Series)) | (
-            isinstance(data, pd.core.frame.DataFrame)
-        ):
-            data = data.values
+        data = convert_to_numpy_array(data, collapse_dim=False)
         for dataset, var_name in zip(data.T, var_names):
             dataset, _type = convert_array_type(dataset, return_type=True)
 
@@ -140,6 +147,18 @@ class HoleData:
 
         if return_data == True:
             return self.data
+
+    # def _desurvey(self, hole_id, depths=None):  # NEW
+    #     return self._holes[hole_id].desurvey(depths=depths)
+
+    # def desurvey(self, surveys):
+    #     if not isinstance(surveys, Surveys):
+    #         raise TypeError("Surveys must be a Surveys object.")
+
+    #     self.surveys = surveys
+    #     for hole_id in self.hole_ids:
+    #         hole = surveys._holes[hole_id]
+    #         depths = hole.desurvey()
 
     def _construct_categorical_cmap(self):
         var_names = [
@@ -174,6 +193,12 @@ class HoleData:
             ] = make_matplotlib_categorical_color_map(colors)
 
     def add_categorical_cmap(self, var_name, cmap):
+        if var_name not in self.categorical_vars:
+            raise ValueError(f"Data for {var_name} not present.")
+
+        if not isinstance(cmap, dict):
+            raise TypeError("Categorical color map must be a dictionary.")
+
         # ensure categorical color map colors are fractional
         cmap = make_color_map_fractional(cmap)
 
@@ -217,14 +242,18 @@ class HoleData:
 
     @depths.setter
     def depths(self, depths):
-        if isinstance(depths, pd.core.frame.DataFrame):
-            depths = depths.values
+        if depths is not None:
+            depths = convert_to_numpy_array(depths)
         self._depths = depths.astype(np.float64)
 
 
 class Points(HoleData):
     def __init__(self):
         super().__init__()
+
+        self.mesh = None
+        self.surveys = None
+        self.collars = None
 
     def add_data(
         self,
@@ -244,7 +273,73 @@ class Points(HoleData):
             construct_categorical_cmap=construct_categorical_cmap,
         )
 
+    def desurvey(self, surveys):
+        if not isinstance(surveys, Surveys):
+            raise TypeError("Surveys must be a Surveys object.")
+
+        self.surveys = surveys
+        self.collars = surveys.collars
+
+        self.depths_desurveyed = np.empty((self.depths.shape[0], 3))
+
+        for id in self.unique_hole_ids:
+            hole_filter = self.hole_ids == id
+            hole = self.surveys._holes[id]
+            depths = self.depths[hole_filter]
+            depths_desurveyed = hole.desurvey(depths)
+            self.depths_desurveyed[hole_filter] = depths_desurveyed
+
+    def make_mesh(self):
+        meshes = None
+
+        for id in self.unique_hole_ids:
+            hole_filter = self.hole_ids == id
+            depths = self.depths[hole_filter]
+
+            if self.depths.shape[0] > 0:
+                depths_desurveyed = self.depths_desurveyed[hole_filter]
+
+                mesh = pv.PolyData(depths_desurveyed)
+
+                for var in self.vars_all:
+                    data = self.data[var]["values"][hole_filter]
+                    _type = self.data[var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.point_data[var] = data
+                mesh.point_data["hole ID"] = [
+                    self.hole_id_to_code_map[id]
+                ] * depths.shape[0]
+                if meshes is None:
+                    meshes = mesh
+                else:
+                    meshes += mesh
+
+        self.mesh = meshes
+
+        return meshes
+
+    def show(self, show_collars=False, show_surveys=False, *args, **kwargs):
+        if self.mesh is None:
+            self._construct_categorical_cmap()
+
+        p = DrillDownPlotter()
+        p.matplotlib_formatted_color_maps = self.matplotlib_formatted_color_maps
+        p.add_points(self, "points", selectable=False, *args, **kwargs)
+
+        if show_collars == True:
+            p.add_collars(self.collars)
+
+        if show_surveys == True:
+            p.add_surveys(self.surveys)
+
+        return p.show()
+
     def drill_log(self, hole_id, log_vars=[]):
+        if hole_id not in self.unique_hole_ids:
+            raise ValueError(f"Hole ID {hole_id} not present.")
+
         if self.construct_categorical_cmap == True:
             # ensure that color maps exist for categorical vars
             self._construct_categorical_cmap()
@@ -269,6 +364,9 @@ class Points(HoleData):
 
                 log.add_continuous_point_data(var, depths, values)
 
+            else:
+                raise ValueError(f"Data for variable {var} not present.")
+
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
         return log.fig
@@ -277,6 +375,10 @@ class Points(HoleData):
 class Intervals(HoleData):
     def __init__(self):
         super().__init__()
+
+        self.mesh = None
+        self.surveys = None
+        self.collars = None
 
     def add_data(
         self,
@@ -296,7 +398,98 @@ class Intervals(HoleData):
             construct_categorical_cmap=construct_categorical_cmap,
         )
 
+    def desurvey(self, surveys):
+        if not isinstance(surveys, Surveys):
+            raise TypeError("Surveys must be a Surveys object.")
+
+        self.surveys = surveys
+        self.collars = surveys.collars
+
+        self.from_depths_desurveyed = np.empty((self.depths.shape[0], 3))
+        self.to_depths_desurveyed = np.empty((self.depths.shape[0], 3))
+        self.intermediate_depths_desurveyed = np.empty((self.depths.shape[0], 3))
+
+        for id in self.unique_hole_ids:
+            hole_filter = self.hole_ids == id
+            from_to = self.depths[hole_filter]
+            hole = self.surveys._holes[id]
+
+            from_depths_desurveyed = hole.desurvey(from_to[:, 0])
+            to_depths_desurveyed = hole.desurvey(from_to[:, 1])
+            intermediate_depths_desurveyed = np.mean(
+                [from_depths_desurveyed, to_depths_desurveyed], axis=0
+            )
+
+            self.from_depths_desurveyed[hole_filter] = from_depths_desurveyed
+            self.to_depths_desurveyed[hole_filter] = to_depths_desurveyed
+            self.intermediate_depths_desurveyed[
+                hole_filter
+            ] = intermediate_depths_desurveyed
+
+    def make_mesh(self):
+        meshes = None
+
+        for id in self.unique_hole_ids:
+            hole = self.surveys._holes[id]
+            hole_filter = self.hole_ids == id
+            from_to = self.depths[hole_filter]
+
+            if from_to.shape[0] > 0:
+                from_depths_desurveyed = self.from_depths_desurveyed[hole_filter]
+                to_depths_desurveyed = self.to_depths_desurveyed[hole_filter]
+                intermediate_depths_desurveyed = self.intermediate_depths_desurveyed[
+                    hole_filter
+                ]
+
+                mesh = hole._make_line_mesh(
+                    from_depths_desurveyed, to_depths_desurveyed
+                )
+
+                mesh.cell_data["from"] = from_to[:, 0]
+                mesh.cell_data["to"] = from_to[:, 1]
+                mesh.cell_data["hole ID"] = [
+                    self.hole_id_to_code_map[id]
+                ] * from_to.shape[0]
+
+                mesh.cell_data["x"] = intermediate_depths_desurveyed[:, 0]
+                mesh.cell_data["y"] = intermediate_depths_desurveyed[:, 1]
+                mesh.cell_data["z"] = intermediate_depths_desurveyed[:, 2]
+
+                for var in self.vars_all:
+                    data = self.data[var]["values"][hole_filter]
+                    _type = self.data[var]["type"]
+                    if _type == "str":
+                        mesh[var] = data
+                    else:
+                        mesh.cell_data[var] = data
+                if meshes is None:
+                    meshes = mesh
+                else:
+                    meshes += mesh
+
+        self.mesh = meshes
+
+        return meshes
+
+    def show(self, show_collars=False, show_surveys=False, *args, **kwargs):
+        if self.mesh is None:
+            self._construct_categorical_cmap()
+
+        p = DrillDownPlotter()
+        p.add_intervals(self, "intervals", selectable=False, *args, **kwargs)
+
+        if show_collars == True:
+            p.add_collars(self.collars)
+
+        if show_surveys == True:
+            p.add_surveys(self.surveys)
+
+        return p.show()
+
     def drill_log(self, hole_id, log_vars=[]):
+        if hole_id not in self.unique_hole_ids:
+            raise ValueError(f"Hole ID {hole_id} not present.")
+
         if self.construct_categorical_cmap == True:
             # ensure that color maps exist for categorical vars
             self._construct_categorical_cmap()
@@ -324,9 +517,118 @@ class Intervals(HoleData):
 
                 log.add_continuous_interval_data(var, from_to, values)
 
+            else:
+                raise ValueError(f"Data for variable {var} not present.")
+
         log.create_figure(y_axis_label="Depth (m)", title=hole_id)
 
         return log.fig
+
+
+class Collars:
+    def __init__(self):
+        self.unique_hole_ids = None
+        self.coords = None
+        self.mesh = None
+
+    def add_data(self, hole_ids, coords):
+        hole_ids = convert_to_numpy_array(hole_ids)
+        coords = convert_to_numpy_array(coords)
+
+        if coords.ndim != 2:
+            raise ValueError("Coordinates must be 2-dimensional.")
+
+        if coords.shape[1] != 3:
+            raise ValueError("Coordinates must have 3 columns.")
+
+        if hole_ids.shape[0] != coords.shape[0]:
+            raise ValueError("Hole IDs and coordinates must have the same length.")
+
+        self.unique_hole_ids = np.unique(hole_ids)
+        self.coords = np.c_[hole_ids, coords]
+
+    def make_mesh(self):
+        mesh = pv.PolyData(np.asarray(self.coords[:, 1:], dtype="float"))
+        mesh["hole ID"] = self.coords[:, 0]
+        self.mesh = mesh
+        return mesh
+
+    def show(self, *args, **kwargs):
+        p = DrillDownPlotter()
+        p.add_collars(self, *args, **kwargs)
+
+        return p.show()
+
+
+class Surveys:
+    def __init__(self):
+        self.unique_hole_ids = None
+        self.measurements = None
+        self.collars = None
+        self._holes = {}
+        self.mesh = None
+
+    def add_data(self, hole_ids, dist, azm, dip):
+        hole_ids = convert_to_numpy_array(hole_ids)
+        dist = convert_to_numpy_array(dist)
+        azm = convert_to_numpy_array(azm)
+        dip = convert_to_numpy_array(dip)
+
+        if (dist.ndim != 1) | (azm.ndim != 1) | (dip.ndim != 1):
+            raise ValueError("Survey measurements must be 1-dimensional.")
+
+        if not hole_ids.shape[0] == dist.shape[0] == azm.shape[0] == dip.shape[0]:
+            raise ValueError(
+                "Hole IDs and survey measurements must have the same length."
+            )
+
+        self.unique_hole_ids = np.unique(hole_ids)
+        self.measurements = np.c_[hole_ids, dist, azm, dip]
+
+        if self.collars is not None:
+            self._create_holes()
+
+    def locate(self, collars):
+        self.collars = collars
+        for hole_id in self.unique_hole_ids:
+            hole = DrillHole()
+
+            hole.add_collar(collars.coords[collars.coords[:, 0] == hole_id, 1:][0])
+
+            measurements = np.hsplit(
+                self.measurements[self.measurements[:, 0] == hole_id, 1:], 3
+            )
+            if (measurements[0].shape[0]) > 0:
+                hole.add_survey(measurements[0], measurements[1], measurements[2])
+
+                hole._create_hole()
+
+                self._holes[hole_id] = hole
+
+    def make_mesh(self):
+        mesh = None
+        for hole_id in self._holes.keys():
+            hole = self._holes[hole_id]
+            depths = hole.desurvey()
+            from_to = hole._make_from_to(depths)
+            if from_to.shape[0] > 0:
+                if mesh is None:
+                    mesh = hole._make_line_mesh(from_to[:, 0], from_to[:, 1])
+                else:
+                    mesh += hole._make_line_mesh(from_to[:, 0], from_to[:, 1])
+
+        self.mesh = mesh
+
+        return mesh
+
+    def show(self, show_collars=False, *args, **kwargs):
+        p = DrillDownPlotter()
+        p.add_surveys(self, *args, **kwargs)
+
+        if show_collars == True:
+            p.add_collars(self.collars)
+
+        return p.show()
 
 
 class DrillHole:
@@ -507,7 +809,7 @@ class DrillHole:
 
         return p.show()
 
-    def show_survey(self, show_collar=True, *args, **kwargs):
+    def show_survey(self, show_collar=False, *args, **kwargs):
         survey_mesh = self.make_survey_mesh()
         p = DrillDownPlotter()
         p.add_surveys(survey_mesh, *args, **kwargs)
@@ -519,7 +821,7 @@ class DrillHole:
         return p.show()
 
     def show_intervals(
-        self, name=None, show_collar=True, show_survey=True, *args, **kwargs
+        self, name=None, show_collar=False, show_survey=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.intervals.keys())[0]
@@ -532,7 +834,7 @@ class DrillHole:
             self.categorical_interval_vars,
             self.continuous_interval_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collar == True:
@@ -546,7 +848,7 @@ class DrillHole:
         return p.show()
 
     def show_points(
-        self, name=None, show_collar=True, show_survey=True, *args, **kwargs
+        self, name=None, show_collar=False, show_survey=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.points.keys())[0]
@@ -559,7 +861,7 @@ class DrillHole:
             self.categorical_point_vars,
             self.continuous_point_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collar == True:
@@ -894,7 +1196,7 @@ class DrillHoleGroup:
 
         return p.show()
 
-    def show_surveys(self, show_collars=True, *args, **kwargs):
+    def show_surveys(self, show_collars=False, *args, **kwargs):
         surveys_mesh = self.make_surveys_mesh()
         p = DrillDownPlotter()
         p.add_surveys(surveys_mesh, *args, **kwargs)
@@ -906,7 +1208,7 @@ class DrillHoleGroup:
         return p.show()
 
     def show_intervals(
-        self, name=None, show_collars=True, show_surveys=True, *args, **kwargs
+        self, name=None, show_collars=False, show_surveys=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.intervals.keys())[0]
@@ -919,7 +1221,7 @@ class DrillHoleGroup:
             self.categorical_point_vars,
             self.continuous_point_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collars == True:
@@ -933,7 +1235,7 @@ class DrillHoleGroup:
         return p.show()
 
     def show_points(
-        self, name=None, show_collars=True, show_surveys=True, *args, **kwargs
+        self, name=None, show_collars=False, show_surveys=False, *args, **kwargs
     ):
         if name is None:
             name = list(self.points.keys())[0]
@@ -946,7 +1248,7 @@ class DrillHoleGroup:
             self.categorical_point_vars,
             self.continuous_point_vars,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         if show_collars == True:
