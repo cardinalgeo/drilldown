@@ -1498,7 +1498,12 @@ class DrillDownPlotter(Plotter):
         if isinstance(key_value_pair, tuple):
             if len(key_value_pair) == 2:
                 name, intervals = key_value_pair
-
+                try:
+                    intervals = convert_to_numpy_array(intervals)
+                except:
+                    raise ValueError(
+                        "Intervals must be a sequence, pandas object, or numpy array."
+                    )
             else:
                 raise ValueError(
                     "Input must be a tuple of length 2, where the first element is the name of the dataset and the second element is the selected intervals."
@@ -1523,15 +1528,15 @@ class DrillDownPlotter(Plotter):
             raise ValueError(
                 f"No interval dataset corresponding to {name} is present. Interval dataset name(s) are {self.interval_actor_names}."
             )
-        if (intervals > self.n_intervals[name]) or (intervals < 0):
+        if (intervals > self.n_intervals[name]).any() or (intervals < 0).any():
             raise ValueError(
                 f"Intervals must be between 0 and the number of intervals in the dataset, {self.n_intervals[name] - 1}."
             )
         interval_cells = []
         for interval in intervals:
             interval_cells += np.arange(
-                interval * self.cells_per_interval,
-                (interval + 1) * self.cells_per_interval,
+                interval * self.cells_per_interval[name],
+                (interval + 1) * self.cells_per_interval[name],
             ).tolist()
 
         self._selected_intervals = intervals
@@ -1932,3 +1937,27 @@ class DrillDownPlotter(Plotter):
         self._iframe = IFrame(self._src, w, h)
 
         return self._iframe
+
+    def _get_server(self):
+        pv_viewer = show_trame(self, mode="server")
+        trame_viewer = pv_viewer.viewer
+        server = trame_viewer.server
+
+        return server
+
+    def selected_scatter_plot(self, x, y, **kwargs):
+        from .plots.plotly_plots import ScatterPlot
+
+        # plot_server = self._get_server().create_child_server()
+
+        # fig = ScatterPlot(self.selected_data(), x, y, server=plot_server, **kwargs)
+        fig = ScatterPlot(self.selected_data(), x, y, **kwargs)
+
+        fig.plotter = self
+        fig.actor_name = self.selection_actor_name.split(" ")[0]
+        if fig.actor_name in self.interval_actor_names:
+            fig.ids = self.selected_intervals
+        elif fig.actor_name in self.point_actor_names:
+            fig.ids = self.selected_points
+
+        return fig
