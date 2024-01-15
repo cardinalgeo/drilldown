@@ -30,6 +30,7 @@ from functools import partial
 from pyvista.trame.jupyter import show_trame
 from .drill_log import DrillLog
 from .utils import convert_to_numpy_array
+from .image import ImageViewer
 
 
 def is_numeric_tuple(tup):
@@ -51,6 +52,7 @@ class DrillDownPlotter(Plotter):
 
         self.collars = None
         self.surveys = None
+        self.datasets = {}
         self.intervals = {}
         self.points = {}
 
@@ -468,6 +470,7 @@ class DrillDownPlotter(Plotter):
     def _add_hole_data(self, data, name):
         data._construct_categorical_cmap()
 
+        self.datasets[name] = data
         self.continuous_vars[name] = data.continuous_vars
         self.categorical_vars[name] = data.categorical_vars
         self.all_vars[name] = data.continuous_vars + data.categorical_vars
@@ -2017,3 +2020,29 @@ class DrillDownPlotter(Plotter):
             fig.ids = self.selected_points
 
         return fig
+
+    def selected_image(self, var_name, **kwargs):
+        from .image import ImageViewer
+
+        data = self.selected_data()
+        if data.shape[0] != 1:
+            raise ValueError(
+                "More than one interval or point selected. Please select only one."
+            )
+
+        if var_name is None:
+            dataset_name = self.selection_actor_name.split(" ")[0]
+            dataset = self.datasets[dataset_name]
+            image_var_names = dataset.image_var_names
+            if len(image_var_names) == 1:
+                var_name = image_var_names[0]
+            else:
+                raise ValueError(
+                    "Multiple image variables present. Please specify variable name."
+                )
+
+        image_filename = data[var_name].values[0]
+        im_viewer = ImageViewer()
+        im_viewer.image_filename = image_filename
+
+        return im_viewer
