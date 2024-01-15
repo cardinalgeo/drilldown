@@ -101,6 +101,8 @@ class DrillDownPlotter(Plotter):
         self.prev_continuous_cmap = {}
         self._cmap_range = {}
 
+        self.point_size = {}
+
         # filter attributes
         self.filter_opacity = {}
         self.filter_opacity_factor = {}
@@ -564,6 +566,7 @@ class DrillDownPlotter(Plotter):
         self.point_vars[name] = points.vars_all
         self.categorical_point_vars += points.categorical_vars
         self.continuous_point_vars += points.continuous_vars
+        self.point_size[name] = point_size
         self._add_hole_data(points, name)
 
         if points.mesh is None:
@@ -706,6 +709,14 @@ class DrillDownPlotter(Plotter):
             else:
                 selection_on_filter = False
 
+            # disable picking on all other actors
+            prev_pickable = {}
+            other_actors = list(self.datasets.keys())
+            other_actors.remove(name)
+            for key in other_actors:
+                prev_pickable[key] = self.actors[key].GetPickable()
+                self.actors[key].SetPickable(False)
+
             if name in self.interval_actor_names:
                 self._reset_point_selection()
                 self._make_intervals_selection(
@@ -723,6 +734,10 @@ class DrillDownPlotter(Plotter):
                 self._update_data_selection_object(
                     name, selection_on_filter=selection_on_filter
                 )
+
+            # return picking status to all other actors
+            for key in other_actors:
+                self.actors[key].SetPickable(prev_pickable[key])
 
             # elif name == "collars":
             #     self._make_collars_selection(pos)
@@ -748,6 +763,7 @@ class DrillDownPlotter(Plotter):
             cell_picker = self.pickers[name]
 
         cell_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
+
         picked_cell = cell_picker.GetCellId()
         # if name == self.interval_filter_actor_name:
         #     name = name.split(" ")[0]
@@ -1225,7 +1241,7 @@ class DrillDownPlotter(Plotter):
             selection_actor = self.add_mesh(
                 selection_mesh,
                 selection_name,
-                point_size=10,
+                point_size=self.point_size[name] + 1,
                 render_points_as_spheres=True,
                 color=self.selection_color[name],
                 reset_camera=False,
@@ -2021,7 +2037,7 @@ class DrillDownPlotter(Plotter):
 
         return fig
 
-    def selected_image(self, var_name, **kwargs):
+    def selected_image(self, var_name=None, **kwargs):
         from .image import ImageViewer
 
         data = self.selected_data()
