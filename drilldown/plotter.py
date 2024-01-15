@@ -52,6 +52,7 @@ class DrillDownPlotter(Plotter):
 
         self.collars = None
         self.surveys = None
+        self.datasets = {}
         self.intervals = {}
         self.points = {}
 
@@ -469,6 +470,7 @@ class DrillDownPlotter(Plotter):
     def _add_hole_data(self, data, name):
         data._construct_categorical_cmap()
 
+        self.datasets[name] = data
         self.continuous_vars[name] = data.continuous_vars
         self.categorical_vars[name] = data.categorical_vars
         self.all_vars[name] = data.continuous_vars + data.categorical_vars
@@ -1926,16 +1928,6 @@ class DrillDownPlotter(Plotter):
 
             return log.fig
 
-    def selected_sample_image(self):
-        data = self.selected_point_data()
-        filename = data["image_filename"].values[0]
-        viewer = ImageViewer()
-        viewer.set_directory_path(
-            "/Users/robertcollar/Documents/CACB_Field_Work_2022/sample_photos/pyramids"
-        )
-
-        return viewer.view_image(filename)
-
     def iframe(self, w="100%", h=None):
         if h is None:
             h = self.height
@@ -2028,3 +2020,29 @@ class DrillDownPlotter(Plotter):
             fig.ids = self.selected_points
 
         return fig
+
+    def selected_image(self, var_name, **kwargs):
+        from .image import ImageViewer
+
+        data = self.selected_data()
+        if data.shape[0] != 1:
+            raise ValueError(
+                "More than one interval or point selected. Please select only one."
+            )
+
+        if var_name is None:
+            dataset_name = self.selection_actor_name.split(" ")[0]
+            dataset = self.datasets[dataset_name]
+            image_var_names = dataset.image_var_names
+            if len(image_var_names) == 1:
+                var_name = image_var_names[0]
+            else:
+                raise ValueError(
+                    "Multiple image variables present. Please specify variable name."
+                )
+
+        image_filename = data[var_name].values[0]
+        im_viewer = ImageViewer()
+        im_viewer.image_filename = image_filename
+
+        return im_viewer

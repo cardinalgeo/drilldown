@@ -81,6 +81,7 @@ class HoleData:
         self.continuous_vars = []
         self._depths = None
         self.data = {}
+        self.image_var_names = []
         self.code_to_color_map = {}
         self.cat_to_color_map = {}
         self.code_to_cat_map = {}
@@ -95,6 +96,7 @@ class HoleData:
         hole_ids,
         depths,
         data,
+        image_var_names=[],
         return_data=False,
         construct_categorical_cmap=False,
     ):
@@ -124,7 +126,9 @@ class HoleData:
 
         # add data
         data = convert_to_numpy_array(data, collapse_dim=False)
+        print(data, var_names)
         for dataset, var_name in zip(data.T, var_names):
+            print(var_name)
             dataset, _type = convert_array_type(dataset, return_type=True)
 
             if _type == "str":  # categorical data
@@ -144,6 +148,8 @@ class HoleData:
                 "values": dataset,
                 "type": _type,
             }
+
+        self.image_var_names = image_var_names
 
         if return_data == True:
             return self.data
@@ -263,6 +269,7 @@ class Points(HoleData):
         data,
         return_data=False,
         construct_categorical_cmap=False,
+        **kwargs,
     ):
         super().add_data(
             var_names,
@@ -271,6 +278,7 @@ class Points(HoleData):
             data,
             return_data=return_data,
             construct_categorical_cmap=construct_categorical_cmap,
+            **kwargs,
         )
 
     def desurvey(self, surveys):
@@ -388,6 +396,7 @@ class Intervals(HoleData):
         data,
         return_data=False,
         construct_categorical_cmap=True,
+        **kwargs,
     ):
         super().add_data(
             var_names,
@@ -396,6 +405,7 @@ class Intervals(HoleData):
             data,
             return_data=return_data,
             construct_categorical_cmap=construct_categorical_cmap,
+            **kwargs,
         )
 
     def desurvey(self, surveys):
