@@ -126,9 +126,7 @@ class HoleData:
 
         # add data
         data = convert_to_numpy_array(data, collapse_dim=False)
-        print(data, var_names)
         for dataset, var_name in zip(data.T, var_names):
-            print(var_name)
             dataset, _type = convert_array_type(dataset, return_type=True)
 
             if _type == "str":  # categorical data

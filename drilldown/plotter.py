@@ -3,6 +3,7 @@ from vtk import (
     vtkExtractSelection,
     vtkSelectionNode,
     vtkSelection,
+    vtkPicker,
     vtkPropPicker,
     vtkCellPicker,
     vtkPointPicker,
@@ -35,6 +36,15 @@ from .image import ImageViewer
 
 def is_numeric_tuple(tup):
     return all(isinstance(x, (int, float)) for x in tup)
+
+
+def actors_collection_to_list(actors_collection):
+    actors_collection.InitTraversal()
+    actors_list = []
+    for i in range(actors_collection.GetNumberOfItems()):
+        actors_list.append(actors_collection.GetNextActor())
+
+    return actors_list
 
 
 class DrillDownPlotter(Plotter):
@@ -141,6 +151,8 @@ class DrillDownPlotter(Plotter):
         self._selected_intervals = []
 
         self.actor_picker = vtkPropPicker()
+        self.actors_to_make_not_pickable_picker = vtkPicker()
+
         self.pickers = {}  # multiple to enable selective hardware acceleration
 
         # track clicks
@@ -701,21 +713,28 @@ class DrillDownPlotter(Plotter):
         actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
         picked_actor = actor_picker.GetActor()
         if picked_actor is not None:
+            # make non-picked actors not pickable to improve performance
+            self.actors_to_make_not_pickable_picker.Pick(
+                pos[0], pos[1], pos[2], self.renderer
+            )
+            actors_to_make_not_pickable = actors_collection_to_list(
+                self.actors_to_make_not_pickable_picker.GetActors()
+            )
+            actors_to_make_not_pickable.remove(picked_actor)
+
+            prev_pickable = []
+            for actor in actors_to_make_not_pickable:
+                prev_pickable.append(actor.GetPickable())
+                actor.SetPickable(False)
+
             name = picked_actor.name
+
             if name == self.filter_actor_name:
                 selection_on_filter = True
                 name = name.split(" ")[0]
 
             else:
                 selection_on_filter = False
-
-            # disable picking on all other actors
-            prev_pickable = {}
-            other_actors = list(self.datasets.keys())
-            other_actors.remove(name)
-            for key in other_actors:
-                prev_pickable[key] = self.actors[key].GetPickable()
-                self.actors[key].SetPickable(False)
 
             if name in self.interval_actor_names:
                 self._reset_point_selection()
@@ -735,9 +754,8 @@ class DrillDownPlotter(Plotter):
                     name, selection_on_filter=selection_on_filter
                 )
 
-            # return picking status to all other actors
-            for key in other_actors:
-                self.actors[key].SetPickable(prev_pickable[key])
+            for actor, val in zip(actors_to_make_not_pickable, prev_pickable):
+                actor.SetPickable(val)
 
             # elif name == "collars":
             #     self._make_collars_selection(pos)

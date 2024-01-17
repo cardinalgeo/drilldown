@@ -6,6 +6,7 @@ from trame_server.utils.browser import open_browser
 import io
 from aiohttp import web
 import large_image
+import uuid
 
 
 def is_jupyter():
@@ -24,8 +25,12 @@ def is_jupyter():
 
 
 class ImageViewer:
-    def __init__(self, server=None, *args, **kwargs):
-        self.name = "large_image"
+    def __init__(self, name=None, server=None, *args, **kwargs):
+        if name is not None:
+            self.name = name
+        else:
+            self.name = str(uuid.uuid4())
+
         if server is not None:
             self.server = server
         else:
