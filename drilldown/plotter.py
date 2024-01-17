@@ -110,7 +110,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         self.prev_active_var = {}
         self._cmap = {}
         self.prev_continuous_cmap = {}
-        self._cmap_range = {}
+        self._clim = {}
 
         self.point_size = {}
 
@@ -273,7 +273,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         selectable=True,
         active_var=None,
         cmap=None,
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
@@ -283,6 +283,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
     ):
         if active_var is None:  # default to first variable
             self._active_var[name] = self.all_vars[name][0]
+
         else:
             self._active_var[name] = active_var
 
@@ -290,16 +291,16 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             cmap = "Blues"
         self.cmap[name] = cmap
 
-        if cmap_range is None:
+        if clim is None:
             if name in self.interval_actor_names + self.point_actor_names:
                 if name in self.interval_actor_names:
                     array = mesh.cell_data[self.active_var[name]]
                 else:
                     array = mesh.point_data[self.active_var[name]]
                 min, max = np.nanmin(array), np.nanmax(array)
-                cmap_range = (min, max)
+                clim = (min, max)
 
-        self._cmap_range[name] = cmap_range
+        self._clim[name] = clim
 
         self.nan_opacity = nan_opacity
 
@@ -319,10 +320,10 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         else:
             self.active_var = (name, active_var)
         self.cmap = (name, cmap)
-        if cmap_range is None:
-            self.reset_cmap_range(name)
+        if clim is None:
+            self.reset_clim(name, active_var)
         else:
-            self.cmap_range = (name, cmap_range)
+            self.clim = (name, clim)
 
         return actor
 
@@ -339,7 +340,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         capping=False,
         active_var=None,
         cmap=None,
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
@@ -364,9 +365,9 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         active_var : str, optional
             Variable corresponding to default scalar array used to color hole intervals. By default None.
         cmap : str, optional
-            Matplotlib color map used to color interval data. By default "Blues"
-        cmap_range : tuple, optional
-            Minimum and maximum value between which color map is applied. By default None
+            Matplotlib colormap used to color interval data. By default "Blues"
+        clim : tuple, optional
+            Minimum and maximum value between which colormap is applied. By default None
         selection_color : ColorLike, optional
             Color used to color the selection object. By default "#000000"
         accelerated_selection : bool, optional
@@ -393,7 +394,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             selectable=selectable,
             active_var=active_var,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             filter_opacity=filter_opacity,
             selection_color=selection_color,
             accelerated_selection=accelerated_selection,
@@ -416,7 +417,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         selectable=True,
         active_var=None,
         cmap=None,
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
@@ -440,7 +441,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             selectable=selectable,
             active_var=active_var,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             filter_opacity=filter_opacity,
             selection_color=selection_color,
             accelerated_selection=accelerated_selection,
@@ -511,7 +512,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         capping=False,
         active_var=None,
         cmap=None,
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
@@ -543,7 +544,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             capping=capping,
             active_var=active_var,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             selection_color=selection_color,
             filter_opacity=filter_opacity,
             accelerated_selection=accelerated_selection,
@@ -563,7 +564,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         selectable=True,
         active_var=None,
         cmap=None,
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
@@ -593,7 +594,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             selectable=selectable,
             active_var=active_var,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             selection_color=selection_color,
             filter_opacity=filter_opacity,
             accelerated_selection=accelerated_selection,
@@ -1137,7 +1138,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
                 filtered_name,
                 scalars=self.active_var[name],
                 cmap=self.cmap[name],
-                clim=self.cmap_range[name],
+                clim=self.clim[name],
                 reset_camera=False,
                 pickable=True,
                 selection_color=self.selection_color[name],
@@ -1162,7 +1163,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
                 render_points_as_spheres=True,
                 scalars=self.active_var[name],
                 cmap=self.cmap[name],
-                clim=self.cmap_range[name],
+                clim=self.clim[name],
                 reset_camera=False,
                 pickable=True,
                 selection_color=self.selection_color[name],
@@ -1316,17 +1317,17 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         if active_var in self.categorical_vars[name]:
             cmap = self.matplotlib_formatted_color_maps.get(active_var, None)
             self.cmap = (name, cmap)
-            cmap_range = list(self.code_to_cat_map[name][active_var].keys())[-1]
-            self.cmap_range = (
+            clim = list(self.code_to_cat_map[name][active_var].keys())[-1]
+            self.clim = (
                 name,
-                (0, cmap_range),
+                (0, clim),
             )
         elif active_var in self.continuous_vars[name]:
             if self.prev_active_var.get(name, None) in self.categorical_vars[name]:
                 cmap = self.prev_continuous_cmap[name]
                 self.cmap = (name, cmap)
 
-            self.reset_cmap_range(name)
+            self.reset_clim(name, active_var)
 
         self.prev_active_var[name] = active_var
 
@@ -1381,18 +1382,18 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         self.render()
 
     @property
-    def cmap_range(self):
-        return self._cmap_range
+    def clim(self):
+        return self._clim
 
-    @cmap_range.setter
-    def cmap_range(self, key_value_pair):
+    @clim.setter
+    def clim(self, key_value_pair):
         if isinstance(key_value_pair, tuple):
             if len(key_value_pair) == 2:
                 if isinstance(key_value_pair[0], str):
-                    name, cmap_range = key_value_pair
+                    name, clim = key_value_pair
                 elif is_numeric_tuple(key_value_pair):
                     if len(self.mesh_names) == 1:
-                        cmap_range = key_value_pair
+                        clim = key_value_pair
                         name = self.mesh_names[0]
                     else:
                         raise ValueError(
@@ -1400,17 +1401,17 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
                         )
                 else:
                     raise TypeError(
-                        "Input must either be a tuple containing the dataset name and a cmap_range tuple, or just the cmap_range tuple."
+                        "Input must either be a tuple containing the dataset name and a clim tuple, or just the clim tuple."
                     )
             else:
                 raise ValueError("Input must be a tuple of length 2.")
         else:
             raise TypeError("Input must be a tuple.")
 
-        if (not isinstance(cmap_range, tuple)) or (len(cmap_range) != 2):
+        if (not isinstance(clim, tuple)) or (len(clim) != 2):
             raise ValueError("cmap range should be a tuple of length 2.")
 
-        self._cmap_range[name] = cmap_range
+        self._clim[name] = clim
 
         actors = []
         actor = self.actors.get(name, None)
@@ -1422,27 +1423,34 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
                 actors.append(self.filter_actor)
 
             for actor in actors:
-                actor.mapper.lookup_table.scalar_range = cmap_range
+                actor.mapper.lookup_table.scalar_range = clim
                 actor.mapper.SetUseLookupTableScalarRange(True)
 
         self.render()
 
-    def reset_cmap_range(self, name=None):
-        if name is None:
-            names = self._mesh.keys()
-        else:
-            names = [name]
-        for name in names:
-            mesh = self._meshes[name]
-            if name in self.interval_actor_names:
-                array = mesh.cell_data[self.active_var[name]]
-            elif name in self.point_actor_names:
-                array = mesh.point_data[self.active_var[name]]
-            else:
-                raise ValueError(f"Dataset with name {name} not present.")
+    def reset_clim(self, name, var_name):
+        mesh = self._meshes[name]
+        if name in self.interval_actor_names:
+            try:
+                array = mesh.cell_data[var_name]
+            except:
+                raise KeyError(
+                    f"Variable {var_name} not present in dataset with name {name}."
+                )
 
-            min, max = np.nanmin(array), np.nanmax(array)
-            self.cmap_range = (name, (min, max))
+        elif name in self.point_actor_names:
+            try:
+                array = mesh.point_data[var_name]
+            except:
+                raise KeyError(
+                    f"Variable {var_name} not present in dataset with name {name}."
+                )
+
+        else:
+            raise ValueError(f"Dataset with name {name} not present.")
+
+        min, max = np.nanmin(array), np.nanmax(array)
+        self.clim = (name, (min, max))
 
     @property
     def visibility(self):

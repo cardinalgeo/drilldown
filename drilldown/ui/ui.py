@@ -143,7 +143,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
                             # **DROPDOWN_STYLES,
                         )
                         vuetify.VSelect(
-                            label="color map",
+                            label="colormap",
                             v_show=("cmap_visible", True),
                             v_model=("cmap", self.cmap[ctrl_mesh_name]),
                             items=("cmap_fields", self.cmaps),
@@ -151,11 +151,11 @@ class DrillDownTramePlotter(DrillDownPlotter):
                             # **DROPDOWN_STYLES,
                         )
                         vuetify.VRangeSlider(
-                            label="colormap range",
-                            v_show=("cmap_range_visible", True),
-                            v_model=("cmap_range", self.cmap_range[ctrl_mesh_name]),
-                            min=("cmap_range_min", self.cmap_range[ctrl_mesh_name][0]),
-                            max=("cmap_range_max", self.cmap_range[ctrl_mesh_name][1]),
+                            label="colormap limits",
+                            v_show=("clim_visible", True),
+                            v_model=("clim", self.clim[ctrl_mesh_name]),
+                            min=("clim_min", self.clim[ctrl_mesh_name][0]),
+                            max=("clim_max", self.clim[ctrl_mesh_name][1]),
                             classes="pt-1",
                             # **DROPDOWN_STYLES
                         )
@@ -177,7 +177,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
                             # **DROPDOWN_STYLES,
                         )
                         vuetify.VSelect(
-                            label="color map",
+                            label="colormap",
                             v_show=("cmap_visible", False),
                             v_model=("cmap", None),
                             items=("cmap_fields", None),
@@ -185,11 +185,11 @@ class DrillDownTramePlotter(DrillDownPlotter):
                             # **DROPDOWN_STYLES,
                         )
                         vuetify.VRangeSlider(
-                            label="colormap range",
-                            v_show=("cmap_range_visible", False),
-                            v_model=("cmap_range", (0, 1)),
-                            min=("cmap_range_min", 0),
-                            max=("cmap_range_max", 1),
+                            label="colormap limits",
+                            v_show=("clim_visible", False),
+                            v_model=("clim", (0, 1)),
+                            min=("clim_min", 0),
+                            max=("clim_max", 1),
                             classes="pt-1",
                             # **DROPDOWN_STYLES
                         )
@@ -204,7 +204,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
                 state.divider_visible = False
                 state.active_var_visible = False
                 state.cmap_visible = False
-                state.cmap_range_visible = False
+                state.clim_visible = False
 
             else:
                 state.divider_visible = True
@@ -223,15 +223,15 @@ class DrillDownTramePlotter(DrillDownPlotter):
                     state.cmap = self.cmap[ctrl_mesh_name]
                     state.cmap_fields = self.cmaps
 
-                    state.cmap_range_visible = True
-                    self.reset_cmap_range(ctrl_mesh_name)
-                    state.cmap_range = self.cmap_range[ctrl_mesh_name]
-                    state.cmap_range_min = self.cmap_range[ctrl_mesh_name][0]
-                    state.cmap_range_max = self.cmap_range[ctrl_mesh_name][1]
+                    state.clim_visible = True
+                    self.reset_clim(ctrl_mesh_name, state.active_var)
+                    state.clim = self.clim[ctrl_mesh_name]
+                    state.clim_min = self.clim[ctrl_mesh_name][0]
+                    state.clim_max = self.clim[ctrl_mesh_name][1]
 
                 elif state.active_var in self.categorical_vars[ctrl_mesh_name]:
                     state.cmap_visible = False
-                    state.cmap_range_visible = False
+                    state.clim_visible = False
 
             state.opacity = self.opacity[ctrl_mesh_name]
 
@@ -248,17 +248,17 @@ class DrillDownTramePlotter(DrillDownPlotter):
                 if active_var in self.continuous_vars[name]:
                     state.cmap = self.cmap[name]
 
-                    self.reset_cmap_range(name)
-                    state.cmap_range = self.cmap_range[name]
-                    state.cmap_range_min = self.cmap_range[name][0]
-                    state.cmap_range_max = self.cmap_range[name][1]
+                    self.reset_clim(name, active_var)
+                    state.clim = self.clim[name]
+                    state.clim_min = self.clim[name][0]
+                    state.clim_max = self.clim[name][1]
 
                     state.cmap_visible = True
-                    state.cmap_range_visible = True
+                    state.clim_visible = True
 
                 else:
                     state.cmap_visible = False
-                    state.cmap_range_visible = False
+                    state.clim_visible = False
 
         @state.change("cmap")
         def update_cmap(cmap, **kwargs):
@@ -266,11 +266,11 @@ class DrillDownTramePlotter(DrillDownPlotter):
             if name in self.interval_actor_names + self.point_actor_names:
                 self.cmap = (name, cmap)
 
-        @state.change("cmap_range")
-        def update_cmap_range(cmap_range, **kwargs):
+        @state.change("clim")
+        def update_clim(clim, **kwargs):
             name = state.ctrl_mesh_name
             if name in self.interval_actor_names + self.point_actor_names:
-                self.cmap_range = (name, (cmap_range[0], cmap_range[1]))
+                self.clim = (name, (clim[0], clim[1]))
 
     @DrillDownPlotter.opacity.setter
     def opacity(self, key_value_pair):
@@ -302,14 +302,14 @@ class DrillDownTramePlotter(DrillDownPlotter):
             self.state.cmap = cmap
             self.state.flush()
 
-    @DrillDownPlotter.cmap_range.setter
-    def cmap_range(self, key_value_pair):
-        super(DrillDownTramePlotter, DrillDownTramePlotter).cmap_range.fset(
+    @DrillDownPlotter.clim.setter
+    def clim(self, key_value_pair):
+        super(DrillDownTramePlotter, DrillDownTramePlotter).clim.fset(
             self, key_value_pair
         )
-        name, cmap_range = key_value_pair
+        name, clim = key_value_pair
         if name == self.state.ctrl_mesh_name:
-            self.state.cmap_range = cmap_range
+            self.state.clim = clim
             self.state.flush()
 
     def add_mesh(
@@ -347,17 +347,17 @@ class DrillDownTramePlotter(DrillDownPlotter):
 
                         if self.active_var[name] in self.continuous_vars[name]:
                             self.state.cmap_visible = True
-                            self.state.cmap_range_visible = True
+                            self.state.clim_visible = True
 
                         else:
                             self.state.cmap_visible = False
-                            self.state.cmap_range_visible = False
+                            self.state.clim_visible = False
 
                     else:
                         self.state.divider_visible = False
                         self.state.active_var_visible = False
                         self.state.cmap_visible = False
-                        self.state.cmap_range_visible = False
+                        self.state.clim_visible = False
 
                     self.state.flush()
 
@@ -372,7 +372,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         self.ctrl_widget_width = 300
         self.active_var_widgets = {}
         self.cmap_widgets = {}
-        self.cmap_range_widgets = {}
+        self.clim_widgets = {}
         self.show_widgets = {}
         self.opacity_widgets = {}
 
@@ -455,7 +455,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         selectable=True,
         active_var=None,
         cmap="Blues",
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         accelerated_selection=False,
         nan_opacity=1,
@@ -470,7 +470,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             selectable=selectable,
             active_var=active_var,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             selection_color=selection_color,
             accelerated_selection=accelerated_selection,
             nan_opacity=nan_opacity,
@@ -478,7 +478,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             **kwargs,
         )
 
-        self._make_hole_ctrl_card(name, active_var, cmap, cmap_range)
+        self._make_hole_ctrl_card(name, active_var, cmap, clim)
 
         return actor
 
@@ -490,7 +490,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         continuous_vars=[],
         active_var=None,
         cmap="Blues",
-        cmap_range=None,
+        clim=None,
         *args,
         **kwargs,
     ):
@@ -503,9 +503,9 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         active_var : str, optional
             Variable corresponding to default scalar array used to color hole intervals. By default None.
         cmap : str, optional
-            Matplotlib color map used to color interval data. By default "Blues"
-        cmap_range : tuple, optional
-            Minimum and maximum value between which color map is applied. By default None
+            Matplotlib colormap used to color interval data. By default "Blues"
+        clim : tuple, optional
+            Minimum and maximum value between which colormap is applied. By default None
         """
 
         super(DrillDownPanelPlotter, self).add_intervals_mesh(
@@ -515,7 +515,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             categorical_vars=categorical_vars,
             continuous_vars=continuous_vars,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             *args,
             **kwargs,
         )
@@ -523,8 +523,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         if active_var is not None:
             self.active_var = (name, active_var)
         self.cmap = (name, cmap)
-        if cmap_range != None:
-            self.cmap_range = (name, cmap_range)
+        if clim != None:
+            self.clim = (name, clim)
 
     def add_points_mesh(
         self,
@@ -536,7 +536,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         selectable=True,
         active_var=None,
         cmap="Blues",
-        cmap_range=None,
+        clim=None,
         selection_color="magenta",
         accelerated_selection=False,
         nan_opacity=1,
@@ -552,7 +552,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             selectable=selectable,
             active_var=active_var,
             cmap=cmap,
-            cmap_range=cmap_range,
+            clim=clim,
             selection_color=selection_color,
             accelerated_selection=accelerated_selection,
             nan_opacity=nan_opacity,
@@ -563,8 +563,8 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         if active_var is not None:
             self._active_var[name] = active_var
         self._cmap[name] = cmap
-        if cmap_range != None:
-            self._cmap_range[name] = cmap_range
+        if clim != None:
+            self._clim[name] = clim
 
     def _make_active_var_widget(self, name, active_var=None):
         options = self.all_vars[name]
@@ -583,7 +583,7 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
     def _make_cmap_widget(self, name, cmap=None):
         widget = pn.widgets.Select(
-            name=f"{name} color map",
+            name=f"{name} colormap",
             options=self.cmaps,
             value=cmap,
             width=int(0.9 * self.ctrl_widget_width),
@@ -593,34 +593,32 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         self.cmap_widgets[name] = widget
         return widget
 
-    def _make_cmap_range_widget(self, name, cmap_range=None):
+    def _make_clim_widget(self, name, clim=None):
         min = self.actors[name].mapper.dataset.active_scalars.min()
         max = self.actors[name].mapper.dataset.active_scalars.max()
-        if cmap_range == None:
-            cmap_range = (min, max)
+        if clim == None:
+            clim = (min, max)
         widget = pn.widgets.RangeSlider(
-            name=f"{name} color map range",
+            name=f"{name} colormap range",
             start=min,
             end=max,
             step=min - max / 1000,
-            value=cmap_range,
+            value=clim,
             width=int(0.9 * self.ctrl_widget_width),
         )
-        widget.param.watch(partial(self._on_cmap_range_change, name), "value")
-        widget.param.default = cmap_range
+        widget.param.watch(partial(self._on_clim_change, name), "value")
+        widget.param.default = clim
 
-        self.cmap_range_widgets[name] = widget
+        self.clim_widgets[name] = widget
         return widget
 
-    def _make_hole_ctrl_card(
-        self, name, active_var=None, cmap="Blues", cmap_range=None
-    ):
+    def _make_hole_ctrl_card(self, name, active_var=None, cmap="Blues", clim=None):
         self.hole_ctrl_card = pn.Column(
             width=self.ctrl_widget_width,
         )
         self.hole_ctrl_card.append(self._make_active_var_widget(name, active_var))
         self.hole_ctrl_card.append(self._make_cmap_widget(name, cmap))
-        self.hole_ctrl_card.append(self._make_cmap_range_widget(name, cmap_range))
+        self.hole_ctrl_card.append(self._make_clim_widget(name, clim))
 
         self.ctrls.append((f"{name} controls", self.hole_ctrl_card))
         return self.hole_ctrl_card
@@ -645,11 +643,11 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
 
             if active_var in self.continuous_vars[name]:
                 self.cmap_widgets[name].visible = True
-                self.cmap_range_widgets[name].visible = True
+                self.clim_widgets[name].visible = True
 
             elif active_var in self.categorical_vars[name]:
                 self.cmap_widgets[name].visible = False
-                self.cmap_range_widgets[name].visible = False
+                self.clim_widgets[name].visible = False
 
     @property
     def cmap(self):
@@ -661,25 +659,23 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
             self, key_value_pair
         )
         name, cmap = key_value_pair
-        if (name in self.cmap_widgets.keys()) and (
-            name in self.cmap_range_widgets.keys()
-        ):
+        if (name in self.cmap_widgets.keys()) and (name in self.clim_widgets.keys()):
             if isinstance(cmap, str):
                 self.cmap_widgets[name].value = cmap
 
     @property
-    def cmap_range(self):
-        return self._cmap_range
+    def clim(self):
+        return self._clim
 
-    @cmap_range.setter
-    def cmap_range(self, key_value_pair):
-        super(DrillDownPanelPlotter, DrillDownPanelPlotter).cmap_range.fset(
+    @clim.setter
+    def clim(self, key_value_pair):
+        super(DrillDownPanelPlotter, DrillDownPanelPlotter).clim.fset(
             self, key_value_pair
         )
-        name, cmap_range = key_value_pair
-        if name in self.cmap_range_widgets.keys():
-            self.cmap_range_widgets[name].value = cmap_range
-            self.cmap_range_widgets[name].step = (cmap_range[1] - cmap_range[0]) / 1000
+        name, clim = key_value_pair
+        if name in self.clim_widgets.keys():
+            self.clim_widgets[name].value = clim
+            self.clim_widgets[name].step = (clim[1] - clim[0]) / 1000
 
     @property
     def visibility(self):
@@ -710,20 +706,20 @@ class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):
         self.active_var = (name, active_var)
 
         active_scalars = self.actors[name].mapper.dataset.active_scalars
-        self.cmap_range_widgets[name].start = active_scalars.min()
-        self.cmap_range_widgets[name].end = active_scalars.max()
+        self.clim_widgets[name].start = active_scalars.min()
+        self.clim_widgets[name].end = active_scalars.max()
 
     def _on_cmap_change(self, name, event):
         cmap = event.new
         self.cmap = (name, cmap)
 
         active_scalars = self.actors[name].mapper.dataset.active_scalars
-        self.cmap_range_widgets[name].start = active_scalars.min()
-        self.cmap_range_widgets[name].end = active_scalars.max()
+        self.clim_widgets[name].start = active_scalars.min()
+        self.clim_widgets[name].end = active_scalars.max()
 
-    def _on_cmap_range_change(self, name, event):
-        cmap_range = event.new
-        self.cmap_range = (name, cmap_range)
+    def _on_clim_change(self, name, event):
+        clim = event.new
+        self.clim = (name, clim)
 
     def _on_mesh_show_change(self, name, event):
         visible = event.new
