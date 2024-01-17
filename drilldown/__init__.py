@@ -1,7 +1,7 @@
 from .holes import DrillHole, DrillHoleGroup, Intervals, Points, Collars, Surveys
 from .plotter import DrillDownPlotter
 from .ui.ui import DrillDownTramePlotter, DrillDownPanelPlotter
-from .image import ImageViewer
+from .image.image import ImageViewer
 
 __all__ = [
     "DrillHole",
@@ -13,5 +13,4 @@ __all__ = [
     "DrillDownPlotter",
     "DrillDownPanelPlotter",
     "DrillDownTramePlotter",
-    "ImageViewer",
 ]

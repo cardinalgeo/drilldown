@@ -31,7 +31,8 @@ from functools import partial
 from pyvista.trame.jupyter import show_trame
 from .drill_log import DrillLog
 from .utils import convert_to_numpy_array
-from .image import ImageViewer
+from .image.image_mixin import ImageMixin
+from .plot.plotting_mixin import Plotting2dMixin
 
 
 def is_numeric_tuple(tup):
@@ -47,7 +48,7 @@ def actors_collection_to_list(actors_collection):
     return actors_list
 
 
-class DrillDownPlotter(Plotter):
+class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
     """Plotting object for displaying drillholes and related datasets."""
 
     def __init__(self, *args, **kwargs):
@@ -1981,102 +1982,3 @@ class DrillDownPlotter(Plotter):
         server = trame_viewer.server
 
         return server
-
-    def selected_scatter_plot(self, x, y, **kwargs):
-        from .plots.plotly_plots import ScatterPlot
-
-        # plot_server = self._get_server().create_child_server()
-
-        # fig = ScatterPlot(self.selected_data(), x, y, server=plot_server, **kwargs)
-        fig = ScatterPlot(self.selected_data(), x, y, **kwargs)
-
-        fig.plotter = self
-        fig.actor_name = self.selection_actor_name.split(" ")[0]
-        if fig.actor_name in self.interval_actor_names:
-            fig.ids = self.selected_intervals
-        elif fig.actor_name in self.point_actor_names:
-            fig.ids = self.selected_points
-
-        return fig
-
-    def selected_scatter_ternary_plot(self, a, b, c, **kwargs):
-        from .plots.plotly_plots import ScatterTernaryPlot
-
-        fig = ScatterTernaryPlot(self.selected_data(), a, b, c, **kwargs)
-
-        fig.plotter = self
-        fig.actor_name = self.selection_actor_name.split(" ")[0]
-        if fig.actor_name in self.interval_actor_names:
-            fig.ids = self.selected_intervals
-        elif fig.actor_name in self.point_actor_names:
-            fig.ids = self.selected_points
-
-        return fig
-
-    def selected_scatter_dimensions_plot(self, dimensions, **kwargs):
-        from .plots.plotly_plots import ScatterDimensionsPlot
-
-        fig = ScatterDimensionsPlot(self.selected_data(), dimensions, **kwargs)
-
-        fig.plotter = self
-        fig.actor_name = self.selection_actor_name.split(" ")[0]
-        if fig.actor_name in self.interval_actor_names:
-            fig.ids = self.selected_intervals
-        elif fig.actor_name in self.point_actor_names:
-            fig.ids = self.selected_points
-
-        return fig
-
-    def selected_bar_plot(self, x, y, **kwargs):
-        from .plots.plotly_plots import BarPlot
-
-        fig = BarPlot(self.selected_data(), x, y, **kwargs)
-
-        fig.plotter = self
-        fig.actor_name = self.selection_actor_name.split(" ")[0]
-        if fig.actor_name in self.interval_actor_names:
-            fig.ids = self.selected_intervals
-        elif fig.actor_name in self.point_actor_names:
-            fig.ids = self.selected_points
-
-        return fig
-
-    def selected_histogram(self, x, **kwargs):
-        from .plots.plotly_plots import Histogram
-
-        fig = Histogram(self.selected_data(), x, **kwargs)
-
-        fig.plotter = self
-        fig.actor_name = self.selection_actor_name.split(" ")[0]
-        if fig.actor_name in self.interval_actor_names:
-            fig.ids = self.selected_intervals
-        elif fig.actor_name in self.point_actor_names:
-            fig.ids = self.selected_points
-
-        return fig
-
-    def selected_image(self, var_name=None, **kwargs):
-        from .image import ImageViewer
-
-        data = self.selected_data()
-        if data.shape[0] != 1:
-            raise ValueError(
-                "More than one interval or point selected. Please select only one."
-            )
-
-        if var_name is None:
-            dataset_name = self.selection_actor_name.split(" ")[0]
-            dataset = self.datasets[dataset_name]
-            image_var_names = dataset.image_var_names
-            if len(image_var_names) == 1:
-                var_name = image_var_names[0]
-            else:
-                raise ValueError(
-                    "Multiple image variables present. Please specify variable name."
-                )
-
-        image_filename = data[var_name].values[0]
-        im_viewer = ImageViewer()
-        im_viewer.image_filename = image_filename
-
-        return im_viewer
