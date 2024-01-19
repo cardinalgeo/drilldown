@@ -86,9 +86,13 @@ class PlotlyPlot:
                             self._on_plot_selection,
                             "[$event?.points.map(({pointIndex}) => pointIndex)]",
                         ),
-                        click=(
-                            self.ctrl.on_plotly_plot_click,
-                            "[$event?.points.map(({pointIndex}) => pointIndex)]",
+                        # click=(
+                        #     self.ctrl.on_plotly_plot_click,
+                        #     "[$event?.points.map(({pointIndex}) => pointIndex)]",
+                        # ),
+                        deselect=(
+                            self._on_plot_deselection,
+                            "[$event]",
                         ),
                     )
                 self.ctrl.plotly_plot_view_update = html_plot.update
@@ -102,6 +106,13 @@ class PlotlyPlot:
             if self.plotter is not None:
                 name = self.actor_name
                 self.plotter.selected_intervals = (name, np.array(self.ids)[ids])
+
+    def _on_plot_deselection(self, event):
+        self.selected_ids = None
+
+        if self.plotter is not None:
+            name = self.actor_name
+            self.plotter.selected_intervals = (name, np.array(self.ids))
 
     def _on_scatter_plot_click(self, ids):
         pass
