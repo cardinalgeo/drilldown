@@ -46,11 +46,24 @@ def make_color_map_fractional(map):
         if max(map[name]) > 1:
             map[name] = tuple([val / 255 for val in map[name]])
         elif max(map[name]) >= 0:
-            raise ValueError("Color is already fractional.")
+            # raise ValueError("Color is already fractional.")
+            pass
         else:
             raise ValueError("Color values cannot be negative.")
 
     return map
+
+
+def get_cycled_colors(n):
+    from itertools import cycle
+    import matplotlib as mpl
+
+    cycler = mpl.rcParams["axes.prop_cycle"]
+    colors = cycle(cycler)
+    colors = [next(colors)["color"] for i in range(n)]
+    colors = [mpl.colors.to_rgb(color) for color in colors]
+
+    return colors
 
 
 def encode_categorical_data(data):
@@ -164,21 +177,27 @@ class HoleData:
     #         hole = surveys._holes[hole_id]
     #         depths = hole.desurvey()
 
-    def _construct_categorical_cmap(self):
-        var_names = [
-            var
-            for var in self.categorical_vars
-            if var not in self.cat_to_color_map.keys()
-        ]
+    def _construct_categorical_cmap(self, var_names=[], cycle=True):
+        if len(var_names) == 0:
+            var_names = [
+                var
+                for var in self.categorical_vars
+                if var not in self.cat_to_color_map.keys()
+            ]
+
         for var in var_names:
             codes = self.code_to_cat_map[var].keys()
             n_colors = len(codes)
 
-            colors = distinctipy.get_colors(
-                n_colors,
-                pastel_factor=self.categorical_pastel_factor,
-                rng=self.categorical_color_rng,
-            )
+            if cycle == True:
+                colors = get_cycled_colors(n_colors)
+
+            elif cycle == False:
+                colors = distinctipy.get_colors(
+                    n_colors,
+                    pastel_factor=self.categorical_pastel_factor,
+                    rng=self.categorical_color_rng,
+                )
 
             # create categorical color map
             self.cat_to_color_map[var] = {
@@ -196,49 +215,52 @@ class HoleData:
                 var
             ] = make_matplotlib_categorical_color_map(colors)
 
-    def add_categorical_cmap(self, var_name, cmap):
+    def add_categorical_cmap(self, var_name, cmap=None, cycle=True):
         if var_name not in self.categorical_vars:
             raise ValueError(f"Data for {var_name} not present.")
 
-        if not isinstance(cmap, dict):
-            raise TypeError("Categorical color map must be a dictionary.")
+        if cmap is None:
+            self._construct_categorical_cmap([var_name], cycle=cycle)
+        else:
+            if not isinstance(cmap, dict):
+                raise TypeError("Categorical color map must be a dictionary.")
 
-        # ensure categorical color map colors are fractional
-        cmap = make_color_map_fractional(cmap)
+            # ensure categorical color map colors are fractional
+            cmap = make_color_map_fractional(cmap)
 
-        colors = [cmap[cat] for cat in cmap.keys()]
-        n_missing_colors = len(self.cat_to_code_map[var_name].keys()) - len(colors)
-        colors = distinctipy.get_colors(
-            n_missing_colors,
-            exclude_colors=colors,
-            return_excluded=True,
-            pastel_factor=self.categorical_pastel_factor,
-            rng=self.categorical_color_rng,
-        )
+            colors = [cmap[cat] for cat in cmap.keys()]
+            n_missing_colors = len(self.cat_to_code_map[var_name].keys()) - len(colors)
+            colors = distinctipy.get_colors(
+                n_missing_colors,
+                exclude_colors=colors,
+                return_excluded=True,
+                pastel_factor=self.categorical_pastel_factor,
+                rng=self.categorical_color_rng,
+            )
 
-        # create categorical color map
-        categories = [cat for cat in cmap.keys()] + [
-            cat
-            for cat in self.cat_to_code_map[var_name].keys()
-            if cat not in cmap.keys()
-        ]
-        self.cat_to_color_map[var_name] = {
-            cat: color for cat, color in zip(categories, colors)
-        }
+            # create categorical color map
+            categories = [cat for cat in cmap.keys()] + [
+                cat
+                for cat in self.cat_to_code_map[var_name].keys()
+                if cat not in cmap.keys()
+            ]
+            self.cat_to_color_map[var_name] = {
+                cat: color for cat, color in zip(categories, colors)
+            }
 
-        # create encoded categorical color map
-        codes = [self.cat_to_code_map[var_name][cat] for cat in categories]
-        self.code_to_color_map[var_name] = {
-            code: color for code, color in zip(codes, colors)
-        }
+            # create encoded categorical color map
+            codes = [self.cat_to_code_map[var_name][cat] for cat in categories]
+            self.code_to_color_map[var_name] = {
+                code: color for code, color in zip(codes, colors)
+            }
 
-        # create matplotlib categorical color map
-        codes.sort()
-        self.matplotlib_formatted_color_maps[
-            var_name
-        ] = make_matplotlib_categorical_color_map(
-            [self.code_to_color_map[var_name][code] for code in codes]
-        )
+            # create matplotlib categorical color map
+            codes.sort()
+            self.matplotlib_formatted_color_maps[
+                var_name
+            ] = make_matplotlib_categorical_color_map(
+                [self.code_to_color_map[var_name][code] for code in codes]
+            )
 
     @property
     def depths(self):
