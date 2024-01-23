@@ -33,6 +33,7 @@ from .drill_log import DrillLog
 from .utils import convert_to_numpy_array
 from .image.image_mixin import ImageMixin
 from .plot.plotting_mixin import Plotting2dMixin
+from .layer.layer import DataLayer
 
 
 def is_numeric_tuple(tup):
@@ -61,6 +62,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         self.enable_trackball_style()
         vtkMapper.SetResolveCoincidentTopologyToPolygonOffset()
 
+        self.layers = {}
         self.collars = None
         self.surveys = None
         self.datasets = {}
@@ -315,6 +317,19 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             *args,
             **kwargs,
         )
+
+        self.layers[name] = DataLayer(
+            name,
+            mesh,
+            actor,
+            self,
+            opacity=opacity,
+            pickable=selectable,
+            active_var=active_var,
+            cmap=cmap,
+            clim=clim,
+        )
+
         if active_var is None:  # default to first variable
             self.active_var = (name, self.all_vars[name][0])
         else:
