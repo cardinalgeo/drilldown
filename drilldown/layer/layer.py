@@ -6,6 +6,7 @@ from vtk import (
     vtkHardwareSelector,
     vtkDataObject,
 )
+import pyvista as pv
 import numpy as np
 
 from ..utils import convert_to_numpy_array
@@ -231,25 +232,24 @@ class _PointLayer(_BaseLayer):
     def _update_selection_object(self):
         selection_mesh = self.mesh.extract_points(self.selected_points)
         if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
-            selection_actor = self.plotter.add_mesh(
-                selection_mesh,
-                self.name + " selection",
-                color=self.selection_color,
-                opacity=self.opacity * self.rel_selection_opacity,
-                point_size=self.point_size * self.rel_selected_point_size,
-                render_points_as_spheres=True,
-                reset_camera=False,
+            selection_actor = self.actor.copy(deep=True)
+            selection_actor.mapper.dataset = selection_mesh
+
+            self.plotter.add_actor(
+                selection_actor,
+                name=self.name + " selection",
                 pickable=False,
+                reset_camera=False,
             )
 
             self._selection_actor = selection_actor
-            if selection_actor is not None:
-                selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
-                    0, -6
-                )
-                self.plotter.render()
 
-            return selection_actor
+            # update selection actor properties
+            self.selection_color = self.selection_color
+            self.opacity = self.opacity
+            selection_actor.prop.point_size = (
+                self.point_size * self.rel_selected_point_size
+            )
 
     def _reset_selection(self):
         self._picked_point = None
@@ -316,7 +316,12 @@ class _PointLayer(_BaseLayer):
         if (filter_mesh.n_points != 0) and (filter_mesh.n_cells != 0):
             filter_actor = self.actor.copy(deep=True)
             filter_actor.mapper.dataset = filter_mesh
-            self.plotter.add_actor(filter_actor, reset_camera=False)
+            self.plotter.add_actor(
+                filter_actor,
+                name=self.name + " filter",
+                pickable=True,
+                reset_camera=False,
+            )
 
             self._filter_actor = filter_actor
 
@@ -326,8 +331,6 @@ class _PointLayer(_BaseLayer):
             # update opacity and visibility
             self.opacity = self.opacity
             self.visibility = self.visibility
-
-            # self.plotter.render()
 
     def _reset_filter(self):
         self._filtered_points = []
@@ -581,6 +584,7 @@ class _IntervalLayer(_BaseLayer):
                 opacity=self.opacity * self.rel_selection_opacity,
                 reset_camera=False,
                 pickable=False,
+                as_selection=True,
             )
             self._selection_actor = selection_actor
 
@@ -589,8 +593,6 @@ class _IntervalLayer(_BaseLayer):
                     0, -6
                 )
                 self.plotter.render()
-
-            return selection_actor
 
     def _reset_selection(self):
         self._picked_cell = None
@@ -657,8 +659,6 @@ class _IntervalLayer(_BaseLayer):
             # update opacity and visibility
             self.opacity = self.opacity
             self.visibility = self.visibility
-
-            # self.plotter.render()
 
     def _reset_filter(self):
         self._filtered_cells = []
