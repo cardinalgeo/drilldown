@@ -8,6 +8,7 @@ from vtk import (
 )
 import pyvista as pv
 import numpy as np
+import pandas as pd
 
 from ..utils import convert_to_numpy_array
 
@@ -131,15 +132,15 @@ class _PointLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        visibility=True,
-        opacity=1,
         pickable=True,
         accelerated_picking=False,
         point_size=15,
         rel_selected_point_size=1.1,
         rel_filtered_point_size=1.1,
+        *args,
+        **kwargs,
     ):
-        super().__init__(name, mesh, actor, plotter, visibility, opacity)
+        super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
         self.pickable = pickable
         self.accelerated_picking = accelerated_picking
@@ -285,6 +286,14 @@ class _PointLayer(_BaseLayer):
         self._update_selection_object()
 
     @property
+    def selected_ids(self):
+        return self._selected_points
+
+    @selected_ids.setter
+    def selected_ids(self, ids):
+        self.selected_points = ids
+
+    @property
     def boolean_filter(self):
         return self._boolean_filter
 
@@ -309,6 +318,10 @@ class _PointLayer(_BaseLayer):
 
     @property
     def filtered_points(self):
+        return self._filtered_points
+
+    @property
+    def filtered_ids(self):
         return self._filtered_points
 
     def _update_filter_object(self):
@@ -362,13 +375,13 @@ class _IntervalLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        visibility=True,
-        opacity=1,
         pickable=True,
         accelerated_picking=False,
         n_sides=20,
+        *args,
+        **kwargs,
     ):
-        super().__init__(name, mesh, actor, plotter, visibility, opacity)
+        super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
         self.pickable = pickable
         self.accelerated_picking = accelerated_picking
@@ -574,6 +587,14 @@ class _IntervalLayer(_BaseLayer):
 
         self._update_selection_object()
 
+    @property
+    def selected_ids(self):
+        return self._selected_intervals
+
+    @selected_ids.setter
+    def selected_ids(self, ids):
+        self.selected_intervals = ids
+
     def _update_selection_object(self):
         selection_mesh = self.mesh.extract_cells(self._selected_cells)
         if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
@@ -639,6 +660,10 @@ class _IntervalLayer(_BaseLayer):
     def filtered_intervals(self):
         return self._filtered_intervals
 
+    @property
+    def filtered_ids(self):
+        return self._filtered_intervals
+
     def _update_filter_object(self):
         filter_mesh = self.mesh.extract_cells(self._filtered_cells)
         if (filter_mesh.n_points != 0) and (filter_mesh.n_cells != 0):
@@ -692,14 +717,13 @@ class _DataLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        visibility=True,
-        opacity=1,
-        pickable=True,
         active_var=None,
         cmap=None,
         clim=None,
+        *args,
+        **kwargs,
     ):
-        super().__init__(name, mesh, actor, plotter, visibility, opacity, pickable)
+        super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
         self._active_var = active_var
         self._cmap = cmap
@@ -737,58 +761,70 @@ class _DataLayer(_BaseLayer):
     def data_within_interval(self, hole_id, interval):
         pass
 
+    @property
+    def selected_ids(self):
+        raise NotImplementedError("This method must be implemented in a subclass.")
 
-class PointDataLayer(_DataLayer, _PointLayer):
-    def __init__(
-        self,
-        name,
-        mesh,
-        actor,
-        plotter,
-        visibility=True,
-        opacity=1,
-        pickable=True,
-        active_var=None,
-        cmap=None,
-        clim=None,
-    ):
-        super().__init__(
-            name,
-            mesh,
-            actor,
-            plotter,
-            visibility,
-            opacity,
-            pickable,
-            active_var,
-            cmap,
-            clim,
-        )
+    @selected_ids.setter
+    def selected_ids(self, ids):
+        raise NotImplementedError("This method must be implemented in a subclass.")
+
+    @property
+    def selected_data(self):
+        ids = self.selected_ids
+        data = self._process_data_output(ids)
+
+        return data
+
+    @property
+    def filtered_ids(self):
+        raise NotImplementedError("This method must be implemented in a subclass.")
+
+    @property
+    def filtered_data(self):
+        ids = self.filtered_ids
+        data = self._process_data_output(ids)
+
+        return data
+
+    def _process_data_output(self, ids, array_names=[], step=1):
+        if len(array_names) == 0:
+            array_names = self.mesh.array_names
+
+        data_dict = {}
+        for name in array_names:
+            data_dict[name] = self.mesh[name][::step][ids]
+
+        data = pd.DataFrame(data_dict)
+
+        return data
 
 
-class IntervalDataLayer(_DataLayer, _IntervalLayer):
-    def __init__(
-        self,
-        name,
-        mesh,
-        actor,
-        plotter,
-        visibility=True,
-        opacity=1,
-        pickable=True,
-        active_var=None,
-        cmap=None,
-        clim=None,
-    ):
-        super().__init__(
-            name,
-            mesh,
-            actor,
-            plotter,
-            visibility,
-            opacity,
-            pickable,
-            active_var,
-            cmap,
-            clim,
-        )
+class PointDataLayer(_PointLayer, _DataLayer):
+    def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
+        super().__init__(name, mesh, actor, plotter, *args, **kwargs)
+
+    def _process_data_output(self, ids, array_names=[]):
+        exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
+        array_names = [name for name in self.mesh.array_names if name not in exclude]
+
+        data = super()._process_data_output(ids, array_names)
+
+        return data
+
+
+class IntervalDataLayer(_IntervalLayer, _DataLayer):
+    def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
+        super().__init__(name, mesh, actor, plotter, *args, **kwargs)
+
+    def _process_data_output(self, ids, array_names=[]):
+        exclude = [
+            "TubeNormals",
+            "vtkOriginalPointIds",
+            "vtkOriginalCellIds",
+        ]  # added by pvista; first has excess dims
+        array_names = [name for name in self.mesh.array_names if name not in exclude]
+
+        data = super()._process_data_output(ids, array_names, step=self.n_sides)
+
+        return data
