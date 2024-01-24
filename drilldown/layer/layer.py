@@ -65,16 +65,22 @@ class _BaseLayer:
         if value < 0 or value > 1:
             raise ValueError("opacity must be between 0 and 1")
 
-        self.actor.prop.opacity = value
+        if self._filter_actor is not None:
+            self.actor.prop.opacity = value * self._rel_filter_opacity
+            self._filter_actor.prop.opacity = value
+        else:
+            self.actor.prop.opacity = value
+
         if self._selection_actor is not None:
             self._selection_actor.prop.opacity = value * self._rel_selection_opacity
-
-        if self._filter_actor is not None:
-            self._filter_actor.prop.opacity = value * self._rel_filter_opacity
 
         self.plotter.render()
 
         self._opacity = value
+
+    @property
+    def selection_actor(self):
+        return self._selection_actor
 
     @property
     def selection_color(self):
@@ -101,13 +107,17 @@ class _BaseLayer:
         self._rel_selection_opacity = value
 
     @property
+    def filter_actor(self):
+        return self._filter_actor
+
+    @property
     def rel_filter_opacity(self):
         return self._rel_filter_opacity
 
     @rel_filter_opacity.setter
     def rel_filter_opacity(self, value):
         if self._filter_actor is not None:
-            self._filter_actor.property.opacity = self._opacity * value
+            self.actor.prop.opacity = self._opacity * value
             self.plotter.render()
 
         self._rel_filter_opacity = value
@@ -139,6 +149,7 @@ class _PointLayer(_BaseLayer):
         self._picked_point = None
         self._selected_points = []
         self._filtered_points = []
+        self._boolean_filter = None
 
         if self.pickable:
             self._make_pickable()
@@ -201,13 +212,13 @@ class _PointLayer(_BaseLayer):
                     self._make_single_selection(picked_point, on_filter=on_filter)
 
                 if on_filter:
-                    picked_point = self._filtered_points[picked_point]
+                    picked_point = self.filtered_points[picked_point]
 
                 self._picked_point = picked_point
 
     def _make_single_selection(self, picked_point, on_filter=False):
         if on_filter:
-            picked_point = self._filtered_points[picked_point]
+            picked_point = self.filtered_points[picked_point]
 
         self._selected_points = [picked_point]
 
@@ -218,7 +229,7 @@ class _PointLayer(_BaseLayer):
         pass  # not trivial as cell IDs are not inherently sequential along hole
 
     def _update_selection_object(self):
-        selection_mesh = self.mesh.extract_points(self._selected_points)
+        selection_mesh = self.mesh.extract_points(self.selected_points)
         if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
             selection_actor = self.plotter.add_mesh(
                 selection_mesh,
@@ -247,6 +258,99 @@ class _PointLayer(_BaseLayer):
         self.plotter.remove_actor(self._selection_actor)
         self._selection_actor = None
 
+    @property
+    def picked_point(self):
+        return self._picked_point
+
+    @property
+    def selected_points(self):
+        return self._selected_points
+
+    @selected_points.setter
+    def selected_points(self, points):
+        try:
+            points = convert_to_numpy_array(points)
+        except:
+            raise ValueError(
+                "Points must be a sequence, pandas object, or numpy array."
+            )
+
+        if (points > self.n_points).any() or (points < 0).any():
+            raise ValueError(
+                f"Points must be between 0 and the number of points in the dataset, {self.n_points - 1}."
+            )
+
+        self._selected_points = points
+
+        self._update_selection_object()
+
+    @property
+    def boolean_filter(self):
+        return self._boolean_filter
+
+    @boolean_filter.setter
+    def boolean_filter(self, value):
+        try:
+            boolean_filter = convert_to_numpy_array(value)
+        except:
+            raise ValueError(
+                "Boolean filter must be a sequence, pandas object, or numpy array."
+            )
+
+        if len(boolean_filter) != self.n_points:
+            raise ValueError(
+                f"Boolean filter must have the same length as the number of points in the dataset, {self.n_points}."
+            )
+
+        self._boolean_filter = boolean_filter
+        self._filtered_points = np.arange(self.n_points)[boolean_filter]
+
+        self._update_filter_object()
+
+    @property
+    def filtered_points(self):
+        return self._filtered_points
+
+    def _update_filter_object(self):
+        filter_mesh = self.mesh.extract_points(self.filtered_points)
+        if (filter_mesh.n_points != 0) and (filter_mesh.n_cells != 0):
+            filter_actor = self.actor.copy(deep=True)
+            filter_actor.mapper.dataset = filter_mesh
+            self.plotter.add_actor(filter_actor, reset_camera=False)
+
+            self._filter_actor = filter_actor
+
+            # make filtered out intervals not pickable
+            self.actor.SetPickable(False)
+
+            # update opacity and visibility
+            self.opacity = self.opacity
+            self.visibility = self.visibility
+
+            # self.plotter.render()
+
+    def _reset_filter(self):
+        self._filtered_points = []
+        self.plotter.remove_actor(self._filter_actor)
+        self._filter_actor = None
+
+        # make previously filtered out intervals pickable
+        self.actor.SetPickable(True)
+
+        # return previously filtered out intervals to original opacity
+        self.opacity = self.opacity
+
+    def convert_selection_to_filter(self):
+        boolean_filter = np.isin(np.arange(self.n_points), self.selected_points)
+        self._reset_selection()
+        self.boolean_filter = boolean_filter
+
+    def convert_filter_to_selection(self, keep_filter=False):
+        self.selected_points = self.filtered_points
+
+        if keep_filter == False:
+            self._reset_filter()
+
 
 class _IntervalLayer(_BaseLayer):
     def __init__(
@@ -274,12 +378,13 @@ class _IntervalLayer(_BaseLayer):
         self._selected_intervals = []
         self._filtered_cells = []
         self._filtered_intervals = []
+        self._boolean_filter = None
 
         if self.pickable:
             self._make_pickable()
 
         self.n_sides = n_sides
-        self.n_intervals = mesh.n_cells / n_sides
+        self.n_intervals = int(mesh.n_cells / n_sides)
 
     def _make_pickable(self):
         self.picker = vtkCellPicker()
@@ -348,7 +453,7 @@ class _IntervalLayer(_BaseLayer):
         ).tolist()
 
         if on_filter:
-            selected_interval = self._filtered_intervals[selected_interval]
+            selected_interval = self.filtered_intervals[selected_interval]
             selected_cells = list(self._filtered_cells[selected_cells])
 
         self._selected_intervals = [selected_interval]
@@ -364,7 +469,7 @@ class _IntervalLayer(_BaseLayer):
         ).tolist()
 
         if on_filter:
-            selected_interval = self._filtered_intervals[selected_interval]
+            selected_interval = self.filtered_intervals[selected_interval]
             selected_cells = list(self._filtered_cells[selected_cells])
 
         self._selected_intervals += [selected_interval]
@@ -376,17 +481,17 @@ class _IntervalLayer(_BaseLayer):
         if on_filter:
             prev_picked_cell = np.where(self._filtered_cells == self._picked_cell)[0][0]
             prev_selected_intervals = np.where(
-                np.isin(self._filtered_intervals, self._selected_intervals[:-1])
+                np.isin(self.filtered_intervals, self.selected_intervals[:-1])
             )[0].tolist()
             prev_selected_intervals += np.where(
-                np.isin(self._filtered_intervals, self._selected_intervals[-1])
+                np.isin(self.filtered_intervals, self.selected_intervals[-1])
             )[
                 0
             ].tolist()  #  needed as np.isin or np.where seems to sort the output and the resulting first interval should be last
 
         else:
             prev_picked_cell = self._picked_cell
-            prev_selected_intervals = self._selected_intervals
+            prev_selected_intervals = self.selected_intervals
 
         if prev_picked_cell is not None:
             if prev_picked_cell < picked_cell:  # normal direction (down the hole)
@@ -401,7 +506,7 @@ class _IntervalLayer(_BaseLayer):
 
                 if on_filter:
                     selected_intervals = list(
-                        self._filtered_intervals[selected_intervals]
+                        self.filtered_intervals[selected_intervals]
                     )
                     selected_cells = list(self._filtered_cells[selected_cells])
 
@@ -420,41 +525,12 @@ class _IntervalLayer(_BaseLayer):
 
                 if on_filter:
                     selected_intervals = list(
-                        self._filtered_intervals[selected_intervals]
+                        self.filtered_intervals[selected_intervals]
                     )
                     selected_cells = list(self._filtered_cells[selected_cells])
 
-                self._selected_intervals = selected_intervals + self._selected_intervals
+                self._selected_intervals = selected_intervals + self.selected_intervals
                 self._selected_cells = selected_cells + self._selected_cells
-
-    def _update_selection_object(self):
-        selection_mesh = self.mesh.extract_cells(self._selected_cells)
-        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
-            selection_actor = self.plotter.add_mesh(
-                selection_mesh,
-                self.name + " selection",
-                color=self.selection_color,
-                opacity=self.opacity * self.rel_selection_opacity,
-                reset_camera=False,
-                pickable=False,
-            )
-            self._selection_actor = selection_actor
-
-            if selection_actor is not None:
-                selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
-                    0, -6
-                )
-                self.plotter.render()
-
-            return selection_actor
-
-    def _reset_selection(self):
-        self._picked_cell = None
-        self._selected_cells = []
-        self._selected_intervals = []
-
-        self.plotter.remove_actor(self._selection_actor)
-        self._selection_actor = None
 
     @property
     def picked_cell(self):
@@ -494,6 +570,119 @@ class _IntervalLayer(_BaseLayer):
         self._selected_cells = interval_cells
 
         self._update_selection_object()
+
+    def _update_selection_object(self):
+        selection_mesh = self.mesh.extract_cells(self._selected_cells)
+        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
+            selection_actor = self.plotter.add_mesh(
+                selection_mesh,
+                self.name + " selection",
+                color=self.selection_color,
+                opacity=self.opacity * self.rel_selection_opacity,
+                reset_camera=False,
+                pickable=False,
+            )
+            self._selection_actor = selection_actor
+
+            if selection_actor is not None:
+                selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
+                    0, -6
+                )
+                self.plotter.render()
+
+            return selection_actor
+
+    def _reset_selection(self):
+        self._picked_cell = None
+        self._selected_cells = []
+        self._selected_intervals = []
+
+        self.plotter.remove_actor(self._selection_actor)
+        self._selection_actor = None
+
+    @property
+    def boolean_filter(self):
+        return self._boolean_filter
+
+    @boolean_filter.setter
+    def boolean_filter(self, value):
+        try:
+            boolean_filter = convert_to_numpy_array(value)
+        except:
+            raise ValueError(
+                "Boolean filter must be a sequence, pandas object, or numpy array."
+            )
+
+        if len(boolean_filter) != self.n_intervals:
+            raise ValueError(
+                f"Boolean filter must have the same length as the number of intervals in the dataset, {self.n_intervals}."
+            )
+
+        self._boolean_filter = boolean_filter
+        self._filtered_intervals = np.arange(self.n_intervals)[boolean_filter]
+
+        cells_per_interval = self.n_sides
+        boolean_cell_filter = np.repeat(boolean_filter, cells_per_interval)
+        self._filtered_cells = np.arange(self.n_intervals * cells_per_interval)[
+            boolean_cell_filter
+        ]
+
+        self._update_filter_object()
+
+    @property
+    def filtered_cells(self):
+        return self._filtered_cells
+
+    @property
+    def filtered_intervals(self):
+        return self._filtered_intervals
+
+    def _update_filter_object(self):
+        filter_mesh = self.mesh.extract_cells(self._filtered_cells)
+        if (filter_mesh.n_points != 0) and (filter_mesh.n_cells != 0):
+            filter_actor = self.actor.copy(deep=True)
+            filter_actor.mapper.dataset = filter_mesh
+            self.plotter.add_actor(
+                filter_actor,
+                name=self.name + " filter",
+                pickable=True,
+                reset_camera=False,
+            )
+
+            self._filter_actor = filter_actor
+
+            # make filtered out intervals not pickable
+            self.actor.SetPickable(False)
+
+            # update opacity and visibility
+            self.opacity = self.opacity
+            self.visibility = self.visibility
+
+            # self.plotter.render()
+
+    def _reset_filter(self):
+        self._filtered_cells = []
+        self._filtered_intervals = []
+        self.plotter.remove_actor(self._filter_actor)
+        self._filter_actor = None
+
+        # make previously filtered out intervals pickable
+        self.actor.SetPickable(True)
+
+        # return previously filtered out intervals to original opacity
+        self.opacity = self.opacity
+
+    def convert_selection_to_filter(self):
+        boolean_filter = np.isin(np.arange(self.n_intervals), self.selected_intervals)
+        self._reset_selection()
+        self.boolean_filter = boolean_filter
+
+    def convert_filter_to_selection(self, keep_filter=False):
+        self._selected_cells = self._filtered_cells
+        self.selected_intervals = self.filtered_intervals
+
+        if keep_filter == False:
+            self._reset_filter()
 
 
 class _DataLayer(_BaseLayer):
