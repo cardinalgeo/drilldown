@@ -604,12 +604,11 @@ class _IntervalLayer(_BaseLayer):
         if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
             selection_actor = self.plotter.add_mesh(
                 selection_mesh,
-                self.name + " selection",
+                name=self.name + " selection",
                 color=self.selection_color,
                 opacity=self.opacity * self.rel_selection_opacity,
                 reset_camera=False,
                 pickable=False,
-                as_selection=True,
             )
             self._selection_actor = selection_actor
 
@@ -734,10 +733,6 @@ class _DataLayer(_BaseLayer):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
         self._active_array_name = mesh.active_scalars_name
-        print(self._active_array_name)
-        print(actor.mapper.lookup_table.cmap.name)
-        print(actor.mapper.lookup_table.scalar_range)
-        print(actor.mapper.lookup_table.cmap.name)
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"

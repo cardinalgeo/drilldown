@@ -11,6 +11,7 @@ from IPython.display import IFrame
 from .image.image_mixin import ImageMixin
 from .plot.plotting_mixin import Plotting2dMixin
 from .layer.layer import IntervalDataLayer, PointDataLayer
+from .layer.layer_list import LayerList
 
 
 def is_numeric_tuple(tup):
@@ -39,7 +40,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         self.enable_trackball_style()
         vtkMapper.SetResolveCoincidentTopologyToPolygonOffset()
 
-        self.layers = []
+        self.layers = LayerList()
 
         # track datasets
         self.collars = None
@@ -75,7 +76,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         mesh = collars.mesh
         actor = self.add_mesh(
             mesh,
-            name,
+            name=name,
             opacity=opacity,
             render_points_as_spheres=True,
             point_size=15,
@@ -107,7 +108,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             surveys.make_mesh()
 
         mesh = surveys.mesh
-        actor = self.add_mesh(mesh, "surveys", opacity=opacity, *args, **kwargs)
+        actor = self.add_mesh(mesh, name="surveys", opacity=opacity, *args, **kwargs)
         self.survey_actor = actor
 
         return actor
@@ -142,12 +143,13 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
 
         actor = self.add_mesh(
             mesh,
-            name,
+            name=name,
             opacity=opacity,
             pickable=selectable,
             scalars=active_var,
             cmap=cmap,
             clim=clim,
+            show_scalar_bar=False,
             *args,
             **kwargs,
         )
@@ -200,12 +202,13 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         mesh = points.mesh
         actor = self.add_mesh(
             mesh,
-            name,
+            name=name,
             opacity=opacity,
             pickable=selectable,
             point_size=point_size,
             render_points_as_spheres=True,
             scalars=active_var,
+            show_scalar_bar=False,
             cmap=cmap,
             clim=clim,
             *args,
@@ -252,9 +255,10 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
                 actor.SetPickable(False)
 
             # make selection
-            layer = self.layers[0]
-            layer._make_selection_by_pick(pos, picked_actor)
-            layer._update_selection_object()
+            for layer in self.layers:
+                if layer.actor == picked_actor:
+                    layer._make_selection_by_pick(pos, picked_actor)
+                    layer._update_selection_object()
 
             # restore previous pickable state
             for actor, val in zip(actors_to_make_not_pickable, prev_pickable):
