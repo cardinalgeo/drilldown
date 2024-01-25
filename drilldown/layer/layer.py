@@ -733,9 +733,20 @@ class _DataLayer(_BaseLayer):
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
-        self._active_var = active_var
-        self._cmap = cmap
-        self._clim = clim
+        self._active_var = mesh.active_scalars_name
+        print(self._active_var)
+        print(actor.mapper.lookup_table.cmap.name)
+        print(actor.mapper.lookup_table.scalar_range)
+        print(actor.mapper.lookup_table.cmap.name)
+
+        if hasattr(
+            actor.mapper.lookup_table.cmap, "name"
+        ):  # only set if active_var is continuous
+            self._cmap = actor.mapper.lookup_table.cmap
+            self._clim = actor.mapper.lookup_table.scalar_range
+        else:
+            self._cmap = None
+            self._clim = None
 
         self._continuous_array_names = []
         self._categorical_array_names = []
@@ -748,12 +759,80 @@ class _DataLayer(_BaseLayer):
         self.cat_to_color_map = {}
         self.matplotlib_formatted_color_maps = None
 
+        # to aid w resetting when switching btwn arrays of diff. types
+        self.preceding_array_type = None
+
     def __getitem__(self, key):
         return self.mesh[key]
 
     def __setitem__(self, key, value):
         self.mesh[key] = value
         self.mesh.keys()
+
+    @property
+    def active_var(self):
+        return self._active_var
+
+    @active_var.setter
+    def active_var(self, value):
+        if value not in self.array_names:
+            raise ValueError(f"{value} is not an array name.")
+
+        self.actor.mapper.dataset.set_active_scalars(value)
+
+        if (value in self.continuous_array_names) and (
+            self.preceding_array_type != "continuous"
+        ):
+            self.cmap = self.cmap
+
+        elif value in self.categorical_array_names:
+            if value not in self.matplotlib_formatted_color_maps:
+                raise ValueError(f"{value} is not a valid colormap.")
+
+            cmap = self.matplotlib_formatted_color_maps[value]
+            self.actor.mapper.lookup_table = pv.LookupTable(cmap)
+            self.actor.mapper.lookup_table.scalar_range = [
+                0,
+                len(self.cat_to_color_map[value]) - 1,
+            ]
+
+        self.plotter.render()
+
+        self._active_var = value
+
+    @property
+    def cmap(self):
+        return self._cmap
+
+    @cmap.setter
+    def cmap(self, value):
+        if self.active_var in self.continuous_array_names:
+            lookup_table = pv.LookupTable()
+            lookup_table.cmap = value
+            self.actor.mapper.lookup_table = lookup_table
+            if self._filter_actor is not None:
+                self.filter_actor.mapper.lookup_table = lookup_table
+
+            self.plotter.render()
+
+            self._cmap = value
+
+    @property
+    def clim(self):
+        return self._clim
+
+    @clim.setter
+    def clim(self, value):
+        if self.active_var in self.continuous_array_names:
+            self.actor.mapper.lookup_table.scalar_range = value
+            self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
+            if self._filter_actor is not None:
+                self.filter_actor.mapper.lookup_table.scalar_range = value
+                self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
+
+            self.plotter.render()
+
+            self._clim = value
 
     @property
     def array_names(self):
