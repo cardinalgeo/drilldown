@@ -367,6 +367,10 @@ class _PointLayer(_BaseLayer):
         if keep_filter == False:
             self._reset_filter()
 
+    @property
+    def all_ids(self):
+        return np.arange(self.n_points)
+
 
 class _IntervalLayer(_BaseLayer):
     def __init__(
@@ -709,6 +713,10 @@ class _IntervalLayer(_BaseLayer):
         if keep_filter == False:
             self._reset_filter()
 
+    @property
+    def all_ids(self):
+        return np.arange(self.n_intervals)
+
 
 class _DataLayer(_BaseLayer):
     def __init__(
@@ -732,6 +740,14 @@ class _DataLayer(_BaseLayer):
         self._continuous_array_names = []
         self._categorical_array_names = []
 
+        # decoding categorical data
+        self.code_to_hole_id_map = {}
+        self.code_to_cat_map = {}
+
+        # categorical data cmaps
+        self.cat_to_color_map = {}
+        self.matplotlib_formatted_color_maps = None
+
     def __getitem__(self, key):
         return self.mesh[key]
 
@@ -739,6 +755,7 @@ class _DataLayer(_BaseLayer):
         self.mesh[key] = value
         self.mesh.keys()
 
+    @property
     def array_names(self):
         return self.mesh.array_names
 
@@ -746,17 +763,9 @@ class _DataLayer(_BaseLayer):
     def continuous_array_names(self):
         return self._continuous_array_names
 
-    @continuous_array_names.setter
-    def continuous_array_names(self, value):
-        self._continuous_array_names = value
-
     @property
     def categorical_array_names(self):
         return self._categorical_array_names
-
-    @categorical_array_names.setter
-    def categorical_array_names(self, value):
-        self._categorical_array_names = value
 
     def data_within_interval(self, hole_id, interval):
         pass
@@ -777,12 +786,49 @@ class _DataLayer(_BaseLayer):
         return data
 
     @property
+    def selected_hole_ids(self):
+        data = self.all_data
+        hole_ids = data["hole ID"][self.selected_ids]
+        hole_ids = hole_ids.unique().tolist()
+
+        return hole_ids
+
+    @selected_hole_ids.setter
+    def selected_hole_ids(self, hole_ids):
+        if isinstance(hole_ids, str):
+            hole_ids = [hole_ids]
+
+        if not isinstance(hole_ids, (list, np.ndarray, pd.Series)):
+            raise ValueError("hole_ids must be a list, numpy array, or pandas Series.")
+
+        data = self.all_data
+        matches = data["hole ID"].isin(hole_ids)
+        self.selected_ids = data.loc[matches].index.tolist()
+
+        self._selected_hole_ids = hole_ids
+
+    @property
     def filtered_ids(self):
         raise NotImplementedError("This method must be implemented in a subclass.")
 
     @property
     def filtered_data(self):
         ids = self.filtered_ids
+        data = self._process_data_output(ids)
+
+        return data
+
+    @property
+    def filtered_hole_ids(self):
+        data = self.all_data
+        hole_ids = data["hole ID"][self.filtered_ids]
+        hole_ids = hole_ids.unique().tolist()
+
+        return hole_ids
+
+    @property
+    def all_data(self):
+        ids = self.all_ids
         data = self._process_data_output(ids)
 
         return data
@@ -796,6 +842,14 @@ class _DataLayer(_BaseLayer):
             data_dict[name] = self.mesh[name][::step][ids]
 
         data = pd.DataFrame(data_dict)
+
+        # decode hole IDs
+        data["hole ID"] = [self.code_to_hole_id_map[code] for code in data["hole ID"]]
+
+        # decode categorical data
+        for name in self.categorical_array_names:
+            data[name] = data[name].astype("category")
+            data[name] = [self.code_to_cat_map[name][code] for code in data[name]]
 
         return data
 
