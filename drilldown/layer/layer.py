@@ -762,13 +762,6 @@ class _DataLayer(_BaseLayer):
         # to aid w resetting when switching btwn arrays of diff. types
         self.preceding_array_type = None
 
-    def __getitem__(self, key):
-        return self.mesh[key]
-
-    def __setitem__(self, key, value):
-        self.mesh[key] = value
-        self.mesh.keys()
-
     @property
     def active_array_name(self):
         return self._active_array_name
@@ -937,6 +930,13 @@ class PointDataLayer(_PointLayer, _DataLayer):
     def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
+    def __getitem__(self, key):
+        return self.all_data[key]
+
+    def __setitem__(self, key, value):
+        self.mesh[key] = value
+        self.active_array_name = key
+
     def _process_data_output(self, ids, array_names=[]):
         exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
         array_names = [name for name in self.mesh.array_names if name not in exclude]
@@ -949,6 +949,15 @@ class PointDataLayer(_PointLayer, _DataLayer):
 class IntervalDataLayer(_IntervalLayer, _DataLayer):
     def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
+
+    def __getitem__(self, key):
+        return self.all_data[key]
+
+    def __setitem__(self, key, value):
+        cells_per_interval = self.n_sides
+        value = np.repeat(value, cells_per_interval)
+        self.mesh[key] = value
+        self.active_array_name = key
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = [
