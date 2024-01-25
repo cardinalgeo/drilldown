@@ -725,7 +725,7 @@ class _DataLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        active_var=None,
+        active_array_name=None,
         cmap=None,
         clim=None,
         *args,
@@ -733,15 +733,15 @@ class _DataLayer(_BaseLayer):
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
-        self._active_var = mesh.active_scalars_name
-        print(self._active_var)
+        self._active_array_name = mesh.active_scalars_name
+        print(self._active_array_name)
         print(actor.mapper.lookup_table.cmap.name)
         print(actor.mapper.lookup_table.scalar_range)
         print(actor.mapper.lookup_table.cmap.name)
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"
-        ):  # only set if active_var is continuous
+        ):  # only set if active_array_name is continuous
             self._cmap = actor.mapper.lookup_table.cmap
             self._clim = actor.mapper.lookup_table.scalar_range
         else:
@@ -770,11 +770,11 @@ class _DataLayer(_BaseLayer):
         self.mesh.keys()
 
     @property
-    def active_var(self):
-        return self._active_var
+    def active_array_name(self):
+        return self._active_array_name
 
-    @active_var.setter
-    def active_var(self, value):
+    @active_array_name.setter
+    def active_array_name(self, value):
         if value not in self.array_names:
             raise ValueError(f"{value} is not an array name.")
 
@@ -798,7 +798,7 @@ class _DataLayer(_BaseLayer):
 
         self.plotter.render()
 
-        self._active_var = value
+        self._active_array_name = value
 
     @property
     def cmap(self):
@@ -806,7 +806,7 @@ class _DataLayer(_BaseLayer):
 
     @cmap.setter
     def cmap(self, value):
-        if self.active_var in self.continuous_array_names:
+        if self.active_array_name in self.continuous_array_names:
             lookup_table = pv.LookupTable()
             lookup_table.cmap = value
             self.actor.mapper.lookup_table = lookup_table
@@ -823,7 +823,7 @@ class _DataLayer(_BaseLayer):
 
     @clim.setter
     def clim(self, value):
-        if self.active_var in self.continuous_array_names:
+        if self.active_array_name in self.continuous_array_names:
             self.actor.mapper.lookup_table.scalar_range = value
             self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
             if self._filter_actor is not None:
