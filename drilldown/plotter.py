@@ -10,7 +10,6 @@ from trame.app import get_server
 from IPython.display import IFrame
 import uuid
 
-from .plot.plotting_mixin import Plotting2dMixin
 from .layer.layer import IntervalDataLayer, PointDataLayer
 from .layer.layer_list import LayerList
 from .utils import is_jupyter
@@ -29,7 +28,7 @@ def actors_collection_to_list(actors_collection):
     return actors_list
 
 
-class DrillDownPlotter(Plotter, Plotting2dMixin):
+class DrillDownPlotter(Plotter):
     """Plotting object for displaying drillholes and related datasets."""
 
     def __init__(self, *args, **kwargs):

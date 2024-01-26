@@ -7,13 +7,19 @@ from trame.ui.vuetify import SinglePageLayout
 
 from plotly import express as px
 import numpy as np
+import uuid
+
 
 from ..utils import convert_to_numpy_array, is_jupyter
 
 
 class PlotlyPlot:
-    def __init__(self, server=None, *args, **kwargs):
-        self.name = "plotly"
+    def __init__(self, name=None, server=None, *args, **kwargs):
+        if name is not None:
+            self.name = name
+        else:
+            self.name = str(uuid.uuid4())
+
         if server is not None:
             self.server = server
         else:
@@ -29,7 +35,7 @@ class PlotlyPlot:
         self.ids = None
         self.selected_ids = None
 
-        self.plotter = None
+        self.layer = None
 
     def show(self, inline=True):
         if inline == True:
@@ -88,16 +94,14 @@ class PlotlyPlot:
         if ids is not None:
             self.selected_ids = ids
 
-            if self.plotter is not None:
-                name = self.actor_name
-                self.plotter.selected_intervals = (name, np.array(self.ids)[ids])
+            if self.layer is not None:
+                self.layer.selected_ids = np.array(self.ids)[ids]
 
     def _on_plot_deselection(self, event):
         self.selected_ids = None
 
-        if self.plotter is not None:
-            name = self.actor_name
-            self.plotter.selected_intervals = (name, np.array(self.ids))
+        if self.layer is not None:
+            self.layer.selected_ids = np.array(self.ids)
 
     def _on_scatter_plot_click(self, ids):
         pass
