@@ -10,7 +10,6 @@ from trame.app import get_server
 from IPython.display import IFrame
 import uuid
 
-from .image.image_mixin import ImageMixin
 from .plot.plotting_mixin import Plotting2dMixin
 from .layer.layer import IntervalDataLayer, PointDataLayer
 from .layer.layer_list import LayerList
@@ -30,7 +29,7 @@ def actors_collection_to_list(actors_collection):
     return actors_list
 
 
-class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
+class DrillDownPlotter(Plotter, Plotting2dMixin):
     """Plotting object for displaying drillholes and related datasets."""
 
     def __init__(self, *args, **kwargs):
@@ -165,9 +164,10 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
 
         layer = IntervalDataLayer(name, mesh, actor, self, n_sides=n_sides)
 
-        # handle categorical vs continuous arrays
+        # handle categorical, continuous, and image arrays
         layer._categorical_array_names = intervals.categorical_vars
         layer._continuous_array_names = intervals.continuous_vars
+        layer._image_array_names = intervals.image_var_names
 
         # enable decoding of hole IDs and categorical arrays
         layer.code_to_hole_id_map = intervals.code_to_hole_id_map
@@ -226,9 +226,10 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
 
         layer = PointDataLayer(name, mesh, actor, self)
 
-        # handle categorical vs continuous arrays
+        # handle categorical, continuous, and image arrays
         layer._categorical_array_names = points.categorical_vars
         layer._continuous_array_names = points.continuous_vars
+        layer._image_array_names = points.image_var_names
 
         # enable decoding of hole IDs and categorical arrays
         layer.code_to_hole_id_map = points.code_to_hole_id_map

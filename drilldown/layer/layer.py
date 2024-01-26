@@ -12,6 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from ..utils import convert_to_numpy_array
+from ..image.image_mixin import ImageMixin
 
 
 class _BaseLayer:
@@ -726,7 +727,7 @@ class _IntervalLayer(_BaseLayer):
         return np.arange(self.n_intervals)
 
 
-class _DataLayer(_BaseLayer):
+class _DataLayer(_BaseLayer, ImageMixin):
     def __init__(
         self,
         name,
