@@ -163,7 +163,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
             # update cmap
             if state.active_var in layer.continuous_array_names:
                 state.cmap_visible = True
-                state.cmap_fields = layer.cmaps
+                state.cmap_fields = layer._cmaps
                 state.cmap = layer.cmap
 
                 state.clim_visible = True
