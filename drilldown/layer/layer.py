@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from ..utils import convert_to_numpy_array
 from ..image.image_mixin import ImageMixin
 from ..plot.plotting_mixin import Plotting2dMixin
+from ..drill_log import DrillLog
 
 
 class _BaseLayer:
@@ -959,6 +960,11 @@ class PointDataLayer(_PointLayer, _DataLayer):
     def __setitem__(self, key, value):
         self.mesh[key] = value
         self.active_array_name = key
+        self.array_names.append(key)
+        if np.issubdtype(value.dtype, np.number):
+            self.continuous_array_names.append(key)
+        else:
+            self.categorical_array_names.append(key)
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
@@ -967,6 +973,49 @@ class PointDataLayer(_PointLayer, _DataLayer):
         data = super()._process_data_output(ids, array_names)
 
         return data
+
+    def selected_drill_log(
+        self,
+        log_array_names=[],
+    ):
+        data = self.selected_data
+
+        hole_id = self.selected_hole_ids
+        if len(hole_id) != 1:
+            raise ValueError(
+                "Drill log can only be created for a single hole at a time."
+            )
+
+        # check if no variables are passed; if so, use all variables
+        if len(log_array_names) == 0:
+            log_array_names = self.categorical_array_names + self.continuous_array_names
+
+        log = DrillLog()
+
+        # add point data
+        depths = data[["from", "to"]].values
+
+        for array_name in log_array_names:
+            if array_name in self.categorical_array_names:
+                cat_to_color_map = self.cat_to_color_map
+                values = data[array_name].values
+                log.add_categorical_point_data(
+                    array_name,
+                    depths,
+                    values,
+                    cat_to_color_map.get(array_name, None),
+                )
+
+            elif array_name in self.continuous_array_names:
+                values = data[array_name].values
+                log.add_continuous_point_data(array_name, depths, values)
+
+            else:
+                raise ValueError(f"Data for array with name {array_name} not present.")
+
+        log.create_figure(y_axis_label="Depth (m)", title=hole_id[0])
+
+        return log.fig
 
 
 class IntervalDataLayer(_IntervalLayer, _DataLayer):
@@ -981,6 +1030,11 @@ class IntervalDataLayer(_IntervalLayer, _DataLayer):
         value = np.repeat(value, cells_per_interval)
         self.mesh[key] = value
         self.active_array_name = key
+        self.array_names.append(key)
+        if np.issubdtype(value.dtype, np.number):
+            self.continuous_array_names.append(key)
+        else:
+            self.categorical_array_names.append(key)
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = [
@@ -993,3 +1047,46 @@ class IntervalDataLayer(_IntervalLayer, _DataLayer):
         data = super()._process_data_output(ids, array_names, step=self.n_sides)
 
         return data
+
+    def selected_drill_log(
+        self,
+        log_array_names=[],
+    ):
+        data = self.selected_data
+
+        hole_id = self.selected_hole_ids
+        if len(hole_id) != 1:
+            raise ValueError(
+                "Drill log can only be created for a single hole at a time."
+            )
+
+        # check if no variables are passed; if so, use all variables
+        if len(log_array_names) == 0:
+            log_array_names = self.categorical_array_names + self.continuous_array_names
+
+        log = DrillLog()
+
+        # add interval data
+        depths = data[["from", "to"]].values
+
+        for array_name in log_array_names:
+            if array_name in self.categorical_array_names:
+                cat_to_color_map = self.cat_to_color_map
+                values = data[array_name].values
+                log.add_categorical_interval_data(
+                    array_name,
+                    depths,
+                    values,
+                    cat_to_color_map.get(array_name, None),
+                )
+
+            elif array_name in self.continuous_array_names:
+                values = data[array_name].values
+                log.add_continuous_interval_data(array_name, depths, values)
+
+            else:
+                raise ValueError(f"Data for array with name {array_name} not present.")
+
+        log.create_figure(y_axis_label="Depth (m)", title=hole_id[0])
+
+        return log.fig
