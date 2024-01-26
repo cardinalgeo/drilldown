@@ -766,12 +766,17 @@ class _DataLayer(_BaseLayer):
         if value not in self.array_names:
             raise ValueError(f"{value} is not an array name.")
 
+        self._active_array_name = value
+
         self.actor.mapper.dataset.set_active_scalars(value)
+        if self._filter_actor is not None:
+            self.filter_actor.mapper.dataset.set_active_scalars(value)
 
         if (value in self.continuous_array_names) and (
             self.preceding_array_type != "continuous"
         ):
             self.cmap = self.cmap
+            self.clim = self.clim
 
         elif value in self.categorical_array_names:
             if value not in self.matplotlib_formatted_color_maps:
@@ -783,10 +788,17 @@ class _DataLayer(_BaseLayer):
                 0,
                 len(self.cat_to_color_map[value]) - 1,
             ]
+            self.actor.mapper.SetUseLookupTableScalarRange(True)
+
+            if self._filter_actor is not None:
+                self.filter_actor.mapper.lookup_table = pv.LookupTable(cmap)
+                self.filter_actor.mapper.lookup_table.scalar_range = [
+                    0,
+                    len(self.cat_to_color_map[value]) - 1,
+                ]
+                self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
 
         self.plotter.render()
-
-        self._active_array_name = value
 
     @property
     def cmap(self):
@@ -795,11 +807,9 @@ class _DataLayer(_BaseLayer):
     @cmap.setter
     def cmap(self, value):
         if self.active_array_name in self.continuous_array_names:
-            lookup_table = pv.LookupTable()
-            lookup_table.cmap = value
-            self.actor.mapper.lookup_table = lookup_table
+            self.actor.mapper.lookup_table.cmap = value
             if self._filter_actor is not None:
-                self.filter_actor.mapper.lookup_table = lookup_table
+                self.filter_actor.mapper.lookup_table.cmap = value
 
             self.plotter.render()
 
@@ -813,7 +823,7 @@ class _DataLayer(_BaseLayer):
     def clim(self, value):
         if self.active_array_name in self.continuous_array_names:
             self.actor.mapper.lookup_table.scalar_range = value
-            self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
+            self.actor.mapper.SetUseLookupTableScalarRange(True)
             if self._filter_actor is not None:
                 self.filter_actor.mapper.lookup_table.scalar_range = value
                 self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
