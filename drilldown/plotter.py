@@ -5,13 +5,16 @@ from vtk import (
 )
 from pyvista import Plotter
 from pyvista.trame.jupyter import show_trame
+from trame.app import get_server
 
 from IPython.display import IFrame
+import uuid
 
 from .image.image_mixin import ImageMixin
 from .plot.plotting_mixin import Plotting2dMixin
 from .layer.layer import IntervalDataLayer, PointDataLayer
 from .layer.layer_list import LayerList
+from .utils import is_jupyter
 
 
 def is_numeric_tuple(tup):
@@ -61,6 +64,12 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         # track clicks
         self.track_click_position(side="left", callback=self._pick)
         self.track_click_position(side="left", callback=self._reset_data, double=True)
+
+        # spin up a server to manager GUI, if present
+        self.server = get_server(str(uuid.uuid4()))
+        self.state = self.server.state
+        self.server.client_type = "vue2"
+        self.state.layer_names = []
 
     def add_collars(self, collars, show_labels=True, opacity=1, *args, **kwargs):
         from .holes import Collars
@@ -121,7 +130,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         selectable=True,
         radius=1.5,
         n_sides=20,
-        active_var=None,
+        active_array_name=None,
         cmap=None,
         clim=None,
         selection_color="magenta",
@@ -146,7 +155,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             name=name,
             opacity=opacity,
             pickable=selectable,
-            scalars=active_var,
+            scalars=active_array_name,
             cmap=cmap,
             clim=clim,
             show_scalar_bar=False,
@@ -182,7 +191,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
         opacity=1,
         point_size=10,
         selectable=True,
-        active_var=None,
+        active_array_name=None,
         cmap=None,
         clim=None,
         selection_color="magenta",
@@ -207,7 +216,7 @@ class DrillDownPlotter(Plotter, Plotting2dMixin, ImageMixin):
             pickable=selectable,
             point_size=point_size,
             render_points_as_spheres=True,
-            scalars=active_var,
+            scalars=active_array_name,
             show_scalar_bar=False,
             cmap=cmap,
             clim=clim,

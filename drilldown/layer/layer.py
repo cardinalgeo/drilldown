@@ -9,6 +9,7 @@ from vtk import (
 import pyvista as pv
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from ..utils import convert_to_numpy_array
 
@@ -26,13 +27,19 @@ class _BaseLayer:
         rel_selection_opacity=1,
         rel_filter_opacity=0.1,
     ):
+        self.plotter = plotter
+        self.state = self.plotter.state
+
         self.name = name
+        self.state.layer_names = self.state.layer_names + [name]
         self.mesh = mesh
         self.actor = actor
+
         self._visibility = visibility
+        self.state.visibility = visibility
+
         self._opacity = opacity
-        # self._opacity_while_not_visible = opacity
-        self.plotter = plotter
+        self.state.opacity = opacity
 
         self._selection_actor = None
         self._filter_actor = None
@@ -57,6 +64,7 @@ class _BaseLayer:
         self.plotter.render()
 
         self._visibility = value
+        self.state.visibility = value
 
     @property
     def opacity(self):
@@ -79,6 +87,7 @@ class _BaseLayer:
         self.plotter.render()
 
         self._opacity = value
+        self.state.opacity = value
 
     @property
     def selection_actor(self):
@@ -724,24 +733,28 @@ class _DataLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        active_array_name=None,
-        cmap=None,
-        clim=None,
         *args,
         **kwargs,
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
         self._active_array_name = mesh.active_scalars_name
+        self.state.active_array_name = self._active_array_name
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"
         ):  # only set if active_array_name is continuous
-            self._cmap = actor.mapper.lookup_table.cmap
+            self._cmap = actor.mapper.lookup_table.cmap.name
+            self.state.cmap = self._cmap
             self._clim = actor.mapper.lookup_table.scalar_range
+            self.state.clim = self._clim
         else:
             self._cmap = None
+            self.state.cmap = self._cmap
             self._clim = None
+            self.state.clim = self._clim
+
+        self._cmaps = plt.colormaps()
 
         self._continuous_array_names = []
         self._categorical_array_names = []
@@ -767,6 +780,7 @@ class _DataLayer(_BaseLayer):
             raise ValueError(f"{value} is not an array name.")
 
         self._active_array_name = value
+        self.state.active_array_name = value
 
         self.actor.mapper.dataset.set_active_scalars(value)
         if self._filter_actor is not None:
@@ -814,6 +828,7 @@ class _DataLayer(_BaseLayer):
             self.plotter.render()
 
             self._cmap = value
+            self.state.cmap = value
 
     @property
     def clim(self):
@@ -831,6 +846,7 @@ class _DataLayer(_BaseLayer):
             self.plotter.render()
 
             self._clim = value
+            self.state.clim = value
 
     @property
     def array_names(self):
