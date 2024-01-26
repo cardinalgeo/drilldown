@@ -265,7 +265,9 @@ class DrillDownPlotter(Plotter):
 
             # make selection
             for layer in self.layers:
-                if layer.actor == picked_actor:
+                if (layer.actor == picked_actor) or (
+                    layer.filter_actor == picked_actor
+                ):
                     layer._make_selection_by_pick(pos, picked_actor)
                     layer._update_selection_object()
 
