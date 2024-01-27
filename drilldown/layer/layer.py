@@ -959,6 +959,11 @@ class PointDataLayer(_PointLayer, _DataLayer):
 
     def __setitem__(self, key, value):
         self.mesh[key] = value
+        if self.filter_actor is not None:
+            self.filter_actor.mapper.dataset[key] = value[self.boolean_filter]
+        else:
+            self.mesh[key] = value
+
         self.active_array_name = key
         self.array_names.append(key)
         if np.issubdtype(value.dtype, np.number):
@@ -1029,6 +1034,10 @@ class IntervalDataLayer(_IntervalLayer, _DataLayer):
         cells_per_interval = self.n_sides
         value = np.repeat(value, cells_per_interval)
         self.mesh[key] = value
+        if self.filter_actor is not None:
+            boolean_filter = np.repeat(self.boolean_filter, cells_per_interval)
+            self.filter_actor.mapper.dataset[key] = value[boolean_filter]
+
         self.active_array_name = key
         self.array_names.append(key)
         if np.issubdtype(value.dtype, np.number):
