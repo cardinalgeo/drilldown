@@ -119,6 +119,15 @@ class ScatterPlot(PlotlyPlot):
         self.ctrl.plotly_plot_view_update(fig)
 
 
+class Scatter3dPlot(PlotlyPlot):
+    def __init__(self, data, x, y, z, **kwargs):
+        super().__init__()
+        self.data = data
+        fig = px.scatter_3d(data, x=x, y=y, z=z, **kwargs)
+        self.fig = fig
+        self.ctrl.plotly_plot_view_update(fig)
+
+
 class ScatterTernaryPlot(PlotlyPlot):
     def __init__(self, data, a, b, c, **kwargs):
         server = kwargs.get("server", None)

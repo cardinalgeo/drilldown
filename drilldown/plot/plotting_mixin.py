@@ -12,6 +12,16 @@ class Plotting2dMixin:
 
         return fig
 
+    def selected_scatter_3d_plot(self, x, y, z, **kwargs):
+        from .plotly_plots import Scatter3dPlot
+
+        fig = Scatter3dPlot(self.selected_data, x, y, z, **kwargs)
+
+        fig.layer = self
+        fig.ids = self.selected_ids
+
+        return fig
+
     def selected_scatter_ternary_plot(self, a, b, c, **kwargs):
         from .plotly_plots import ScatterTernaryPlot
 
