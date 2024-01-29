@@ -866,6 +866,9 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
     def data_within_interval(self, hole_id, interval):
         pass
 
+    def _make_selection_by_dbl_click_pick(self):
+        self.selected_hole_ids = self.selected_hole_ids
+
     @property
     def selected_ids(self):
         raise NotImplementedError("This method must be implemented in a subclass.")
@@ -898,6 +901,9 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
             raise ValueError("hole_ids must be a list, numpy array, or pandas Series.")
 
         data = self.all_data
+        if self.filter_actor is not None:
+            data = data[self.boolean_filter]
+
         matches = data["hole ID"].isin(hole_ids)
         self.selected_ids = data.loc[matches].index.tolist()
 

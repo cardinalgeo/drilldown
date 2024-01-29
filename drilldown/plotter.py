@@ -59,9 +59,14 @@ class DrillDownPlotter(Plotter):
         self.actor_picker = vtkPropPicker()
         self.actors_to_make_not_pickable_picker = vtkPicker()
 
+        # track layer corresponding to picked actor
+        self.picked_layer = None
+
         # track clicks
-        self.track_click_position(side="left", callback=self._pick)
-        self.track_click_position(side="left", callback=self._reset_data, double=True)
+        self.track_click_position(side="left", callback=self._on_single_click)
+        self.track_click_position(
+            side="left", callback=self._on_double_click, double=True
+        )
 
         # spin up a server to manager GUI, if present
         self.server = get_server(str(uuid.uuid4()))
@@ -243,37 +248,56 @@ class DrillDownPlotter(Plotter):
 
         return actor
 
-    def _pick(self, *args):
-        pos = self.click_position + (0,)
-        actor_picker = self.actor_picker
-        actor_picker.Pick(pos[0], pos[1], pos[2], self.renderer)
-        picked_actor = actor_picker.GetActor()
+    def _on_single_click(self, *args):
+        picked_actor = self._pick()
         if picked_actor is not None:
-            # make non-picked actors not pickable to improve performance
-            self.actors_to_make_not_pickable_picker.Pick(
-                pos[0], pos[1], pos[2], self.renderer
-            )
-            actors_to_make_not_pickable = actors_collection_to_list(
-                self.actors_to_make_not_pickable_picker.GetActors()
-            )
-            actors_to_make_not_pickable.remove(picked_actor)
+            self._pick_on_single_click(picked_actor)
 
-            prev_pickable = []
-            for actor in actors_to_make_not_pickable:
-                prev_pickable.append(actor.GetPickable())
-                actor.SetPickable(False)
+    def _on_double_click(self, *args):
+        picked_actor = self._pick()
+        if picked_actor is not None:
+            self._pick_on_dbl_click(picked_actor)
 
-            # make selection
-            for layer in self.layers:
-                if (layer.actor == picked_actor) or (
-                    layer.filter_actor == picked_actor
-                ):
-                    layer._make_selection_by_pick(pos, picked_actor)
-                    layer._update_selection_object()
+        else:
+            self._reset_data()
 
-            # restore previous pickable state
-            for actor, val in zip(actors_to_make_not_pickable, prev_pickable):
-                actor.SetPickable(val)
+    def _pick(self):
+        pos = self.click_position
+        actor_picker = self.actor_picker
+        actor_picker.Pick(pos[0], pos[1], 0, self.renderer)
+        picked_actor = actor_picker.GetActor()
+
+        return picked_actor
+
+    def _pick_on_single_click(self, picked_actor):
+        pos = self.click_position
+        # make non-picked actors not pickable to improve performance
+        self.actors_to_make_not_pickable_picker.Pick(pos[0], pos[1], 0, self.renderer)
+        actors_to_make_not_pickable = actors_collection_to_list(
+            self.actors_to_make_not_pickable_picker.GetActors()
+        )
+        actors_to_make_not_pickable.remove(picked_actor)
+
+        prev_pickable = []
+        for actor in actors_to_make_not_pickable:
+            prev_pickable.append(actor.GetPickable())
+            actor.SetPickable(False)
+
+        # make selection
+        for layer in self.layers:
+            if (layer.actor == picked_actor) or (layer.filter_actor == picked_actor):
+                layer._make_selection_by_pick(pos, picked_actor)
+                layer._update_selection_object()
+                self.picked_layer = layer
+
+        # restore previous pickable state
+        for actor, val in zip(actors_to_make_not_pickable, prev_pickable):
+            actor.SetPickable(val)
+
+    def _pick_on_dbl_click(self, picked_actor):
+        pos = self.click_position
+        self._pick_on_single_click(picked_actor)
+        self.picked_layer._make_selection_by_dbl_click_pick()
 
     def _reset_data(self, *args):
         for layer in self.layers:
