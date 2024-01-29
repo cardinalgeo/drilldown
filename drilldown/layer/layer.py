@@ -590,6 +590,7 @@ class _IntervalLayer(_BaseLayer):
                 f"Intervals must be between 0 and the number of intervals in the dataset, {self.n_intervals - 1}."
             )
 
+        intervals = intervals.tolist()
         interval_cells = []
         cells_per_interval = self.n_sides
         for interval in intervals:
@@ -866,9 +867,6 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
     def data_within_interval(self, hole_id, interval):
         pass
 
-    def _make_selection_by_dbl_click_pick(self):
-        self.selected_hole_ids = self.selected_hole_ids
-
     @property
     def selected_ids(self):
         raise NotImplementedError("This method must be implemented in a subclass.")
@@ -888,7 +886,7 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
     def selected_hole_ids(self):
         data = self.all_data
         hole_ids = data["hole ID"][self.selected_ids]
-        hole_ids = hole_ids.unique().tolist()
+        hole_ids = list(hole_ids.unique().tolist())  # dbl list necessary
 
         return hole_ids
 
@@ -905,8 +903,7 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
             data = data[self.boolean_filter]
 
         matches = data["hole ID"].isin(hole_ids)
-        self.selected_ids = data.loc[matches].index.tolist()
-
+        self.selected_ids = list(data.loc[matches].index.tolist())  # dbl list necessary
         self._selected_hole_ids = hole_ids
 
     @property
@@ -1050,6 +1047,52 @@ class IntervalDataLayer(_IntervalLayer, _DataLayer):
             self.continuous_array_names.append(key)
         else:
             self.categorical_array_names.append(key)
+
+    def _make_selection_by_dbl_click_pick(self, pos, actor):
+        if actor == self.actor:
+            picker = self.picker
+            on_filter = False
+
+        elif actor == self.filter_actor:
+            picker = self.filter_picker
+            on_filter = True
+
+        picker.Pick(pos[0], pos[1], 0, self.plotter.renderer)
+
+        picked_cell = picker.GetCellId()
+        if picked_cell is not None:
+            if picked_cell == -1:
+                return
+            else:
+                ctrl_pressed = self.plotter.iren.interactor.GetControlKey()
+
+                if ctrl_pressed:
+                    self._make_multi_selection_by_dbl_click_pick(
+                        picked_cell, on_filter=on_filter
+                    )
+                else:
+                    self._make_single_selection_by_dbl_click_pick(
+                        picked_cell, on_filter=on_filter
+                    )
+                    # self._make_single_selection(picked_cell, on_filter=on_filter)
+
+                if on_filter:
+                    picked_cell = self._filtered_cells[picked_cell]
+
+                self._picked_cell = picked_cell
+
+    def _make_single_selection_by_dbl_click_pick(self, picked_cell, on_filter=False):
+        self._make_single_selection(picked_cell, on_filter=on_filter)
+        self.selected_hole_ids = self.selected_hole_ids
+
+    def _make_multi_selection_by_dbl_click_pick(self, picked_cell, on_filter=False):
+        prev_selected_intervals = self.selected_intervals
+        prev_selected_cells = self.selected_cells
+
+        self._make_single_selection_by_dbl_click_pick(picked_cell, on_filter=on_filter)
+
+        self.selected_intervals += prev_selected_intervals
+        self._selected_cells += prev_selected_cells
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = [

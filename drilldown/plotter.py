@@ -296,8 +296,27 @@ class DrillDownPlotter(Plotter):
 
     def _pick_on_dbl_click(self, picked_actor):
         pos = self.click_position
-        self._pick_on_single_click(picked_actor)
-        self.picked_layer._make_selection_by_dbl_click_pick()
+        # make non-picked actors not pickable to improve performance
+        self.actors_to_make_not_pickable_picker.Pick(pos[0], pos[1], 0, self.renderer)
+        actors_to_make_not_pickable = actors_collection_to_list(
+            self.actors_to_make_not_pickable_picker.GetActors()
+        )
+        actors_to_make_not_pickable.remove(picked_actor)
+
+        prev_pickable = []
+        for actor in actors_to_make_not_pickable:
+            prev_pickable.append(actor.GetPickable())
+            actor.SetPickable(False)
+
+        # make selection
+        for layer in self.layers:
+            if (layer.actor == picked_actor) or (layer.filter_actor == picked_actor):
+                layer._make_selection_by_dbl_click_pick(pos, picked_actor)
+                self.picked_layer = layer
+
+        # restore previous pickable state
+        for actor, val in zip(actors_to_make_not_pickable, prev_pickable):
+            actor.SetPickable(val)
 
     def _reset_data(self, *args):
         for layer in self.layers:
