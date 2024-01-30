@@ -33,6 +33,9 @@ class ImageViewer:
 
         self.image_filename = None
 
+        # control auto updating
+        self.auto_update = True
+
     def show(self, image_filename=None, inline=True):
         if image_filename is not None:
             self.update(image_filename)
@@ -88,8 +91,8 @@ class ImageViewer:
 
     def update(self, filename):
         self.image_handler.open_image(filename)
-        self.state.tile_url = self.image_handler.create_request()
-        self.state.flush()  # shouldn't be necessary... but inexplicably is to remove previous image's tiles
+        with self.state:
+            self.state.tile_url = self.image_handler.create_request()
 
 
 # Open raster with large-image

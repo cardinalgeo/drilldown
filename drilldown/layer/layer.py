@@ -730,7 +730,7 @@ class _IntervalLayer(_BaseLayer):
         return np.arange(self.n_intervals)
 
 
-class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
+class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
     def __init__(
         self,
         name,
@@ -773,6 +773,9 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
 
         # to aid w resetting when switching btwn arrays of diff. types
         self.preceding_array_type = None
+
+        # active image viewer
+        self.im_viewer = None
 
     @property
     def active_array_name(self):
@@ -868,14 +871,6 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
         pass
 
     @property
-    def selected_ids(self):
-        raise NotImplementedError("This method must be implemented in a subclass.")
-
-    @selected_ids.setter
-    def selected_ids(self, ids):
-        raise NotImplementedError("This method must be implemented in a subclass.")
-
-    @property
     def selected_data(self):
         ids = self.selected_ids
         data = self._process_data_output(ids)
@@ -905,10 +900,6 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
         matches = data["hole ID"].isin(hole_ids)
         self.selected_ids = list(data.loc[matches].index.tolist())  # dbl list necessary
         self._selected_hole_ids = hole_ids
-
-    @property
-    def filtered_ids(self):
-        raise NotImplementedError("This method must be implemented in a subclass.")
 
     @property
     def filtered_data(self):
@@ -953,7 +944,7 @@ class _DataLayer(_BaseLayer, ImageMixin, Plotting2dMixin):
         return data
 
 
-class PointDataLayer(_PointLayer, _DataLayer):
+class PointDataLayer(_DataLayer, _PointLayer):
     def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
@@ -1026,7 +1017,7 @@ class PointDataLayer(_PointLayer, _DataLayer):
         return log.fig
 
 
-class IntervalDataLayer(_IntervalLayer, _DataLayer):
+class IntervalDataLayer(_DataLayer, _IntervalLayer):
     def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
