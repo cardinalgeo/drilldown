@@ -234,7 +234,7 @@ class _PointLayer(_BaseLayer):
         if on_filter:
             picked_point = self.filtered_points[picked_point]
 
-        self._selected_points = [picked_point]
+        self.selected_points = [picked_point]
 
     def _make_discontinuous_multi_selection(self, picked_point, on_filter=False):
         pass
@@ -266,7 +266,7 @@ class _PointLayer(_BaseLayer):
 
     def _reset_selection(self):
         self._picked_point = None
-        self._selected_points = []
+        self.selected_points = []
 
         self.plotter.remove_actor(self._selection_actor)
         self._selection_actor = None
@@ -299,7 +299,7 @@ class _PointLayer(_BaseLayer):
 
     @property
     def selected_ids(self):
-        return self._selected_points
+        return self.selected_points
 
     @selected_ids.setter
     def selected_ids(self, ids):
@@ -488,7 +488,7 @@ class _IntervalLayer(_BaseLayer):
             selected_interval = self.filtered_intervals[selected_interval]
             selected_cells = list(self._filtered_cells[selected_cells])
 
-        self._selected_intervals = [selected_interval]
+        self.selected_intervals = [selected_interval]
         self._selected_cells = selected_cells
 
     def _make_discontinuous_multi_selection(self, picked_cell, on_filter=False):
@@ -504,7 +504,7 @@ class _IntervalLayer(_BaseLayer):
             selected_interval = self.filtered_intervals[selected_interval]
             selected_cells = list(self._filtered_cells[selected_cells])
 
-        self._selected_intervals += [selected_interval]
+        self.selected_intervals += [selected_interval]
         self._selected_cells += selected_cells
 
     def _make_continuous_multi_selection(self, picked_cell, on_filter=False):
@@ -542,7 +542,7 @@ class _IntervalLayer(_BaseLayer):
                     )
                     selected_cells = list(self._filtered_cells[selected_cells])
 
-                self._selected_intervals += selected_intervals
+                self.selected_intervals += selected_intervals
                 self._selected_cells += selected_cells
 
             else:  # reverse direction (up the hole)
@@ -561,7 +561,7 @@ class _IntervalLayer(_BaseLayer):
                     )
                     selected_cells = list(self._filtered_cells[selected_cells])
 
-                self._selected_intervals = selected_intervals + self.selected_intervals
+                self.selected_intervals = selected_intervals + self.selected_intervals
                 self._selected_cells = selected_cells + self._selected_cells
 
     @property
@@ -606,7 +606,7 @@ class _IntervalLayer(_BaseLayer):
 
     @property
     def selected_ids(self):
-        return self._selected_intervals
+        return self.selected_intervals
 
     @selected_ids.setter
     def selected_ids(self, ids):
@@ -634,7 +634,7 @@ class _IntervalLayer(_BaseLayer):
     def _reset_selection(self):
         self._picked_cell = None
         self._selected_cells = []
-        self._selected_intervals = []
+        self.selected_intervals = []
 
         self.plotter.remove_actor(self._selection_actor)
         self._selection_actor = None
