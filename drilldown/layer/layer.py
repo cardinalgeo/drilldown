@@ -243,26 +243,27 @@ class _PointLayer(_BaseLayer):
         pass  # not trivial as cell IDs are not inherently sequential along hole
 
     def _update_selection_object(self):
-        selection_mesh = self.mesh.extract_points(self.selected_points)
-        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
-            selection_actor = self.actor.copy(deep=True)
-            selection_actor.mapper.dataset = selection_mesh
+        if len(self.selected_points) != 0:
+            selection_mesh = self.mesh.extract_points(self.selected_points)
+            if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
+                selection_actor = self.actor.copy(deep=True)
+                selection_actor.mapper.dataset = selection_mesh
 
-            self.plotter.add_actor(
-                selection_actor,
-                name=self.name + " selection",
-                pickable=False,
-                reset_camera=False,
-            )
+                self.plotter.add_actor(
+                    selection_actor,
+                    name=self.name + " selection",
+                    pickable=False,
+                    reset_camera=False,
+                )
 
-            self._selection_actor = selection_actor
+                self._selection_actor = selection_actor
 
-            # update selection actor properties
-            self.selection_color = self.selection_color
-            self.opacity = self.opacity
-            selection_actor.prop.point_size = (
-                self.point_size * self.rel_selected_point_size
-            )
+                # update selection actor properties
+                self.selection_color = self.selection_color
+                self.opacity = self.opacity
+                selection_actor.prop.point_size = (
+                    self.point_size * self.rel_selected_point_size
+                )
 
     def _reset_selection(self):
         self._picked_point = None
@@ -613,23 +614,24 @@ class _IntervalLayer(_BaseLayer):
         self.selected_intervals = ids
 
     def _update_selection_object(self):
-        selection_mesh = self.mesh.extract_cells(self._selected_cells)
-        if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
-            selection_actor = self.plotter.add_mesh(
-                selection_mesh,
-                name=self.name + " selection",
-                color=self.selection_color,
-                opacity=self.opacity * self.rel_selection_opacity,
-                reset_camera=False,
-                pickable=False,
-            )
-            self._selection_actor = selection_actor
-
-            if selection_actor is not None:
-                selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
-                    0, -6
+        if len(self._selected_cells) != 0:
+            selection_mesh = self.mesh.extract_cells(self._selected_cells)
+            if (selection_mesh.n_points != 0) and (selection_mesh.n_cells != 0):
+                selection_actor = self.plotter.add_mesh(
+                    selection_mesh,
+                    name=self.name + " selection",
+                    color=self.selection_color,
+                    opacity=self.opacity * self.rel_selection_opacity,
+                    reset_camera=False,
+                    pickable=False,
                 )
-                self.plotter.render()
+                self._selection_actor = selection_actor
+
+                if selection_actor is not None:
+                    selection_actor.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(
+                        0, -6
+                    )
+                    self.plotter.render()
 
     def _reset_selection(self):
         self._picked_cell = None
