@@ -1,6 +1,6 @@
 class ImageMixin:
-    def _make_single_selection(self, picked, on_filter=False):
-        super(ImageMixin, self)._make_single_selection(picked, on_filter=on_filter)
+    def _update_selection_object(self):
+        super(ImageMixin, self)._update_selection_object()
 
         if (self.im_viewer is not None) and (self.im_viewer.auto_update == True):
             data = self.selected_data
