@@ -11,7 +11,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from ..utils import convert_to_numpy_array
+from ..utils import (
+    convert_to_numpy_array,
+    convert_array_type,
+    encode_categorical_data,
+    make_categorical_cmap,
+)
 from ..image.image_mixin import ImageMixin
 from ..plot.plotting_mixin import Plotting2dMixin
 from ..drill_log import DrillLog
@@ -789,7 +794,8 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
             raise ValueError(f"{value} is not an array name.")
 
         self._active_array_name = value
-        self.state.active_array_name = value
+        with self.state:
+            self.state.active_array_name = value
 
         self.actor.mapper.dataset.set_active_scalars(value)
         if self._filter_actor is not None:
@@ -954,18 +960,26 @@ class PointDataLayer(_DataLayer, _PointLayer):
         return self.all_data[key]
 
     def __setitem__(self, key, value):
+        value, _type = convert_array_type(value, return_type=True)
+        if _type == "str":  # categorical data
+            print("type is str")
+            self.categorical_array_names.append(key)
+
+            # encode categorical data
+            code_to_cat_map, value = encode_categorical_data(value)
+            self.code_to_cat_map[key] = code_to_cat_map
+
+        else:
+            print("type is num")
+            self.continuous_array_names.append(key)
+
+        print(value)
         self.mesh[key] = value
         if self.filter_actor is not None:
             self.filter_actor.mapper.dataset[key] = value[self.boolean_filter]
-        else:
-            self.mesh[key] = value
 
         self.active_array_name = key
         self.array_names.append(key)
-        if np.issubdtype(value.dtype, np.number):
-            self.continuous_array_names.append(key)
-        else:
-            self.categorical_array_names.append(key)
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
@@ -1029,6 +1043,24 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
     def __setitem__(self, key, value):
         cells_per_interval = self.n_sides
         value = np.repeat(value, cells_per_interval)
+
+        value, _type = convert_array_type(value, return_type=True)
+        if _type == "str":  # categorical data
+            self.categorical_array_names.append(key)
+
+            # encode categorical data
+            code_to_cat_map, value = encode_categorical_data(value)
+            self.code_to_cat_map[key] = code_to_cat_map
+
+            # color map for categorical data
+            cat_to_color_map, matplotlib_formatted_color_map = make_categorical_cmap(
+                np.unique(value)
+            )
+            self.cat_to_color_map[key] = cat_to_color_map
+            self.matplotlib_formatted_color_maps[key] = matplotlib_formatted_color_map
+        else:
+            self.continuous_array_names.append(key)
+
         self.mesh[key] = value
         if self.filter_actor is not None:
             boolean_filter = np.repeat(self.boolean_filter, cells_per_interval)
@@ -1036,10 +1068,6 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
 
         self.active_array_name = key
         self.array_names.append(key)
-        if np.issubdtype(value.dtype, np.number):
-            self.continuous_array_names.append(key)
-        else:
-            self.categorical_array_names.append(key)
 
     def _make_selection_by_dbl_click_pick(self, pos, actor):
         if actor == self.actor:
