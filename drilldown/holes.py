@@ -6,6 +6,7 @@ from geoh5py.objects import Drillhole
 import numpy as np
 import pandas as pd
 import distinctipy
+from matplotlib.colors import ListedColormap
 
 from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
@@ -13,7 +14,6 @@ from .utils import (
     convert_to_numpy_array,
     convert_array_type,
     encode_categorical_data,
-    make_matplotlib_categorical_color_map,
     make_categorical_cmap,
     make_color_map_fractional,
 )
@@ -202,9 +202,7 @@ class HoleData:
 
             # create matplotlib categorical color map
             codes.sort()
-            self.matplotlib_formatted_color_maps[
-                var_name
-            ] = make_matplotlib_categorical_color_map(
+            self.matplotlib_formatted_color_maps[var_name] = ListedColormap(
                 [self.code_to_color_map[var_name][code] for code in codes]
             )
 

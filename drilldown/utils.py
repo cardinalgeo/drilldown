@@ -51,27 +51,14 @@ def encode_categorical_data(data):
     codes = np.array(codes, dtype="float")
     data_encoded = np.array(data_encoded, dtype="float")
 
-    # center numerical representation of categorical data, while maintaining range, to address pyvista's color mapping querks
-    codes[1:-1] += 0.5
-    data_encoded[
-        (data_encoded != data_encoded.min()) & (data_encoded != data_encoded.max())
-    ] += 0.5
+    # # center numerical representation of categorical data, while maintaining range, to address pyvista's color mapping querks
+    # codes[1:-1] += 0.5
+    # data_encoded[
+    #     (data_encoded != data_encoded.min()) & (data_encoded != data_encoded.max())
+    # ] += 0.5
     code_to_cat_map = {code: cat for code, cat in zip(codes, categories)}
 
     return code_to_cat_map, data_encoded
-
-
-def make_matplotlib_categorical_color_map(colors):
-    mapping = np.linspace(0, len(colors) - 1, 256)
-    new_colors = np.empty((256, 3))
-    i_pre = -np.inf
-    for i, color in enumerate(colors):
-        new_colors[(mapping > i_pre) & (mapping <= i)] = list(color)
-        i_pre = i
-    map = ListedColormap(colors[0:-1])
-    map.set_under(colors[0])
-    map.set_over(colors[-1])
-    return map
 
 
 def get_cycled_colors(n):
@@ -113,8 +100,9 @@ def make_categorical_cmap(categories, cycle=True, rng=999, pastel_factor=0.2):
 
     # create categorical color map
     cat_to_color_map = {cat: color for cat, color in zip(categories, colors)}
+
     # create matplotlib categorical color map
-    matplotlib_formatted_color_maps = make_matplotlib_categorical_color_map(colors)
+    matplotlib_formatted_color_maps = ListedColormap(colors)
 
     return cat_to_color_map, matplotlib_formatted_color_maps
 

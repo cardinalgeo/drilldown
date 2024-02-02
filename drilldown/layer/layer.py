@@ -962,24 +962,24 @@ class PointDataLayer(_DataLayer, _PointLayer):
     def __setitem__(self, key, value):
         value, _type = convert_array_type(value, return_type=True)
         if _type == "str":  # categorical data
-            print("type is str")
-            self.categorical_array_names.append(key)
+            if key not in self.categorical_array_names:
+                self.categorical_array_names.append(key)
 
             # encode categorical data
             code_to_cat_map, value = encode_categorical_data(value)
             self.code_to_cat_map[key] = code_to_cat_map
 
         else:
-            print("type is num")
-            self.continuous_array_names.append(key)
+            if key not in self.continuous_array_names:
+                self.continuous_array_names.append(key)
 
-        print(value)
         self.mesh[key] = value
         if self.filter_actor is not None:
             self.filter_actor.mapper.dataset[key] = value[self.boolean_filter]
 
         self.active_array_name = key
-        self.array_names.append(key)
+        if key not in self.array_names:
+            self.array_names.append(key)
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
@@ -1046,7 +1046,8 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
 
         value, _type = convert_array_type(value, return_type=True)
         if _type == "str":  # categorical data
-            self.categorical_array_names.append(key)
+            if key not in self.categorical_array_names:
+                self.categorical_array_names.append(key)
 
             # encode categorical data
             code_to_cat_map, value = encode_categorical_data(value)
@@ -1059,7 +1060,8 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
             self.cat_to_color_map[key] = cat_to_color_map
             self.matplotlib_formatted_color_maps[key] = matplotlib_formatted_color_map
         else:
-            self.continuous_array_names.append(key)
+            if key not in self.continuous_array_names:
+                self.continuous_array_names.append(key)
 
         self.mesh[key] = value
         if self.filter_actor is not None:
@@ -1067,7 +1069,8 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
             self.filter_actor.mapper.dataset[key] = value[boolean_filter]
 
         self.active_array_name = key
-        self.array_names.append(key)
+        if key not in self.array_names:
+            self.array_names.append(key)
 
     def _make_selection_by_dbl_click_pick(self, pos, actor):
         if actor == self.actor:
