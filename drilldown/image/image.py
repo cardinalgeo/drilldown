@@ -27,23 +27,37 @@ class ImageViewer:
         self.ctrl = self.server.controller
         self.server.client_type = "vue2"
 
+        self.state.carousel = False
+
         self.image_handler = ImageHandler(self.name)
         self.ctrl.on_server_bind.add(self.image_handler.add_endpoint)
         self._ui = self._initialize_ui()
 
-        self.image_filename = None
+        self.image_filenames = None
+        self.active_image_filename = None
+
+        self.carousel_position = 0
 
         # control auto updating
         self.auto_update = True
 
-    def show(self, image_filename=None, inline=True):
-        if image_filename is not None:
-            self.update(image_filename)
-        else:
-            if self.image_filename is not None:
-                self.update(self.image_filename)
+    def show(self, image_filenames=None, inline=True):
+        if image_filenames is None:
+            if self.image_filenames is not None:
+                image_filenames = self.image_filenames
+
+                if isinstance(image_filenames, list):
+                    if len(image_filenames) == 1:
+                        self.update(image_filenames[0])
+                    else:
+                        self.state.carousel = True
+                else:
+                    self.update(image_filenames)
             else:
-                raise ValueError("No image filename provided.")
+                raise ValueError("No image filename(s) provided.")
+
+            self.image_filenames = image_filenames
+            self.active_image_filename = image_filenames[0]
 
         if inline == True:
             if is_jupyter():
@@ -75,9 +89,22 @@ class ImageViewer:
             layout.toolbar.hide()
             layout.footer.hide()
             with layout.content:
+                with vuetify.VCard(
+                    style="position: absolute; top: 250px; left: 20px; z-index: 1000; height: 36px;"
+                ):
+                    with vuetify.VBtn(
+                        icon=True, v_show="carousel", click=self.carousel_left
+                    ):
+                        vuetify.VIcon("mdi-arrow-left")
+                with vuetify.VCard(
+                    style="position: absolute; top: 250px; right: 20px; z-index: 1000; height: 36px;"
+                ):
+                    with vuetify.VBtn(
+                        icon=True, v_show="carousel", click=self.carousel_right
+                    ):
+                        vuetify.VIcon("mdi-arrow-right")
                 with vuetify.VContainer(
-                    fluid=True,
-                    classes="fill-height pa-0 ma-0",
+                    fluid=True, classes="fill-height pa-0 ma-0", style="z-index: 1"
                 ):
                     with leaflet.LMap(zoom=("zoom", 1), max_zoom=100, min_zoom=1):
                         # tiles
@@ -93,6 +120,18 @@ class ImageViewer:
         self.image_handler.open_image(filename)
         with self.state:
             self.state.tile_url = self.image_handler.create_request()
+
+    def carousel_left(self):
+        if self.carousel_position > 0:
+            self.carousel_position -= 1
+            self.update(self.image_filenames[self.carousel_position])
+            self.active_image_filename = self.image_filenames[self.carousel_position]
+
+    def carousel_right(self):
+        if self.carousel_position < len(self.image_filenames) - 1:
+            self.carousel_position += 1
+            self.update(self.image_filenames[self.carousel_position])
+            self.active_image_filename = self.image_filenames[self.carousel_position]
 
 
 # Open raster with large-image

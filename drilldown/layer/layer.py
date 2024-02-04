@@ -767,6 +767,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._cmaps = plt.colormaps()
 
+        self.array_names = []
         self._continuous_array_names = []
         self._categorical_array_names = []
 
@@ -783,6 +784,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         # active image viewer
         self.im_viewer = None
+        self.im_viewer_active_array_name = None
 
     @property
     def active_array_name(self):
