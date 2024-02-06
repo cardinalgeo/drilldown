@@ -978,7 +978,6 @@ class PointDataLayer(_DataLayer, _PointLayer):
         if self.filter_actor is not None:
             self.filter_actor.mapper.dataset[key] = value[self.boolean_filter]
 
-        self.active_array_name = key
         if key not in self.array_names:
             self.array_names.append(key)
 
@@ -1069,7 +1068,6 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
             boolean_filter = np.repeat(self.boolean_filter, cells_per_interval)
             self.filter_actor.mapper.dataset[key] = value[boolean_filter]
 
-        self.active_array_name = key
         if key not in self.array_names:
             self.array_names.append(key)
 
