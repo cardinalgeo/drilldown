@@ -767,7 +767,6 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._cmaps = plt.colormaps()
 
-        self.array_names = []
         self._continuous_array_names = []
         self._categorical_array_names = []
 
