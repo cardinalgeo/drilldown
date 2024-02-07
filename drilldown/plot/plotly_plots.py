@@ -14,7 +14,7 @@ from ..utils import convert_to_numpy_array, is_jupyter
 
 
 class PlotlyPlot:
-    def __init__(self, name=None, server=None, *args, **kwargs):
+    def __init__(self, name=None, server=None):
         if name is not None:
             self.name = name
         else:
@@ -38,6 +38,7 @@ class PlotlyPlot:
         self.layer = None
 
     def show(self, inline=True):
+        self.update()
         if inline == True:
             if is_jupyter():
                 elegantly_launch(self.server)  # launch server in nb w/o using await
@@ -106,8 +107,8 @@ class PlotlyPlot:
     def _on_scatter_plot_click(self, ids):
         pass
 
-    def reset_resolution(self, app):
-        app.reset_resolution()
+    def update(self, *args, **kwargs):
+        self.ctrl.plotly_plot_view_update(*args, **kwargs)
 
 
 class ScatterPlot(PlotlyPlot):
@@ -116,7 +117,7 @@ class ScatterPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter(data, x=x, y=y, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class Scatter3dPlot(PlotlyPlot):
@@ -125,7 +126,7 @@ class Scatter3dPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter_3d(data, x=x, y=y, z=z, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class ScatterTernaryPlot(PlotlyPlot):
@@ -137,7 +138,7 @@ class ScatterTernaryPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter_ternary(data, a=a, b=b, c=c, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class ScatterDimensionsPlot(PlotlyPlot):
@@ -149,7 +150,7 @@ class ScatterDimensionsPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter_matrix(data, dimensions=dimensions, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class BarPlot(PlotlyPlot):
@@ -158,7 +159,7 @@ class BarPlot(PlotlyPlot):
         self.data = data
         fig = px.bar(data, x=x, y=y, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class Histogram(PlotlyPlot):
@@ -167,4 +168,4 @@ class Histogram(PlotlyPlot):
         self.data = data
         fig = px.histogram(data, x=x, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
