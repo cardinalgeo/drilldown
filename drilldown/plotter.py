@@ -139,6 +139,7 @@ class DrillDownPlotter(Plotter):
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
+        visibility=True,
         *args,
         **kwargs,
     ):
@@ -153,6 +154,7 @@ class DrillDownPlotter(Plotter):
         mesh = intervals.mesh
         mesh = mesh.tube(radius=radius, n_sides=n_sides, capping=False)
 
+        kwargs = {k: v for k, v in kwargs.items() if k != "visibility"}
         actor = self.add_mesh(
             mesh,
             name=name,
@@ -166,7 +168,18 @@ class DrillDownPlotter(Plotter):
             **kwargs,
         )
 
-        layer = IntervalDataLayer(name, mesh, actor, self, n_sides=n_sides)
+        actor.visibility = visibility
+
+        layer = IntervalDataLayer(
+            name,
+            mesh,
+            actor,
+            self,
+            visibility=visibility,
+            opacity=opacity,
+            n_sides=n_sides,
+            selection_color=selection_color,
+        )
 
         # handle categorical, continuous, and image arrays
         layer._categorical_array_names = intervals.categorical_vars
@@ -192,14 +205,15 @@ class DrillDownPlotter(Plotter):
         points,
         name,
         opacity=1,
-        point_size=10,
         selectable=True,
+        point_size=10,
         active_array_name=None,
         cmap=None,
         clim=None,
         selection_color="magenta",
         filter_opacity=0.1,
         accelerated_selection=False,
+        visibility=True,
         *args,
         **kwargs,
     ):
@@ -212,6 +226,8 @@ class DrillDownPlotter(Plotter):
             points.make_mesh()
 
         mesh = points.mesh
+
+        kwargs = {k: v for k, v in kwargs.items() if k != "visibility"}
         actor = self.add_mesh(
             mesh,
             name=name,
@@ -227,7 +243,17 @@ class DrillDownPlotter(Plotter):
             **kwargs,
         )
 
-        layer = PointDataLayer(name, mesh, actor, self)
+        actor.visibility = visibility
+
+        layer = PointDataLayer(
+            name,
+            mesh,
+            actor,
+            self,
+            visibility=visibility,
+            opacity=opacity,
+            selection_color=selection_color,
+        )
 
         # handle categorical, continuous, and image arrays
         layer._categorical_array_names = points.categorical_vars
