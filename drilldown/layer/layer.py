@@ -73,8 +73,10 @@ class _BaseLayer:
         self.plotter.render()
 
         self._visibility = value
-        with self.state:
-            self.state.visibility = value
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.visibility = value
 
     @property
     def opacity(self):
@@ -97,8 +99,10 @@ class _BaseLayer:
         self.plotter.render()
 
         self._opacity = value
-        with self.state:
-            self.state.opacity = value
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.opacity = value
 
     @property
     def selection_actor(self):
@@ -752,39 +756,49 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
         self._active_array_name = mesh.active_scalars_name
-        with self.state:
-            self.state.active_array_name = self._active_array_name
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.active_array_name = self._active_array_name
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"
         ):  # only set if active_array_name is continuous
             self._cmap = actor.mapper.lookup_table.cmap.name
-            with self.state:
-                self.state.cmap = self._cmap
+
+            if self.name == self.state.ctrl_mesh_name:
+                with self.state:
+                    self.state.cmap = self._cmap
 
             self._clim_range = self._calculate_clim_range(self._active_array_name)
             clim_step = (self._clim_range[1] - self._clim_range[0]) / 1000
             self._clim_step = round_to_sig_figs(clim_step, 2)
             self._clim = actor.mapper.lookup_table.scalar_range
-            with self.state:
-                self.state.clim = self._clim
-                self.state.clim_min = self._clim_range[0]
-                self.state.clim_max = self._clim_range[1]
-                self.state.clim_step = self._clim_step
+
+            if self.name == self.state.ctrl_mesh_name:
+                with self.state:
+                    self.state.clim = self._clim
+                    self.state.clim_min = self._clim_range[0]
+                    self.state.clim_max = self._clim_range[1]
+                    self.state.clim_step = self._clim_step
 
         else:
             self._cmap = None
-            with self.state:
-                self.state.cmap = self._cmap
+
+            if self.name == self.state.ctrl_mesh_name:
+                with self.state:
+                    self.state.cmap = self._cmap
 
             self._clim_range = (0, 0)
             self._clim_step = 0
             self._clim = (0, 0)
-            with self.state:
-                self.state.clim = self._clim
-                self.state.clim_min = self._clim_range[0]
-                self.state.clim_max = self._clim_range[1]
-                self.state.clim_step = self._clim_step
+
+            if self.name == self.state.ctrl_mesh_name:
+                with self.state:
+                    self.state.clim = self._clim
+                    self.state.clim_min = self._clim_range[0]
+                    self.state.clim_max = self._clim_range[1]
+                    self.state.clim_step = self._clim_step
 
         self._cmaps = plt.colormaps()
 
@@ -848,8 +862,9 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self.plotter.render()
 
-        with self.state:
-            self.state.active_array_name = value
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.active_array_name = value
 
     @property
     def cmap(self):
@@ -867,8 +882,10 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         self.plotter.render()
 
         self._cmap = value
-        with self.state:
-            self.state.cmap = value
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.cmap = value
 
     @property
     def clim(self):
@@ -901,11 +918,13 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         self.plotter.render()
 
         self._clim = value
-        with self.state:
-            self.state.clim = (
-                np.ceil(value[0] / self._clim_step) * self._clim_step,
-                np.floor(value[1] / self._clim_step) * self._clim_step,
-            )
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.clim = (
+                    np.ceil(value[0] / self._clim_step) * self._clim_step,
+                    np.floor(value[1] / self._clim_step) * self._clim_step,
+                )
 
     def reset_clim(self):
         if not self.active_array_name in self.continuous_array_names:
@@ -938,13 +957,21 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         # update clim_step
         clim_step = (value[1] - value[0]) / 1000
         self._clim_step = round_to_sig_figs(clim_step, 2)
-        with self.state:
-            self.state.clim_step = self._clim_step
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.clim_step = self._clim_step
 
         self._clim_range = value
-        with self.state:
-            self.state.clim_min = np.floor(value[0] / self._clim_step) * self._clim_step
-            self.state.clim_max = np.ceil(value[1] / self._clim_step) * self._clim_step
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.clim_min = (
+                    np.floor(value[0] / self._clim_step) * self._clim_step
+                )
+                self.state.clim_max = (
+                    np.ceil(value[1] / self._clim_step) * self._clim_step
+                )
 
     def _calculate_clim_range(self, array_name):
         array = self.mesh[array_name]
@@ -971,18 +998,21 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         clim_step = (clim_range[1] - clim_range[0]) / 1000
         self._clim_step = round_to_sig_figs(clim_step, 2)
 
-        with self.state:
-            self.state.clim_step = self._clim_step
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.clim_step = self._clim_step
 
         # reset clim_range
         self._clim_range = clim_range
-        with self.state:
-            self.state.clim_min = (
-                np.floor(clim_range[0] / self._clim_step) * self._clim_step
-            )
-            self.state.clim_max = (
-                np.ceil(clim_range[1] / self._clim_step) * self._clim_step
-            )
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.clim_min = (
+                    np.floor(clim_range[0] / self._clim_step) * self._clim_step
+                )
+                self.state.clim_max = (
+                    np.ceil(clim_range[1] / self._clim_step) * self._clim_step
+                )
 
         # reset clim
         self.actor.mapper.lookup_table.scalar_range = clim_range
@@ -994,11 +1024,13 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         self.plotter.render()
 
         self._clim = clim_range
-        with self.state:
-            self.state.clim = (
-                np.ceil(clim_range[0] / self._clim_step) * self._clim_step,
-                np.floor(clim_range[1] / self._clim_step) * self._clim_step,
-            )
+
+        if self.name == self.state.ctrl_mesh_name:
+            with self.state:
+                self.state.clim = (
+                    np.ceil(clim_range[0] / self._clim_step) * self._clim_step,
+                    np.floor(clim_range[1] / self._clim_step) * self._clim_step,
+                )
 
     @property
     def clim_step(self):
@@ -1117,8 +1149,10 @@ class PointDataLayer(_DataLayer, _PointLayer):
 
         if key not in self.array_names:
             self.array_names.append(key)
-            with self.state:
-                self.state.array_names = self.array_names
+
+            if self.name == self.state.ctrl_mesh_name:
+                with self.state:
+                    self.state.array_names = self.array_names
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
@@ -1209,8 +1243,10 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
 
         if key not in self.array_names:
             self.array_names.append(key)
-            with self.state:
-                self.state.array_names = self.array_names
+
+            if self.name == self.state.ctrl_mesh_name:
+                with self.state:
+                    self.state.array_names = self.array_names
 
     def _make_selection_by_dbl_click_pick(self, pos, actor):
         if actor == self.actor:
