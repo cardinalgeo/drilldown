@@ -59,12 +59,13 @@ class HoleData:
 
         # encode hole IDs, as strings are wiped in pyvista meshes
         hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
-        self.hole_id_to_code_map = {
+        self.cat_to_code_map["hole ID"] = {
             hole_id: code for code, hole_id in enumerate(hole_ids_unique)
         }
-        self.code_to_hole_id_map = {
+        self.code_to_cat_map["hole ID"] = {
             code: hole_id for code, hole_id in enumerate(hole_ids_unique)
         }
+        self.categorical_vars.append("hole ID")
 
         # add from-to depths
         depths = convert_to_numpy_array(depths)
@@ -281,8 +282,9 @@ class Points(HoleData):
                     else:
                         mesh.point_data[var] = data
                 mesh.point_data["hole ID"] = [
-                    self.hole_id_to_code_map[id]
+                    self.cat_to_code_map["hole ID"][id]
                 ] * depths.shape[0]
+
                 if meshes is None:
                     meshes = mesh
                 else:
@@ -422,12 +424,14 @@ class Intervals(HoleData):
                 mesh.cell_data["from"] = from_to[:, 0]
                 mesh.cell_data["to"] = from_to[:, 1]
                 mesh.cell_data["hole ID"] = [
-                    self.hole_id_to_code_map[id]
+                    self.cat_to_code_map["hole ID"][id]
                 ] * from_to.shape[0]
 
                 mesh.cell_data["x"] = intermediate_depths_desurveyed[:, 0]
                 mesh.cell_data["y"] = intermediate_depths_desurveyed[:, 1]
                 mesh.cell_data["z"] = intermediate_depths_desurveyed[:, 2]
+
+                self.continuous_vars += ["from", "to", "x", "y", "z"]
 
                 for var in self.vars_all:
                     data = self.data[var]["values"][hole_filter]
@@ -748,6 +752,7 @@ class DrillHole:
         mesh.cell_data["x"] = intermediate_depths[:, 0]
         mesh.cell_data["y"] = intermediate_depths[:, 1]
         mesh.cell_data["z"] = intermediate_depths[:, 2]
+        self.continuous_interval_vars += ["from", "to", "x", "y", "z"]
         for var in intervals.vars_all:
             data = intervals.data[var]["values"]
             _type = intervals.data[var]["type"]
@@ -960,9 +965,6 @@ class DrillHoleGroup:
         self.workspace = Workspace()
         self.hole_ids_with_data = []
 
-        self.hole_id_to_code_map = {}
-        self.code_to_hole_id_map = {}
-
         self.cat_to_code_map = {}
         self.code_to_cat_map = {}
         self.code_to_color_map = {}
@@ -1030,8 +1032,6 @@ class DrillHoleGroup:
 
     def _add_data(self, data, name=None):
         self.hole_ids_with_data += list(np.unique(data.hole_ids))
-        self.hole_id_to_code_map[name] = data.hole_id_to_code_map
-        self.code_to_hole_id_map[name] = data.code_to_hole_id_map
         self.cat_to_code_map[name] = data.cat_to_code_map
         self.code_to_cat_map[name] = data.code_to_cat_map
         self.code_to_color_map[name] = data.code_to_color_map
@@ -1095,7 +1095,7 @@ class DrillHoleGroup:
                 mesh.cell_data["from"] = from_to[:, 0]
                 mesh.cell_data["to"] = from_to[:, 1]
                 mesh.cell_data["hole ID"] = [
-                    intervals.hole_id_to_code_map[id]
+                    intervals.cat_to_code_map["hole ID"][id]
                 ] * from_to.shape[0]
                 mesh.cell_data["x"] = intermediate_depths[:, 0]
                 mesh.cell_data["y"] = intermediate_depths[:, 1]
@@ -1134,7 +1134,7 @@ class DrillHoleGroup:
                     else:
                         mesh.point_data[var] = data
                 mesh.point_data["hole ID"] = [
-                    points.hole_id_to_code_map[id]
+                    points.cat_to_code_map["hole ID"][id]
                 ] * depths.shape[0]
                 if meshes is None:
                     meshes = mesh
@@ -1239,8 +1239,6 @@ class DrillHoleGroup:
         p = DrillDownPlotter()
 
         # add color-category and code-category maps
-        p.code_to_hole_id_map = self.code_to_hole_id_map
-        p.hole_id_to_code_map = self.hole_id_to_code_map
         p.code_to_cat_map = self.code_to_cat_map
         p.cat_to_code_map = self.cat_to_code_map
         p.code_to_color_map = self.code_to_color_map

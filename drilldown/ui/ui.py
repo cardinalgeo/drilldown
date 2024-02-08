@@ -9,6 +9,7 @@ from pyvista.trame.jupyter import elegantly_launch
 
 import panel as pn
 from functools import partial
+import numpy as np
 
 from ..plotter import DrillDownPlotter
 from ..utils import is_jupyter
@@ -112,13 +113,13 @@ class DrillDownTramePlotter(DrillDownPlotter):
                         visible = False
 
                     vuetify.VSelect(
-                        label="active variable",
-                        v_show=("active_var_visible", visible),
-                        v_model=("active_array_name",),
-                        items=(
-                            "active_var_fields",
-                            self.layers[-1].array_names,
+                        label="active array name",
+                        v_show=("active_array_name_visible", visible),
+                        v_model=(
+                            "active_array_name",
+                            self.layers[-1].active_array_name,
                         ),
+                        items=("array_names",),
                         classes="pt-1",
                         # **DROPDOWN_STYLES,
                     )
@@ -133,7 +134,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
                         label="colormap",
                         v_show=("cmap_visible", visible),
                         v_model=("cmap",),
-                        items=("cmap_fields", self.layers[-1]._cmaps),
+                        items=("cmap_fields",),
                         classes="pt-1",
                     )
 
@@ -141,8 +142,9 @@ class DrillDownTramePlotter(DrillDownPlotter):
                         label="colormap limits",
                         v_show=("clim_visible", visible),
                         v_model=("clim",),
-                        min=("clim_min", 0),
-                        max=("clim_max", 1000),
+                        min=("clim_min",),
+                        max=("clim_max",),
+                        step=("clim_step",),
                         classes="pt-1",
                     )
 
@@ -156,21 +158,22 @@ class DrillDownTramePlotter(DrillDownPlotter):
             layer = self.layers[ctrl_mesh_name]
 
             # update active var
-            state.active_var_visible = True
-            state.active_var_fields = layer.array_names
-            state.active_var = layer.active_array_name
+            state.active_array_name_visible = True
+            state.array_names = layer.array_names
+            state.active_array_name = layer.active_array_name
 
             # update cmap
-            if state.active_var in layer.continuous_array_names:
+            if state.active_array_name in layer.continuous_array_names:
                 state.cmap_visible = True
                 state.cmap_fields = layer._cmaps
                 state.cmap = layer.cmap
 
                 state.clim_visible = True
-                # self.reset_clim(ctrl_mesh_name, state.active_var)
+                state.clim_step = layer.clim_step
+
                 state.clim = layer.clim
-                state.clim_min = layer.clim[0]
-                state.clim_max = layer.clim[1]
+                state.clim_min = layer.clim_range[0]
+                state.clim_max = layer.clim_range[1]
 
             else:
                 state.cmap_visible = False
@@ -182,17 +185,23 @@ class DrillDownTramePlotter(DrillDownPlotter):
         @state.change("visibility")
         def update_visibility(visibility, **kwargs):
             layer = self.layers[state.ctrl_mesh_name]
-            layer.visibility = visibility
+
+            if visibility != layer.visibility:
+                layer.visibility = visibility
 
         @state.change("opacity")
         def update_opacity(opacity, **kwargs):
             layer = self.layers[state.ctrl_mesh_name]
-            layer.opacity = opacity
+
+            if opacity != layer.opacity:
+                layer.opacity = opacity
 
         @state.change("active_array_name")
         def update_active_array_name(active_array_name, **kwargs):
             layer = self.layers[state.ctrl_mesh_name]
-            layer.active_array_name = active_array_name
+
+            if active_array_name != layer.active_array_name:
+                layer.active_array_name = active_array_name
 
             if active_array_name in layer.continuous_array_names:
                 state.cmap_visible = True
@@ -205,12 +214,17 @@ class DrillDownTramePlotter(DrillDownPlotter):
         @state.change("cmap")
         def update_cmap(cmap, **kwargs):
             layer = self.layers[state.ctrl_mesh_name]
-            layer.cmap = cmap
+
+            if cmap != layer.cmap:
+                layer.cmap = cmap
 
         @state.change("clim")
         def update_clim(clim, **kwargs):
             layer = self.layers[state.ctrl_mesh_name]
-            layer.clim = clim
+            if (abs(clim[0] - layer.clim[0]) > 1e-6) or (
+                abs(clim[1] - layer.clim[1]) > 1e-6
+            ):
+                layer.clim = clim
 
 
 class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):

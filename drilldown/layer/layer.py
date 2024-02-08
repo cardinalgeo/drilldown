@@ -16,6 +16,7 @@ from ..utils import (
     convert_array_type,
     encode_categorical_data,
     make_categorical_cmap,
+    round_to_sig_figs,
 )
 from ..image.image_mixin import ImageMixin
 from ..plot.plotting_mixin import Plotting2dMixin
@@ -72,7 +73,8 @@ class _BaseLayer:
         self.plotter.render()
 
         self._visibility = value
-        self.state.visibility = value
+        with self.state:
+            self.state.visibility = value
 
     @property
     def opacity(self):
@@ -95,7 +97,8 @@ class _BaseLayer:
         self.plotter.render()
 
         self._opacity = value
-        self.state.opacity = value
+        with self.state:
+            self.state.opacity = value
 
     @property
     def selection_actor(self):
@@ -748,22 +751,40 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         **kwargs,
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
-
         self._active_array_name = mesh.active_scalars_name
-        self.state.active_array_name = self._active_array_name
+        with self.state:
+            self.state.active_array_name = self._active_array_name
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"
         ):  # only set if active_array_name is continuous
             self._cmap = actor.mapper.lookup_table.cmap.name
-            self.state.cmap = self._cmap
+            with self.state:
+                self.state.cmap = self._cmap
+
+            self._clim_range = self._calculate_clim_range(self._active_array_name)
+            clim_step = (self._clim_range[1] - self._clim_range[0]) / 1000
+            self._clim_step = round_to_sig_figs(clim_step, 2)
             self._clim = actor.mapper.lookup_table.scalar_range
-            self.state.clim = self._clim
+            with self.state:
+                self.state.clim = self._clim
+                self.state.clim_min = self._clim_range[0]
+                self.state.clim_max = self._clim_range[1]
+                self.state.clim_step = self._clim_step
+
         else:
             self._cmap = None
-            self.state.cmap = self._cmap
-            self._clim = None
-            self.state.clim = self._clim
+            with self.state:
+                self.state.cmap = self._cmap
+
+            self._clim_range = (0, 0)
+            self._clim_step = 0
+            self._clim = (0, 0)
+            with self.state:
+                self.state.clim = self._clim
+                self.state.clim_min = self._clim_range[0]
+                self.state.clim_max = self._clim_range[1]
+                self.state.clim_step = self._clim_step
 
         self._cmaps = plt.colormaps()
 
@@ -771,7 +792,6 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         self._categorical_array_names = []
 
         # decoding categorical data
-        self.code_to_hole_id_map = {}
         self.code_to_cat_map = {}
 
         # categorical data cmaps
@@ -795,8 +815,6 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
             raise ValueError(f"{value} is not an array name.")
 
         self._active_array_name = value
-        with self.state:
-            self.state.active_array_name = value
 
         self.actor.mapper.dataset.set_active_scalars(value)
         if self._filter_actor is not None:
@@ -806,7 +824,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
             self.preceding_array_type != "continuous"
         ):
             self.cmap = self.cmap
-            self.clim = self.clim
+            self._reset_clim_and_clim_range()
 
         elif value in self.categorical_array_names:
             if value not in self.matplotlib_formatted_color_maps:
@@ -830,20 +848,26 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self.plotter.render()
 
+        with self.state:
+            self.state.active_array_name = value
+
     @property
     def cmap(self):
         return self._cmap
 
     @cmap.setter
     def cmap(self, value):
-        if self.active_array_name in self.continuous_array_names:
-            self.actor.mapper.lookup_table.cmap = value
-            if self._filter_actor is not None:
-                self.filter_actor.mapper.lookup_table.cmap = value
+        if not self.active_array_name in self.continuous_array_names:
+            raise ValueError(f"cmap can only be selected for continuous data.")
 
-            self.plotter.render()
+        self.actor.mapper.lookup_table.cmap = value
+        if self._filter_actor is not None:
+            self.filter_actor.mapper.lookup_table.cmap = value
 
-            self._cmap = value
+        self.plotter.render()
+
+        self._cmap = value
+        with self.state:
             self.state.cmap = value
 
     @property
@@ -852,17 +876,133 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
     @clim.setter
     def clim(self, value):
-        if self.active_array_name in self.continuous_array_names:
-            self.actor.mapper.lookup_table.scalar_range = value
-            self.actor.mapper.SetUseLookupTableScalarRange(True)
-            if self._filter_actor is not None:
-                self.filter_actor.mapper.lookup_table.scalar_range = value
-                self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
+        if not self.active_array_name in self.continuous_array_names:
+            raise ValueError(f"clim can only be set for continuous data.")
 
-            self.plotter.render()
+        if not value[0] <= value[1]:
+            raise ValueError("clim must be in the form (min, max).")
 
-            self._clim = value
-            self.state.clim = value
+        if (value[0] < self.clim_range[0]) or (value[1] > self.clim_range[1]):
+            clim_range = list(self.clim_range)
+            if value[0] < self.clim_range[0]:
+                clim_range[0] = value[0]
+
+            if value[1] > self.clim_range[1]:
+                clim_range[1] = value[1]
+
+            self.clim_range = tuple(clim_range)
+
+        self.actor.mapper.lookup_table.scalar_range = value
+        self.actor.mapper.SetUseLookupTableScalarRange(True)
+        if self._filter_actor is not None:
+            self.filter_actor.mapper.lookup_table.scalar_range = value
+            self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
+
+        self.plotter.render()
+
+        self._clim = value
+        with self.state:
+            self.state.clim = (
+                np.ceil(value[0] / self._clim_step) * self._clim_step,
+                np.floor(value[1] / self._clim_step) * self._clim_step,
+            )
+
+    def reset_clim(self):
+        if not self.active_array_name in self.continuous_array_names:
+            raise ValueError(f"clim can only be reset for continuous data.")
+
+        self.clim = self.clim_range
+
+    @property
+    def clim_range(self):
+        return self._clim_range
+
+    @clim_range.setter
+    def clim_range(self, value):
+        if not (self.active_array_name in self.continuous_array_names):
+            raise ValueError(f"clim_range can only be set for continuous data.")
+
+        if not value[0] <= value[1]:
+            raise ValueError("clim_range must be in the form (min, max).")
+
+        if (value[0] > self.clim[0]) or (value[1] < self.clim[1]):
+            clim = list(self.clim)
+            if value[0] > self.clim[0]:
+                clim[0] = value[0]
+
+            if value[1] < self.clim[1]:
+                clim[1] = value[1]
+
+            self.clim = tuple(clim)
+
+        # update clim_step
+        clim_step = (value[1] - value[0]) / 1000
+        self._clim_step = round_to_sig_figs(clim_step, 2)
+        with self.state:
+            self.state.clim_step = self._clim_step
+
+        self._clim_range = value
+        with self.state:
+            self.state.clim_min = np.floor(value[0] / self._clim_step) * self._clim_step
+            self.state.clim_max = np.ceil(value[1] / self._clim_step) * self._clim_step
+
+    def _calculate_clim_range(self, array_name):
+        array = self.mesh[array_name]
+        min, max = np.nanmin(array), np.nanmax(array)
+
+        return (min, max)
+
+    def reset_clim_range(self):
+        if not self.active_array_name in self.continuous_array_names:
+            raise ValueError(f"clim_range can only be reset for continuous data.")
+
+        self.clim_range = self._calculate_clim_range(self.active_array_name)
+
+    def _reset_clim_and_clim_range(self):
+        """Method to simultaneously reset clim and clim_range."""
+        if not self.active_array_name in self.continuous_array_names:
+            raise ValueError(
+                f"clim and clim_range can only be reset for continuous data."
+            )
+
+        clim_range = self._calculate_clim_range(self.active_array_name)
+
+        # reset clim_step
+        clim_step = (clim_range[1] - clim_range[0]) / 1000
+        self._clim_step = round_to_sig_figs(clim_step, 2)
+
+        with self.state:
+            self.state.clim_step = self._clim_step
+
+        # reset clim_range
+        self._clim_range = clim_range
+        with self.state:
+            self.state.clim_min = (
+                np.floor(clim_range[0] / self._clim_step) * self._clim_step
+            )
+            self.state.clim_max = (
+                np.ceil(clim_range[1] / self._clim_step) * self._clim_step
+            )
+
+        # reset clim
+        self.actor.mapper.lookup_table.scalar_range = clim_range
+        self.actor.mapper.SetUseLookupTableScalarRange(True)
+        if self._filter_actor is not None:
+            self.filter_actor.mapper.lookup_table.scalar_range = clim_range
+            self.filter_actor.mapper.SetUseLookupTableScalarRange(True)
+
+        self.plotter.render()
+
+        self._clim = clim_range
+        with self.state:
+            self.state.clim = (
+                np.ceil(clim_range[0] / self._clim_step) * self._clim_step,
+                np.floor(clim_range[1] / self._clim_step) * self._clim_step,
+            )
+
+    @property
+    def clim_step(self):
+        return self._clim_step
 
     @property
     def array_names(self):
@@ -942,9 +1082,6 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         data = pd.DataFrame(data_dict)
 
-        # decode hole IDs
-        data["hole ID"] = [self.code_to_hole_id_map[code] for code in data["hole ID"]]
-
         # decode categorical data
         for name in self.categorical_array_names:
             data[name] = data[name].astype("category")
@@ -980,6 +1117,8 @@ class PointDataLayer(_DataLayer, _PointLayer):
 
         if key not in self.array_names:
             self.array_names.append(key)
+            with self.state:
+                self.state.array_names = self.array_names
 
     def _process_data_output(self, ids, array_names=[]):
         exclude = ["vtkOriginalPointIds", "vtkOriginalCellIds"]  # added by pyvista
@@ -1070,6 +1209,8 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
 
         if key not in self.array_names:
             self.array_names.append(key)
+            with self.state:
+                self.state.array_names = self.array_names
 
     def _make_selection_by_dbl_click_pick(self, pos, actor):
         if actor == self.actor:

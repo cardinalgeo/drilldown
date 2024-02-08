@@ -120,3 +120,10 @@ def is_jupyter():
             return False  # Other type (?)
     except NameError:
         return False
+
+
+def round_to_sig_figs(num, sig_figs):
+    if num != 0:
+        return round(num, -int(np.floor(np.log10(abs(num))) - (sig_figs - 1)))
+    else:
+        return 0  # Can't take the log of 0

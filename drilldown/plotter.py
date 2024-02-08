@@ -174,7 +174,6 @@ class DrillDownPlotter(Plotter):
         layer._image_array_names = intervals.image_var_names
 
         # enable decoding of hole IDs and categorical arrays
-        layer.code_to_hole_id_map = intervals.code_to_hole_id_map
         layer.code_to_cat_map = intervals.code_to_cat_map
 
         # handle categorical color maps
@@ -236,7 +235,6 @@ class DrillDownPlotter(Plotter):
         layer._image_array_names = points.image_var_names
 
         # enable decoding of hole IDs and categorical arrays
-        layer.code_to_hole_id_map = points.code_to_hole_id_map
         layer.code_to_cat_map = points.code_to_cat_map
 
         # handle categorical color maps
