@@ -5,10 +5,10 @@ class Plotting2dMixin:
     def scatter_plot(self, x, y, **kwargs):
         from .plotly_plots import ScatterPlot
 
-        fig = ScatterPlot(self.all_data, x, y, **kwargs)
+        fig = ScatterPlot(self.data, x, y, **kwargs)
 
         fig.layer = self
-        fig.ids = self.all_ids
+        fig.ids = self.ids
 
         return fig
 
@@ -35,10 +35,10 @@ class Plotting2dMixin:
     def scatter_3d_plot(self, x, y, z, **kwargs):
         from .plotly_plots import Scatter3dPlot
 
-        fig = Scatter3dPlot(self.all_data, x, y, z, **kwargs)
+        fig = Scatter3dPlot(self.data, x, y, z, **kwargs)
 
         fig.layer = self
-        fig.ids = self.all_ids
+        fig.ids = self.ids
 
         return fig
 
@@ -65,10 +65,10 @@ class Plotting2dMixin:
     def scatter_ternary_plot(self, a, b, c, **kwargs):
         from .plotly_plots import ScatterTernaryPlot
 
-        fig = ScatterTernaryPlot(self.all_data, a, b, c, **kwargs)
+        fig = ScatterTernaryPlot(self.data, a, b, c, **kwargs)
 
         fig.layer = self
-        fig.ids = self.all_ids
+        fig.ids = self.ids
 
         return fig
 
@@ -99,10 +99,10 @@ class Plotting2dMixin:
     def scatter_dimensions_plot(self, dimensions, **kwargs):
         from .plotly_plots import ScatterDimensionsPlot
 
-        fig = ScatterDimensionsPlot(self.all_data, dimensions, **kwargs)
+        fig = ScatterDimensionsPlot(self.data, dimensions, **kwargs)
 
         fig.layer = self
-        fig.ids = self.all_ids
+        fig.ids = self.ids
 
         return fig
 
@@ -133,10 +133,10 @@ class Plotting2dMixin:
     def bar_plot(self, x, y, **kwargs):
         from .plotly_plots import BarPlot
 
-        fig = BarPlot(self.all_data, x, y, **kwargs)
+        fig = BarPlot(self.data, x, y, **kwargs)
 
         fig.layer = self
-        fig.ids = self.all_ids
+        fig.ids = self.ids
 
         return fig
 
@@ -167,10 +167,10 @@ class Plotting2dMixin:
     def histogram(self, x, **kwargs):
         from .plotly_plots import Histogram
 
-        fig = Histogram(self.all_data, x, **kwargs)
+        fig = Histogram(self.data, x, **kwargs)
 
         fig.layer = self
-        fig.ids = self.all_ids
+        fig.ids = self.ids
 
         return fig
 

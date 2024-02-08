@@ -393,7 +393,7 @@ class _PointLayer(_BaseLayer):
             self._reset_filter()
 
     @property
-    def all_ids(self):
+    def ids(self):
         return np.arange(self.n_points)
 
 
@@ -740,7 +740,7 @@ class _IntervalLayer(_BaseLayer):
             self._reset_filter()
 
     @property
-    def all_ids(self):
+    def ids(self):
         return np.arange(self.n_intervals)
 
 
@@ -1060,7 +1060,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
     @property
     def selected_hole_ids(self):
-        data = self.all_data
+        data = self.data
         hole_ids = data["hole ID"][self.selected_ids]
         hole_ids = list(hole_ids.unique().tolist())  # dbl list necessary
 
@@ -1074,7 +1074,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         if not isinstance(hole_ids, (list, np.ndarray, pd.Series)):
             raise ValueError("hole_ids must be a list, numpy array, or pandas Series.")
 
-        data = self.all_data
+        data = self.data
         if self.filter_actor is not None:
             data = data[self.boolean_filter]
 
@@ -1091,18 +1091,25 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
     @property
     def filtered_hole_ids(self):
-        data = self.all_data
+        data = self.data
         hole_ids = data["hole ID"][self.filtered_ids]
         hole_ids = hole_ids.unique().tolist()
 
         return hole_ids
 
     @property
-    def all_data(self):
-        ids = self.all_ids
+    def data(self):
+        ids = self.ids
         data = self._process_data_output(ids)
 
         return data
+
+    @property
+    def hole_ids(self):
+        data = self.data
+        hole_ids = data["hole ID"].unique().tolist()
+
+        return hole_ids
 
     def _process_data_output(self, ids, array_names=[], step=1):
         if len(array_names) == 0:
@@ -1127,7 +1134,7 @@ class PointDataLayer(_DataLayer, _PointLayer):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
     def __getitem__(self, key):
-        return self.all_data[key]
+        return self.data[key]
 
     def __setitem__(self, key, value):
         value, _type = convert_array_type(value, return_type=True)
@@ -1211,7 +1218,7 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
     def __getitem__(self, key):
-        return self.all_data[key]
+        return self.data[key]
 
     def __setitem__(self, key, value):
         cells_per_interval = self.n_sides
