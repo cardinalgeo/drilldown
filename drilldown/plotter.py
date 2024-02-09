@@ -68,6 +68,8 @@ class DrillDownPlotter(Plotter):
             side="left", callback=self._on_double_click, double=True
         )
 
+        # track active selections and filters across layers
+        self._active_selections_and_filters = []
         # spin up a server to manager GUI, if present
         self.server = get_server(str(uuid.uuid4()))
         self.state = self.server.state
@@ -282,8 +284,14 @@ class DrillDownPlotter(Plotter):
         if picked_actor is not None:
             self._pick_on_dbl_click(picked_actor)
 
-        else:
-            self._reset_data()
+        elif len(self._active_selections_and_filters) > 0:
+            selection_or_filter = self._active_selections_and_filters[-1]
+            layer_name = list(selection_or_filter.keys())[0]
+            layer = self.layers[layer_name]
+            if selection_or_filter[layer_name] == "selection":
+                layer._reset_selection()
+            elif selection_or_filter[layer_name] == "filter":
+                layer._reset_filter()
 
     def _pick(self):
         pos = self.click_position

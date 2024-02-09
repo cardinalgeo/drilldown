@@ -277,12 +277,27 @@ class _PointLayer(_BaseLayer):
                     self.point_size * self.rel_selected_point_size
                 )
 
+            if len(self.plotter._active_selections_and_filters) == 0:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "selection"}
+                )
+            elif self.plotter._active_selections_and_filters[-1] != {
+                f"{self.name}": "selection"
+            }:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "selection"}
+                )
+
     def _reset_selection(self):
         self._picked_point = None
         self.selected_points = []
 
         self.plotter.remove_actor(self._selection_actor)
         self._selection_actor = None
+
+        self.plotter._active_selections_and_filters = (
+            self.plotter._active_selections_and_filters[:-1]
+        )
 
     @property
     def picked_point(self):
@@ -370,6 +385,17 @@ class _PointLayer(_BaseLayer):
             self.opacity = self.opacity
             self.visibility = self.visibility
 
+            if len(self.plotter._active_selections_and_filters) == 0:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "filter"}
+                )
+            elif self.plotter._active_selections_and_filters[-1] != {
+                f"{self.name}": "filter"
+            }:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "filter"}
+                )
+
     def _reset_filter(self):
         self._filtered_points = []
         self.plotter.remove_actor(self._filter_actor)
@@ -380,6 +406,10 @@ class _PointLayer(_BaseLayer):
 
         # return previously filtered out intervals to original opacity
         self.opacity = self.opacity
+
+        self.plotter._active_selections_and_filters = (
+            self.plotter._active_selections_and_filters[:-1]
+        )
 
     def convert_selection_to_filter(self):
         boolean_filter = np.isin(np.arange(self.n_points), self.selected_points)
@@ -645,6 +675,17 @@ class _IntervalLayer(_BaseLayer):
                     )
                     self.plotter.render()
 
+            if len(self.plotter._active_selections_and_filters) == 0:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "selection"}
+                )
+            elif self.plotter._active_selections_and_filters[-1] != {
+                f"{self.name}": "selection"
+            }:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "selection"}
+                )
+
     def _reset_selection(self):
         self._picked_cell = None
         self._selected_cells = []
@@ -652,6 +693,10 @@ class _IntervalLayer(_BaseLayer):
 
         self.plotter.remove_actor(self._selection_actor)
         self._selection_actor = None
+
+        self.plotter._active_selections_and_filters = (
+            self.plotter._active_selections_and_filters[:-1]
+        )
 
     @property
     def boolean_filter(self):
@@ -715,6 +760,17 @@ class _IntervalLayer(_BaseLayer):
             self.opacity = self.opacity
             self.visibility = self.visibility
 
+            if len(self.plotter._active_selections_and_filters) == 0:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "filter"}
+                )
+            elif self.plotter._active_selections_and_filters[-1] != {
+                f"{self.name}": "filter"
+            }:
+                self.plotter._active_selections_and_filters.append(
+                    {f"{self.name}": "filter"}
+                )
+
     def _reset_filter(self):
         self._filtered_cells = []
         self._filtered_intervals = []
@@ -726,6 +782,10 @@ class _IntervalLayer(_BaseLayer):
 
         # return previously filtered out intervals to original opacity
         self.opacity = self.opacity
+
+        self.plotter._active_selections_and_filters = (
+            self.plotter._active_selections_and_filters[:-1]
+        )
 
     def convert_selection_to_filter(self):
         boolean_filter = np.isin(np.arange(self.n_intervals), self.selected_intervals)
