@@ -7,7 +7,7 @@ class Plotting2dMixin:
 
         fig = ScatterPlot(self.data, x, y, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self)
         fig.ids = self.ids
 
         return fig
@@ -17,7 +17,7 @@ class Plotting2dMixin:
 
         fig = ScatterPlot(self.selected_data, x, y, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="selected")
         fig.ids = self.selected_ids
 
         return fig
@@ -27,7 +27,7 @@ class Plotting2dMixin:
 
         fig = ScatterPlot(self.filtered_data, x, y, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="filtered")
         fig.ids = self.filtered_ids
 
         return fig
@@ -37,7 +37,7 @@ class Plotting2dMixin:
 
         fig = Scatter3dPlot(self.data, x, y, z, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self)
         fig.ids = self.ids
 
         return fig
@@ -47,7 +47,7 @@ class Plotting2dMixin:
 
         fig = Scatter3dPlot(self.selected_data, x, y, z, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="selected")
         fig.ids = self.selected_ids
 
         return fig
@@ -57,7 +57,7 @@ class Plotting2dMixin:
 
         fig = Scatter3dPlot(self.filtered_data, x, y, z, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="filtered")
         fig.ids = self.filtered_ids
 
         return fig
@@ -67,7 +67,7 @@ class Plotting2dMixin:
 
         fig = ScatterTernaryPlot(self.data, a, b, c, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self)
         fig.ids = self.ids
 
         return fig
@@ -79,7 +79,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="selected")
         fig.ids = self.selected_ids
 
         return fig
@@ -91,7 +91,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="filtered")
         fig.ids = self.filtered_ids
 
         return fig
@@ -101,7 +101,7 @@ class Plotting2dMixin:
 
         fig = ScatterDimensionsPlot(self.data, dimensions, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self)
         fig.ids = self.ids
 
         return fig
@@ -113,7 +113,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="selected")
         fig.ids = self.selected_ids
 
         return fig
@@ -125,7 +125,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="filtered")
         fig.ids = self.filtered_ids
 
         return fig
@@ -135,7 +135,7 @@ class Plotting2dMixin:
 
         fig = BarPlot(self.data, x, y, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self)
         fig.ids = self.ids
 
         return fig
@@ -147,7 +147,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="selected")
         fig.ids = self.selected_ids
 
         return fig
@@ -159,7 +159,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="filtered")
         fig.ids = self.filtered_ids
 
         return fig
@@ -169,7 +169,7 @@ class Plotting2dMixin:
 
         fig = Histogram(self.data, x, **kwargs)
 
-        fig.layer = self
+        fig.connect_layer(self)
         fig.ids = self.ids
 
         return fig
@@ -181,7 +181,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="selected")
         fig.ids = self.selected_ids
 
         return fig
@@ -193,7 +193,7 @@ class Plotting2dMixin:
 
         fig.plotter = self
 
-        fig.layer = self
+        fig.connect_layer(self, relationship="filtered")
         fig.ids = self.filtered_ids
 
         return fig

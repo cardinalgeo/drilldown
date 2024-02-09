@@ -35,7 +35,7 @@ class PlotlyPlot:
         self.ids = None
         self.selected_ids = None
 
-        self.layer = None
+        self._layer = None
 
     def show(self, inline=True):
         self.update()
@@ -91,6 +91,25 @@ class PlotlyPlot:
 
         return layout
 
+    @property
+    def layer(self):
+        return self._layer
+
+    @property
+    def layer_relationship(self):
+        return self._layer_relationship
+
+    def connect_layer(self, layer, relationship=None):
+        if relationship is not None:
+            if relationship not in ["selected", "filtered"]:
+                raise ValueError(
+                    "Relationship must be 'selected', 'filtered', or None."
+                )
+
+        self._layer = layer
+        self._layer.plot = self
+        self._layer_relationship = relationship
+
     def _on_plot_selection(self, ids):
         if ids is not None:
             self.selected_ids = ids
@@ -102,7 +121,10 @@ class PlotlyPlot:
         self.selected_ids = None
 
         if self.layer is not None:
-            self.layer.selected_ids = np.array(self.ids)
+            if self.layer_relationship == "selected":
+                self.layer.selected_ids = np.array(self.ids)
+            else:
+                self.layer._reset_selection()
 
     def _on_scatter_plot_click(self, ids):
         pass
