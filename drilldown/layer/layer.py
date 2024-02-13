@@ -289,7 +289,7 @@ class _PointLayer(_BaseLayer):
                 )
 
     def _reset_selection(self):
-        if len(self.selected_ids) > 0: 
+        if len(self.selected_ids) > 0:
             self._picked_point = None
             self.selected_points = []
 
@@ -398,7 +398,7 @@ class _PointLayer(_BaseLayer):
                 )
 
     def _reset_filter(self):
-        if len(self.filtered_ids) > 0: 
+        if len(self.filtered_ids) > 0:
             self._filtered_points = []
             self.plotter.remove_actor(self._filter_actor)
             self._filter_actor = None
@@ -835,8 +835,15 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
                     self.state.cmap = self._cmap
 
             self._clim_range = self._calculate_clim_range(self._active_array_name)
-            clim_step = (self._clim_range[1] - self._clim_range[0]) / 1000
-            self._clim_step = round_to_sig_figs(clim_step, 2)
+
+            if self._clim_range[1] - self._clim_range[0] > 1000:
+                clim_step = 1
+
+            else:
+                clim_step = (self._clim_range[1] - self._clim_range[0]) / 1000
+                clim_step = round_to_sig_figs(clim_step, 2)
+
+            self._clim_step = clim_step
             self._clim = actor.mapper.lookup_table.scalar_range
 
             if self.name == self.state.ctrl_mesh_name:
@@ -1019,8 +1026,14 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
             self.clim = tuple(clim)
 
         # update clim_step
-        clim_step = (value[1] - value[0]) / 1000
-        self._clim_step = round_to_sig_figs(clim_step, 2)
+        if self._clim_range[1] - self._clim_range[0] > 1000:
+            clim_step = 1
+
+        else:
+            clim_step = (value[1] - value[0]) / 1000
+            clim_step = round_to_sig_figs(clim_step, 2)
+
+        self._clim_step = clim_step
 
         if self.name == self.state.ctrl_mesh_name:
             with self.state:
@@ -1059,8 +1072,14 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         clim_range = self._calculate_clim_range(self.active_array_name)
 
         # reset clim_step
-        clim_step = (clim_range[1] - clim_range[0]) / 1000
-        self._clim_step = round_to_sig_figs(clim_step, 2)
+        if self._clim_range[1] - self._clim_range[0] > 1000:
+            clim_step = 1
+
+        else:
+            clim_step = (clim_range[1] - clim_range[0]) / 1000
+            clim_step = round_to_sig_figs(clim_step, 2)
+
+        self._clim_step = clim_step
 
         if self.name == self.state.ctrl_mesh_name:
             with self.state:
