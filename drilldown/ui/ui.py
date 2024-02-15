@@ -9,23 +9,11 @@ from pyvista.trame.jupyter import elegantly_launch
 
 import panel as pn
 from functools import partial
+import numpy as np
 
 from ..plotter import DrillDownPlotter
-
-
-def is_jupyter():
-    from IPython import get_ipython
-
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == "ZMQInteractiveShell":
-            return True  # Jupyter notebook or qtconsole
-        elif shell == "TerminalInteractiveShell":
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False
+from ..utils import is_jupyter
+from ..layer.layer import IntervalDataLayer, PointDataLayer
 
 
 def ui_card(title, ui_name):
@@ -44,12 +32,6 @@ def ui_card(title, ui_name):
 class DrillDownTramePlotter(DrillDownPlotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.name = "plotter"
-        self.server = get_server(name="pyvista")
-        # self.server = get_server(name=self.name)
-        self.state = self.server.state
-        self.server.client_type = "vue2"
-
         self._ui = None
 
     def show(self, inline=False, return_viewer=False):
@@ -87,8 +69,6 @@ class DrillDownTramePlotter(DrillDownPlotter):
             ctrl.on_server_ready.add(lambda **kwargs: open_browser(self.server))
 
     def _initialize_ui(self):
-        ctrl = self.server.controller
-        ctrl_mesh_name = self.mesh_names[-1]
         with SinglePageWithDrawerLayout(self.server) as layout:
             layout.title.set_text("")
             with layout.footer as footer:
@@ -107,92 +87,67 @@ class DrillDownTramePlotter(DrillDownPlotter):
                 with ui_card("Controls", "controls"):
                     vuetify.VSelect(
                         label="controls mesh",
-                        v_model=("ctrl_mesh_name", ctrl_mesh_name),
-                        items=("ctrl_mesh_name_fields", self.mesh_names.copy()),
+                        v_model=("ctrl_mesh_name", self.layers[-1].name),
+                        items=("layer_names",),
                         classes="pt-1",
-                        # **DROPDOWN_STYLES,
                     )
                     vuetify.VDivider(classes="mb-2")
 
                     vuetify.VSlider(
                         hide_details=True,
                         label="opacity",
-                        v_model=("opacity", 1),
+                        v_model=("opacity",),
                         max=1,
                         min=0,
                         step=0.001,
                         style="max-width: 300px;",
                     )
-                    if (
-                        ctrl_mesh_name
-                        in self.point_actor_names + self.interval_actor_names
+                    if (isinstance(self.layers[-1], IntervalDataLayer)) or (
+                        isinstance(self.layers[-1], PointDataLayer)
                     ):
                         vuetify.VDivider(
                             classes="mb-2", v_show=("divider_visible", True)
                         )
-
-                        vuetify.VSelect(
-                            label="active variable",
-                            v_show=("active_var_visible", True),
-                            v_model=("active_var", self.active_var[ctrl_mesh_name]),
-                            items=(
-                                "active_var_fields",
-                                self.all_vars[ctrl_mesh_name],
-                            ),
-                            classes="pt-1",
-                            # **DROPDOWN_STYLES,
-                        )
-                        vuetify.VSelect(
-                            label="colormap",
-                            v_show=("cmap_visible", True),
-                            v_model=("cmap", self.cmap[ctrl_mesh_name]),
-                            items=("cmap_fields", self.cmaps),
-                            classes="pt-1",
-                            # **DROPDOWN_STYLES,
-                        )
-                        vuetify.VRangeSlider(
-                            label="colormap limits",
-                            v_show=("clim_visible", True),
-                            v_model=("clim", self.clim[ctrl_mesh_name]),
-                            min=("clim_min", self.clim[ctrl_mesh_name][0]),
-                            max=("clim_max", self.clim[ctrl_mesh_name][1]),
-                            classes="pt-1",
-                            # **DROPDOWN_STYLES
-                        )
-
+                        visible = True
                     else:
-                        vuetify.VDivider(
-                            classes="mb-2", v_show=("divider_visible", False)
-                        )
+                        visible = False
 
-                        vuetify.VSelect(
-                            label="active variable",
-                            v_show=("active_var_visible", False),
-                            v_model=("active_var", None),
-                            items=(
-                                "active_var_fields",
-                                None,
-                            ),
-                            classes="pt-1",
-                            # **DROPDOWN_STYLES,
-                        )
-                        vuetify.VSelect(
-                            label="colormap",
-                            v_show=("cmap_visible", False),
-                            v_model=("cmap", None),
-                            items=("cmap_fields", None),
-                            classes="pt-1",
-                            # **DROPDOWN_STYLES,
-                        )
-                        vuetify.VRangeSlider(
-                            label="colormap limits",
-                            v_show=("clim_visible", False),
-                            v_model=("clim", (0, 1)),
-                            min=("clim_min", 0),
-                            max=("clim_max", 1),
-                            classes="pt-1",
-                            # **DROPDOWN_STYLES
-                        )
+                    vuetify.VSelect(
+                        label="active array name",
+                        v_show=("active_array_name_visible", visible),
+                        v_model=(
+                            "active_array_name",
+                            self.layers[-1].active_array_name,
+                        ),
+                        items=("array_names",),
+                        classes="pt-1",
+                        # **DROPDOWN_STYLES,
+                    )
+
+                    if (visible == False) or (
+                        self.state.active_array_name
+                        in self.layers[-1].categorical_array_names
+                    ):
+                        visible = False
+
+                    vuetify.VSelect(
+                        label="colormap",
+                        v_show=("cmap_visible", visible),
+                        v_model=("cmap",),
+                        items=("cmap_fields",),
+                        classes="pt-1",
+                    )
+
+                    vuetify.VRangeSlider(
+                        label="colormap limits",
+                        v_show=("clim_visible", visible),
+                        v_model=("clim",),
+                        min=("clim_min",),
+                        max=("clim_max",),
+                        step=("clim_step",),
+                        classes="pt-1",
+                    )
+
         return layout
 
     def _initialize_engine(self):
@@ -200,168 +155,76 @@ class DrillDownTramePlotter(DrillDownPlotter):
 
         @state.change("ctrl_mesh_name")
         def update_controls_mesh(ctrl_mesh_name, **kwargs):
-            if ctrl_mesh_name not in self.interval_actor_names + self.point_actor_names:
-                state.divider_visible = False
-                state.active_var_visible = False
+            layer = self.layers[ctrl_mesh_name]
+
+            # update active var
+            state.active_array_name_visible = True
+            state.array_names = layer.array_names
+            state.active_array_name = layer.active_array_name
+
+            # update cmap
+            if state.active_array_name in layer.continuous_array_names:
+                state.cmap_visible = True
+                state.cmap_fields = layer._cmaps
+                state.cmap = layer.cmap
+
+                state.clim_visible = True
+                state.clim_step = layer.clim_step
+
+                state.clim = layer.clim
+                state.clim_min = layer.clim_range[0]
+                state.clim_max = layer.clim_range[1]
+
+            else:
                 state.cmap_visible = False
                 state.clim_visible = False
 
-            else:
-                state.divider_visible = True
+            state.visibility = layer.visibility
+            state.opacity = layer.opacity
 
-                # update active var
-                state.active_var_visible = True
-                state.active_var = self.active_var[ctrl_mesh_name]
-                if ctrl_mesh_name in self.interval_actor_names:
-                    state.active_var_fields = self.interval_vars[ctrl_mesh_name]
-                elif ctrl_mesh_name in self.point_actor_names:
-                    state.active_var_fields = self.point_vars[ctrl_mesh_name]
+        @state.change("visibility")
+        def update_visibility(visibility, **kwargs):
+            layer = self.layers[state.ctrl_mesh_name]
 
-                # update cmap
-                if state.active_var in self.continuous_vars[ctrl_mesh_name]:
-                    state.cmap_visible = True
-                    state.cmap = self.cmap[ctrl_mesh_name]
-                    state.cmap_fields = self.cmaps
-
-                    state.clim_visible = True
-                    self.reset_clim(ctrl_mesh_name, state.active_var)
-                    state.clim = self.clim[ctrl_mesh_name]
-                    state.clim_min = self.clim[ctrl_mesh_name][0]
-                    state.clim_max = self.clim[ctrl_mesh_name][1]
-
-                elif state.active_var in self.categorical_vars[ctrl_mesh_name]:
-                    state.cmap_visible = False
-                    state.clim_visible = False
-
-            state.opacity = self.opacity[ctrl_mesh_name]
+            if visibility != layer.visibility:
+                layer.visibility = visibility
 
         @state.change("opacity")
         def update_opacity(opacity, **kwargs):
-            name = state.ctrl_mesh_name
-            self.opacity = (name, opacity)
+            layer = self.layers[state.ctrl_mesh_name]
 
-        @state.change("active_var")
-        def update_active_var(active_var, **kwargs):
-            name = state.ctrl_mesh_name
-            if name in self.interval_actor_names + self.point_actor_names:
-                self.active_var = (name, active_var)
-                if active_var in self.continuous_vars[name]:
-                    state.cmap = self.cmap[name]
+            if opacity != layer.opacity:
+                layer.opacity = opacity
 
-                    self.reset_clim(name, active_var)
-                    state.clim = self.clim[name]
-                    state.clim_min = self.clim[name][0]
-                    state.clim_max = self.clim[name][1]
+        @state.change("active_array_name")
+        def update_active_array_name(active_array_name, **kwargs):
+            layer = self.layers[state.ctrl_mesh_name]
 
-                    state.cmap_visible = True
-                    state.clim_visible = True
+            if active_array_name != layer.active_array_name:
+                layer.active_array_name = active_array_name
 
-                else:
-                    state.cmap_visible = False
-                    state.clim_visible = False
+            if active_array_name in layer.continuous_array_names:
+                state.cmap_visible = True
+                state.clim_visible = True
+
+            else:
+                state.cmap_visible = False
+                state.clim_visible = False
 
         @state.change("cmap")
         def update_cmap(cmap, **kwargs):
-            name = state.ctrl_mesh_name
-            if name in self.interval_actor_names + self.point_actor_names:
-                self.cmap = (name, cmap)
+            layer = self.layers[state.ctrl_mesh_name]
+
+            if cmap != layer.cmap:
+                layer.cmap = cmap
 
         @state.change("clim")
         def update_clim(clim, **kwargs):
-            name = state.ctrl_mesh_name
-            if name in self.interval_actor_names + self.point_actor_names:
-                self.clim = (name, (clim[0], clim[1]))
-
-    @DrillDownPlotter.opacity.setter
-    def opacity(self, key_value_pair):
-        super(DrillDownTramePlotter, DrillDownTramePlotter).opacity.fset(
-            self, key_value_pair
-        )
-        name, opacity = key_value_pair
-        if name == self.state.ctrl_mesh_name:
-            self.state.opacity = opacity
-            self.state.flush()
-
-    @DrillDownPlotter.active_var.setter
-    def active_var(self, key_value_pair):
-        super(DrillDownTramePlotter, DrillDownTramePlotter).active_var.fset(
-            self, key_value_pair
-        )
-        name, active_var = key_value_pair
-        if name == self.state.ctrl_mesh_name:
-            self.state.active_var = active_var
-            self.state.flush()
-
-    @DrillDownPlotter.cmap.setter
-    def cmap(self, key_value_pair):
-        super(DrillDownTramePlotter, DrillDownTramePlotter).cmap.fset(
-            self, key_value_pair
-        )
-        name, cmap = key_value_pair
-        if name == self.state.ctrl_mesh_name:
-            self.state.cmap = cmap
-            self.state.flush()
-
-    @DrillDownPlotter.clim.setter
-    def clim(self, key_value_pair):
-        super(DrillDownTramePlotter, DrillDownTramePlotter).clim.fset(
-            self, key_value_pair
-        )
-        name, clim = key_value_pair
-        if name == self.state.ctrl_mesh_name:
-            self.state.clim = clim
-            self.state.flush()
-
-    def add_mesh(
-        self,
-        mesh,
-        name=None,
-        opacity=1,
-        pickable=False,
-        filter_opacity=0.1,
-        selection_color="magenta",
-        accelerated_selection=False,
-        *args,
-        **kwargs,
-    ):
-        actor = super(DrillDownTramePlotter, self).add_mesh(
-            mesh,
-            name=name,
-            opacity=opacity,
-            pickable=pickable,
-            filter_opacity=filter_opacity,
-            selection_color=selection_color,
-            accelerated_selection=accelerated_selection,
-            *args,
-            **kwargs,
-        )
-        if self._ui:
-            if name not in self.state.ctrl_mesh_name_fields:
-                if name in self.mesh_names:  # ignore selection or filter meshes
-                    self.state.ctrl_mesh_name_fields = self.mesh_names.copy()
-                    self.state.ctrl_mesh_name = name
-
-                    if name in self.point_actor_names + self.interval_actor_names:
-                        self.state.divider_visible = True
-                        self.state.active_var_visible = True
-
-                        if self.active_var[name] in self.continuous_vars[name]:
-                            self.state.cmap_visible = True
-                            self.state.clim_visible = True
-
-                        else:
-                            self.state.cmap_visible = False
-                            self.state.clim_visible = False
-
-                    else:
-                        self.state.divider_visible = False
-                        self.state.active_var_visible = False
-                        self.state.cmap_visible = False
-                        self.state.clim_visible = False
-
-                    self.state.flush()
-
-        return actor
+            layer = self.layers[state.ctrl_mesh_name]
+            if (abs(clim[0] - layer.clim[0]) > 1e-6) or (
+                abs(clim[1] - layer.clim[1]) > 1e-6
+            ):
+                layer.clim = clim
 
 
 class DrillDownPanelPlotter(DrillDownPlotter, pn.Row):

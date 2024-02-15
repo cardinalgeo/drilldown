@@ -7,28 +7,19 @@ from trame.ui.vuetify import SinglePageLayout
 
 from plotly import express as px
 import numpy as np
+import uuid
 
-from ..utils import convert_to_numpy_array
 
-
-def is_jupyter():
-    from IPython import get_ipython
-
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == "ZMQInteractiveShell":
-            return True  # Jupyter notebook or qtconsole
-        elif shell == "TerminalInteractiveShell":
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False
+from ..utils import convert_to_numpy_array, is_jupyter
 
 
 class PlotlyPlot:
-    def __init__(self, server=None, *args, **kwargs):
-        self.name = "plotly"
+    def __init__(self, name=None, server=None):
+        if name is not None:
+            self.name = name
+        else:
+            self.name = str(uuid.uuid4())
+
         if server is not None:
             self.server = server
         else:
@@ -44,9 +35,10 @@ class PlotlyPlot:
         self.ids = None
         self.selected_ids = None
 
-        self.plotter = None
+        self._layer = None
 
     def show(self, inline=True):
+        self.update()
         if inline == True:
             if is_jupyter():
                 elegantly_launch(self.server)  # launch server in nb w/o using await
@@ -99,26 +91,46 @@ class PlotlyPlot:
 
         return layout
 
+    @property
+    def layer(self):
+        return self._layer
+
+    @property
+    def layer_relationship(self):
+        return self._layer_relationship
+
+    def connect_layer(self, layer, relationship=None):
+        if relationship is not None:
+            if relationship not in ["selected", "filtered"]:
+                raise ValueError(
+                    "Relationship must be 'selected', 'filtered', or None."
+                )
+
+        self._layer = layer
+        self._layer.plot = self
+        self._layer_relationship = relationship
+
     def _on_plot_selection(self, ids):
         if ids is not None:
             self.selected_ids = ids
 
-            if self.plotter is not None:
-                name = self.actor_name
-                self.plotter.selected_intervals = (name, np.array(self.ids)[ids])
+            if self.layer is not None:
+                self.layer.selected_ids = np.array(self.ids)[ids]
 
     def _on_plot_deselection(self, event):
         self.selected_ids = None
 
-        if self.plotter is not None:
-            name = self.actor_name
-            self.plotter.selected_intervals = (name, np.array(self.ids))
+        if self.layer is not None:
+            if self.layer_relationship == "selected":
+                self.layer.selected_ids = np.array(self.ids)
+            else:
+                self.layer._reset_selection()
 
     def _on_scatter_plot_click(self, ids):
         pass
 
-    def reset_resolution(self, app):
-        app.reset_resolution()
+    def update(self, *args, **kwargs):
+        self.ctrl.plotly_plot_view_update(*args, **kwargs)
 
 
 class ScatterPlot(PlotlyPlot):
@@ -127,7 +139,16 @@ class ScatterPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter(data, x=x, y=y, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
+
+
+class Scatter3dPlot(PlotlyPlot):
+    def __init__(self, data, x, y, z, **kwargs):
+        super().__init__()
+        self.data = data
+        fig = px.scatter_3d(data, x=x, y=y, z=z, **kwargs)
+        self.fig = fig
+        self.update(fig)
 
 
 class ScatterTernaryPlot(PlotlyPlot):
@@ -139,7 +160,7 @@ class ScatterTernaryPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter_ternary(data, a=a, b=b, c=c, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class ScatterDimensionsPlot(PlotlyPlot):
@@ -151,7 +172,7 @@ class ScatterDimensionsPlot(PlotlyPlot):
         self.data = data
         fig = px.scatter_matrix(data, dimensions=dimensions, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class BarPlot(PlotlyPlot):
@@ -160,7 +181,7 @@ class BarPlot(PlotlyPlot):
         self.data = data
         fig = px.bar(data, x=x, y=y, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)
 
 
 class Histogram(PlotlyPlot):
@@ -169,4 +190,4 @@ class Histogram(PlotlyPlot):
         self.data = data
         fig = px.histogram(data, x=x, **kwargs)
         self.fig = fig
-        self.ctrl.plotly_plot_view_update(fig)
+        self.update(fig)

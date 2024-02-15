@@ -6,84 +6,17 @@ from geoh5py.objects import Drillhole
 import numpy as np
 import pandas as pd
 import distinctipy
+from matplotlib.colors import ListedColormap
 
 from .plotter import DrillDownPlotter
 from .drill_log import DrillLog
-from .utils import convert_to_numpy_array
-
-from matplotlib.colors import ListedColormap
-
-
-def convert_array_type(arr, return_type=False):
-    try:
-        arr = arr.astype("float")
-        _type = "float"
-    except ValueError:
-        arr = arr.astype("str")
-        _type = "str"
-
-    if return_type == True:
-        return arr, _type
-    else:
-        return arr
-
-
-def make_matplotlib_categorical_color_map(colors):
-    mapping = np.linspace(0, len(colors) - 1, 256)
-    new_colors = np.empty((256, 3))
-    i_pre = -np.inf
-    for i, color in enumerate(colors):
-        new_colors[(mapping > i_pre) & (mapping <= i)] = list(color)
-        i_pre = i
-    map = ListedColormap(colors[0:-1])
-    map.set_under(colors[0])
-    map.set_over(colors[-1])
-    return map
-
-
-def make_color_map_fractional(map):
-    for name in map.keys():
-        if max(map[name]) > 1:
-            map[name] = tuple([val / 255 for val in map[name]])
-        elif max(map[name]) >= 0:
-            # raise ValueError("Color is already fractional.")
-            pass
-        else:
-            raise ValueError("Color values cannot be negative.")
-
-    return map
-
-
-def get_cycled_colors(n):
-    from itertools import cycle
-    import matplotlib as mpl
-
-    cycler = mpl.rcParams["axes.prop_cycle"]
-    colors = cycle(cycler)
-    colors = [next(colors)["color"] for i in range(n)]
-    colors = [mpl.colors.to_rgb(color) for color in colors]
-
-    return colors
-
-
-def encode_categorical_data(data):
-    data = convert_to_numpy_array(data)
-
-    data_encoded, categories = pd.factorize(data)
-    codes = np.arange(len(categories))
-
-    # convert codes to float
-    codes = np.array(codes, dtype="float")
-    data_encoded = np.array(data_encoded, dtype="float")
-
-    # center numerical representation of categorical data, while maintaining range, to address pyvista's color mapping querks
-    codes[1:-1] += 0.5
-    data_encoded[
-        (data_encoded != data_encoded.min()) & (data_encoded != data_encoded.max())
-    ] += 0.5
-    code_to_cat_map = {code: cat for code, cat in zip(codes, categories)}
-
-    return code_to_cat_map, data_encoded
+from .utils import (
+    convert_to_numpy_array,
+    convert_array_type,
+    encode_categorical_data,
+    make_categorical_cmap,
+    make_color_map_fractional,
+)
 
 
 class HoleData:
@@ -126,12 +59,13 @@ class HoleData:
 
         # encode hole IDs, as strings are wiped in pyvista meshes
         hole_ids_encoded, hole_ids_unique = pd.factorize(hole_ids)
-        self.hole_id_to_code_map = {
+        self.cat_to_code_map["hole ID"] = {
             hole_id: code for code, hole_id in enumerate(hole_ids_unique)
         }
-        self.code_to_hole_id_map = {
+        self.code_to_cat_map["hole ID"] = {
             code: hole_id for code, hole_id in enumerate(hole_ids_unique)
         }
+        self.categorical_vars.append("hole ID")
 
         # add from-to depths
         depths = convert_to_numpy_array(depths)
@@ -177,7 +111,9 @@ class HoleData:
     #         hole = surveys._holes[hole_id]
     #         depths = hole.desurvey()
 
-    def _construct_categorical_cmap(self, var_names=[], cycle=True):
+    def _construct_categorical_cmap(
+        self, var_names=[], cycle=True, rng=999, pastel_factor=0.2
+    ):
         if len(var_names) == 0:
             var_names = [
                 var
@@ -186,34 +122,45 @@ class HoleData:
             ]
 
         for var in var_names:
-            codes = self.code_to_cat_map[var].keys()
-            n_colors = len(codes)
+            categories = self.cat_to_code_map[var].keys()
+            cat_to_color_map, matplotlib_formatted_color_maps = make_categorical_cmap(
+                categories, cycle=cycle, rng=rng, pastel_factor=pastel_factor
+            )
 
-            if cycle == True:
-                colors = get_cycled_colors(n_colors)
-
-            elif cycle == False:
-                colors = distinctipy.get_colors(
-                    n_colors,
-                    pastel_factor=self.categorical_pastel_factor,
-                    rng=self.categorical_color_rng,
-                )
-
-            # create categorical color map
-            self.cat_to_color_map[var] = {
-                cat: color
-                for cat, color in zip(self.cat_to_code_map[var].keys(), colors)
-            }
-
-            # create encoded categorical color map
+            self.cat_to_color_map[var] = cat_to_color_map
+            self.matplotlib_formatted_color_maps[var] = matplotlib_formatted_color_maps
             self.code_to_color_map[var] = {
-                code: color for code, color in zip(codes, colors)
+                code: cat_to_color_map[cat]
+                for code, cat in self.code_to_cat_map[var].items()
             }
+            # codes = self.code_to_cat_map[var].keys()
+            # n_colors = len(codes)
 
-            # create matplotlib categorical color map
-            self.matplotlib_formatted_color_maps[
-                var
-            ] = make_matplotlib_categorical_color_map(colors)
+            # if cycle == True:
+            #     colors = get_cycled_colors(n_colors)
+
+            # elif cycle == False:
+            #     colors = distinctipy.get_colors(
+            #         n_colors,
+            #         pastel_factor=self.categorical_pastel_factor,
+            #         rng=self.categorical_color_rng,
+            #     )
+
+            # # create categorical color map
+            # self.cat_to_color_map[var] = {
+            #     cat: color
+            #     for cat, color in zip(self.cat_to_code_map[var].keys(), colors)
+            # }
+
+            # # create encoded categorical color map
+            # self.code_to_color_map[var] = {
+            #     code: color for code, color in zip(codes, colors)
+            # }
+
+            # # create matplotlib categorical color map
+            # self.matplotlib_formatted_color_maps[
+            #     var
+            # ] = make_matplotlib_categorical_color_map(colors)
 
     def add_categorical_cmap(self, var_name, cmap=None, cycle=True):
         if var_name not in self.categorical_vars:
@@ -256,9 +203,7 @@ class HoleData:
 
             # create matplotlib categorical color map
             codes.sort()
-            self.matplotlib_formatted_color_maps[
-                var_name
-            ] = make_matplotlib_categorical_color_map(
+            self.matplotlib_formatted_color_maps[var_name] = ListedColormap(
                 [self.code_to_color_map[var_name][code] for code in codes]
             )
 
@@ -336,9 +281,18 @@ class Points(HoleData):
                         mesh[var] = data
                     else:
                         mesh.point_data[var] = data
+
+                mesh.point_data["depth"] = depths
                 mesh.point_data["hole ID"] = [
-                    self.hole_id_to_code_map[id]
+                    self.cat_to_code_map["hole ID"][id]
                 ] * depths.shape[0]
+
+                mesh.point_data["x"] = depths_desurveyed[:, 0]
+                mesh.point_data["y"] = depths_desurveyed[:, 1]
+                mesh.point_data["z"] = depths_desurveyed[:, 2]
+
+                self.continuous_vars += ["depth", "x", "y", "z"]
+
                 if meshes is None:
                     meshes = mesh
                 else:
@@ -478,12 +432,14 @@ class Intervals(HoleData):
                 mesh.cell_data["from"] = from_to[:, 0]
                 mesh.cell_data["to"] = from_to[:, 1]
                 mesh.cell_data["hole ID"] = [
-                    self.hole_id_to_code_map[id]
+                    self.cat_to_code_map["hole ID"][id]
                 ] * from_to.shape[0]
 
                 mesh.cell_data["x"] = intermediate_depths_desurveyed[:, 0]
                 mesh.cell_data["y"] = intermediate_depths_desurveyed[:, 1]
                 mesh.cell_data["z"] = intermediate_depths_desurveyed[:, 2]
+
+                self.continuous_vars += ["from", "to", "x", "y", "z"]
 
                 for var in self.vars_all:
                     data = self.data[var]["values"][hole_filter]
@@ -804,6 +760,7 @@ class DrillHole:
         mesh.cell_data["x"] = intermediate_depths[:, 0]
         mesh.cell_data["y"] = intermediate_depths[:, 1]
         mesh.cell_data["z"] = intermediate_depths[:, 2]
+        self.continuous_interval_vars += ["from", "to", "x", "y", "z"]
         for var in intervals.vars_all:
             data = intervals.data[var]["values"]
             _type = intervals.data[var]["type"]
@@ -1016,9 +973,6 @@ class DrillHoleGroup:
         self.workspace = Workspace()
         self.hole_ids_with_data = []
 
-        self.hole_id_to_code_map = {}
-        self.code_to_hole_id_map = {}
-
         self.cat_to_code_map = {}
         self.code_to_cat_map = {}
         self.code_to_color_map = {}
@@ -1086,8 +1040,6 @@ class DrillHoleGroup:
 
     def _add_data(self, data, name=None):
         self.hole_ids_with_data += list(np.unique(data.hole_ids))
-        self.hole_id_to_code_map[name] = data.hole_id_to_code_map
-        self.code_to_hole_id_map[name] = data.code_to_hole_id_map
         self.cat_to_code_map[name] = data.cat_to_code_map
         self.code_to_cat_map[name] = data.code_to_cat_map
         self.code_to_color_map[name] = data.code_to_color_map
@@ -1151,7 +1103,7 @@ class DrillHoleGroup:
                 mesh.cell_data["from"] = from_to[:, 0]
                 mesh.cell_data["to"] = from_to[:, 1]
                 mesh.cell_data["hole ID"] = [
-                    intervals.hole_id_to_code_map[id]
+                    intervals.cat_to_code_map["hole ID"][id]
                 ] * from_to.shape[0]
                 mesh.cell_data["x"] = intermediate_depths[:, 0]
                 mesh.cell_data["y"] = intermediate_depths[:, 1]
@@ -1190,7 +1142,7 @@ class DrillHoleGroup:
                     else:
                         mesh.point_data[var] = data
                 mesh.point_data["hole ID"] = [
-                    points.hole_id_to_code_map[id]
+                    points.cat_to_code_map["hole ID"][id]
                 ] * depths.shape[0]
                 if meshes is None:
                     meshes = mesh
@@ -1295,8 +1247,6 @@ class DrillHoleGroup:
         p = DrillDownPlotter()
 
         # add color-category and code-category maps
-        p.code_to_hole_id_map = self.code_to_hole_id_map
-        p.hole_id_to_code_map = self.hole_id_to_code_map
         p.code_to_cat_map = self.code_to_cat_map
         p.cat_to_code_map = self.cat_to_code_map
         p.code_to_color_map = self.code_to_color_map
