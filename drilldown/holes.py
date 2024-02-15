@@ -281,9 +281,17 @@ class Points(HoleData):
                         mesh[var] = data
                     else:
                         mesh.point_data[var] = data
+
+                mesh.point_data["depth"] = depths
                 mesh.point_data["hole ID"] = [
                     self.cat_to_code_map["hole ID"][id]
                 ] * depths.shape[0]
+
+                mesh.point_data["x"] = depths_desurveyed[:, 0]
+                mesh.point_data["y"] = depths_desurveyed[:, 1]
+                mesh.point_data["z"] = depths_desurveyed[:, 2]
+
+                self.continuous_vars += ["depth", "x", "y", "z"]
 
                 if meshes is None:
                     meshes = mesh
