@@ -247,8 +247,6 @@ class PointInterLayerMixin:
 
         self.boolean_filter = overlap_filter
 
-        return self
-
     def select_by_selection(self, layer, tolerance=0.001):
         from .layer import IntervalDataLayer, PointDataLayer
 
@@ -280,8 +278,6 @@ class PointInterLayerMixin:
             )
 
         self.selected_ids = selected_ids
-
-        return self
 
     def filter_by_filter(self, layer, tolerance=0.001):
         from .layer import IntervalDataLayer, PointDataLayer
@@ -315,8 +311,6 @@ class PointInterLayerMixin:
 
         self.boolean_filter = overlap_filter
 
-        return self
-
     def select_by_filter(self, layer, tolerance=0.001):
         from .layer import IntervalDataLayer, PointDataLayer
 
@@ -349,7 +343,61 @@ class PointInterLayerMixin:
 
         self.selected_ids = selected_ids
 
-        return self
+    def filter_by(self, layer, tolerance=0.001):
+        from .layer import IntervalDataLayer, PointDataLayer
+
+        depths = self.data[["depth"]]
+        hole_id = self.data["hole ID"]
+
+        data = layer.data
+
+        if isinstance(layer, IntervalDataLayer):
+            ranges = {}
+            for hole in layer.filtered_hole_ids:
+                ranges[hole] = data[data["hole ID"] == hole][["from", "to"]].values
+
+            overlap_filter = filter_hole_points_by_intervals(
+                hole_id, depths, ranges, tolerance
+            )
+
+        elif isinstance(layer, PointDataLayer):
+            depths_2 = {}
+            for hole in layer.filtered_hole_ids:
+                depths_2[hole] = data[data["hole ID"] == hole]["depth"]
+
+            overlap_filter = filter_hole_points_by_points(
+                hole_id, depths, depths_2, tolerance
+            )
+
+        self.boolean_filter = overlap_filter
+
+    def select_by(self, layer, tolerance=0.001):
+        from .layer import IntervalDataLayer, PointDataLayer
+
+        depths = self.data[["depth"]]
+        hole_id = self.data["hole ID"]
+
+        data = layer.data
+
+        if isinstance(layer, IntervalDataLayer):
+            ranges = {}
+            for hole in layer.hole_ids:
+                ranges[hole] = data[data["hole ID"] == hole][["from", "to"]].values
+
+            selected_ids = select_hole_points_by_intervals(
+                hole_id, depths, ranges, tolerance
+            )
+
+        elif isinstance(layer, PointDataLayer):
+            depths_2 = {}
+            for hole in layer.hole_ids:
+                depths_2[hole] = data[data["hole ID"] == hole]["depth"]
+
+            selected_ids = select_hole_points_by_points(
+                hole_id, depths, depths_2, tolerance
+            )
+
+        self.selected_ids = selected_ids
 
 
 # Interval Mixin
@@ -384,8 +432,6 @@ class IntervalInterLayerMixin:
 
         self.boolean_filter = overlap_filter
 
-        return self
-
     def select_by_selection(self, layer, overlap="partial", tolerance=0.001):
         from .layer import IntervalDataLayer, PointDataLayer
 
@@ -415,8 +461,6 @@ class IntervalInterLayerMixin:
             )
 
         self.selected_ids = selected_ids
-
-        return self
 
     def filter_by_filter(self, layer, overlap="partial", tolerance=0.001):
         from .layer import IntervalDataLayer, PointDataLayer
@@ -448,8 +492,6 @@ class IntervalInterLayerMixin:
 
         self.boolean_filter = overlap_filter
 
-        return self
-
     def select_by_filter(self, layer, overlap="partial", tolerance=0.001):
         from .layer import IntervalDataLayer, PointDataLayer
 
@@ -480,4 +522,58 @@ class IntervalInterLayerMixin:
 
         self.selected_ids = selected_ids
 
-        return self
+    def filter_by(self, layer, overlap="partial", tolerance=0.001):
+        from .layer import IntervalDataLayer, PointDataLayer
+
+        from_to = self.data[["from", "to"]]
+        hole_id = self.data["hole ID"]
+
+        data = layer.data
+
+        if isinstance(layer, IntervalDataLayer):
+            ranges = {}
+            for hole in layer.hole_ids:
+                ranges[hole] = data[data["hole ID"] == hole][["from", "to"]].values
+
+            overlap_filter = filter_hole_intervals_by_intervals(
+                hole_id, from_to, ranges, overlap, tolerance
+            )
+
+        elif isinstance(layer, PointDataLayer):
+            depths = {}
+            for hole in layer.hole_ids:
+                depths[hole] = data[data["hole ID"] == hole]["depth"]
+
+            overlap_filter = filter_hole_intervals_by_points(
+                hole_id, from_to, depths, tolerance
+            )
+
+        self.boolean_filter = overlap_filter
+
+    def select_by(self, layer, overlap="partial", tolerance=0.001):
+        from .layer import IntervalDataLayer, PointDataLayer
+
+        from_to = self.data[["from", "to"]]
+        hole_id = self.data["hole ID"]
+
+        data = layer.data
+
+        if isinstance(layer, IntervalDataLayer):
+            ranges = {}
+            for hole in layer.hole_ids:
+                ranges[hole] = data[data["hole ID"] == hole][["from", "to"]].values
+
+            selected_ids = select_hole_intervals_by_intervals(
+                hole_id, from_to, ranges, overlap, tolerance
+            )
+
+        elif isinstance(layer, PointDataLayer):
+            depths = {}
+            for hole in layer.hole_ids:
+                depths[hole] = data[data["hole ID"] == hole]["depth"]
+
+            selected_ids = select_hole_intervals_by_points(
+                hole_id, from_to, depths, tolerance
+            )
+
+        self.selected_ids = selected_ids
