@@ -20,7 +20,7 @@ from ..utils import (
 )
 from ..image.image_mixin import ImageMixin
 from ..plot.plotting_mixin import Plotting2dMixin
-from ..layer.inter_layer_mixin import IntervalByMixin
+from ..layer.inter_layer_mixin import IntervalInterLayerMixin
 from ..drill_log import DrillLog
 
 
@@ -1297,7 +1297,7 @@ class PointDataLayer(_DataLayer, _PointLayer):
         return log.fig
 
 
-class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalByMixin):
+class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
     def __init__(self, name, mesh, actor, plotter, *args, **kwargs):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
