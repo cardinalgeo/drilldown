@@ -28,7 +28,6 @@ class HoleData:
         self._depths = None
         self.data = {}
         self.image_array_names = []
-        self.code_to_color_map = {}
         self.cat_to_color_map = {}
         self.code_to_cat_map = {}
         self.cat_to_code_map = {}
@@ -119,10 +118,6 @@ class HoleData:
             self.matplotlib_formatted_color_maps[array_name] = (
                 matplotlib_formatted_color_maps
             )
-            self.code_to_color_map[array_name] = {
-                code: cat_to_color_map[cat]
-                for code, cat in self.code_to_cat_map[array_name].items()
-            }
 
     def add_categorical_cmap(self, array_name, cmap=None, cycle=True):
         if array_name not in self.categorical_array_names:
@@ -161,14 +156,16 @@ class HoleData:
 
             # create encoded categorical color map
             codes = [self.cat_to_code_map[array_name][cat] for cat in categories]
-            self.code_to_color_map[array_name] = {
-                code: color for code, color in zip(codes, colors)
-            }
 
             # create matplotlib categorical color map
             codes.sort()
             self.matplotlib_formatted_color_maps[array_name] = ListedColormap(
-                [self.code_to_color_map[array_name][code] for code in codes]
+                [
+                    self.cat_to_color_map[array_name][
+                        self.code_to_cat_map[array_name][code]
+                    ]
+                    for code in codes
+                ]
             )
 
     @property
@@ -600,7 +597,6 @@ class DrillHole:
 
         self.cat_to_code_map = {}
         self.code_to_cat_map = {}
-        self.code_to_color_map = {}
         self.cat_to_color_map = {}
         self.matplotlib_formatted_color_maps = {}
 
@@ -657,7 +653,6 @@ class DrillHole:
     def _add_data(self, data, name=None):
         self.cat_to_code_map[name] = data.cat_to_code_map
         self.code_to_cat_map[name] = data.code_to_cat_map
-        self.code_to_color_map[name] = data.code_to_color_map
         self.cat_to_color_map[name] = data.cat_to_color_map
         self.matplotlib_formatted_color_maps[name] = (
             data.matplotlib_formatted_color_maps
