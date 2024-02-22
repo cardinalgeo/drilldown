@@ -184,9 +184,9 @@ class DrillDownPlotter(Plotter):
         )
 
         # handle categorical, continuous, and image arrays
-        layer._categorical_array_names = intervals.categorical_vars
-        layer._continuous_array_names = intervals.continuous_vars
-        layer._image_array_names = intervals.image_var_names
+        layer._categorical_array_names = intervals.categorical_array_names
+        layer._continuous_array_names = intervals.continuous_array_names
+        layer._image_array_names = intervals.image_array_names
 
         # enable decoding of hole IDs and categorical arrays
         layer.code_to_cat_map = intervals.code_to_cat_map
@@ -258,9 +258,9 @@ class DrillDownPlotter(Plotter):
         )
 
         # handle categorical, continuous, and image arrays
-        layer._categorical_array_names = points.categorical_vars
-        layer._continuous_array_names = points.continuous_vars
-        layer._image_array_names = points.image_var_names
+        layer._categorical_array_names = points.categorical_array_names
+        layer._continuous_array_names = points.continuous_array_names
+        layer._image_array_names = points.image_array_names
 
         # enable decoding of hole IDs and categorical arrays
         layer.code_to_cat_map = points.code_to_cat_map

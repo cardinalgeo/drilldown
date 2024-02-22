@@ -1265,7 +1265,7 @@ class PointDataLayer(_DataLayer, _PointLayer, PointInterLayerMixin):
                 "Drill log can only be created for a single hole at a time."
             )
 
-        # check if no variables are passed; if so, use all variables
+        # check if no array names are passed; if so, use all array names
         if len(log_array_names) == 0:
             log_array_names = self.categorical_array_names + self.continuous_array_names
 
@@ -1409,7 +1409,7 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
                 "Drill log can only be created for a single hole at a time."
             )
 
-        # check if no variables are passed; if so, use all variables
+        # check if no array names are passed; if so, use all array names
         if len(log_array_names) == 0:
             log_array_names = self.categorical_array_names + self.continuous_array_names
 
