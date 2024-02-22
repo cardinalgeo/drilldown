@@ -1260,7 +1260,9 @@ class PointDataLayer(_DataLayer, _PointLayer, PointInterLayerMixin):
         data = self.selected_data
 
         hole_id = self.selected_hole_ids
-        if len(hole_id) != 1:
+        if len(hole_id) == 0:
+            raise ValueError("No data selected.")
+        if len(hole_id) > 1:
             raise ValueError(
                 "Drill log can only be created for a single hole at a time."
             )
@@ -1404,7 +1406,9 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
         data = self.selected_data
 
         hole_id = self.selected_hole_ids
-        if len(hole_id) != 1:
+        if len(hole_id) == 0:
+            raise ValueError("No data selected.")
+        if len(hole_id) > 1:
             raise ValueError(
                 "Drill log can only be created for a single hole at a time."
             )
