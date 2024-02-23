@@ -27,29 +27,24 @@ class LayerUI(vuetify.VCard):
 
         with self:
             with vuetify.VRow(
-                style="height: 50%;",
                 classes="ma-0 pa-0 d-flex align-center",
             ):
                 with vuetify.VCol(
                     cols="2",
-                    style="width: 10%;",
                     classes="ma-0 pa-0",
                 ):
                     with vuetify.VBtn(
                         icon=True,
-                        style="height: 50%;",
                         classes="ma-0 pa-0",
                     ) as self.visibility_button:
                         vuetify.VIcon(
                             "mdi-eye",
-                            style="height: 50%;",
                             classes="ma-0 pa-0",
                             v_if=f"visibility_{self.id}",
                             click=(self.on_visibility_button_click),
                         )
                         vuetify.VIcon(
                             "mdi-eye-off",
-                            style="height: 50%;",
                             classes="ma-0 pa-0",
                             v_if=f"!visibility_{self.id}",
                             click=(self.on_visibility_button_click),
@@ -57,7 +52,6 @@ class LayerUI(vuetify.VCard):
 
                 with vuetify.VCol(
                     cols="8",
-                    style="width: 70%;",
                     classes="ma-0 pa-0",
                 ):
                     vuetify.VCardText(
@@ -68,15 +62,14 @@ class LayerUI(vuetify.VCard):
 
                 with vuetify.VCol(
                     cols="2",
-                    style="width: 10%;",
                     classes="ma-0 pa-0",
                 ):
+                    icon_style = ""
                     if isinstance(self.layer, IntervalDataLayer):
                         icon_name = "mdi-ladder"
-                        icon_style = "height: 50%;"
                     elif isinstance(self.layer, PointDataLayer):
                         icon_name = "mdi-ray-start-vertex-end"
-                        icon_style = "height: 50%; transform: rotate(90deg);"
+                        icon_style += "transform: rotate(90deg);"
 
                     vuetify.VIcon(
                         icon_name,
