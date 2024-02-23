@@ -8,7 +8,7 @@ import pandas as pd
 import distinctipy
 from matplotlib.colors import ListedColormap
 
-from .plotter import DrillDownPlotter
+from .plotter import Plotter
 from .drill_log import DrillLog
 from .utils import (
     convert_to_numpy_array,
@@ -267,7 +267,7 @@ class Points(HoleData):
         if self.mesh is None:
             self._construct_categorical_cmap()
 
-        p = DrillDownPlotter()
+        p = Plotter()
         p.matplotlib_formatted_color_maps = self.matplotlib_formatted_color_maps
         p.add_points(self, "points", selectable=False, *args, **kwargs)
 
@@ -424,7 +424,7 @@ class Intervals(HoleData):
         if self.mesh is None:
             self._construct_categorical_cmap()
 
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_intervals(self, "intervals", selectable=False, *args, **kwargs)
 
         if show_collars == True:
@@ -505,7 +505,7 @@ class Collars:
         return mesh
 
     def show(self, *args, **kwargs):
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_collars(self, *args, **kwargs)
 
         return p.show()
@@ -573,7 +573,7 @@ class Surveys:
         return mesh
 
     def show(self, show_collars=False, *args, **kwargs):
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_surveys(self, *args, **kwargs)
 
         if show_collars == True:
@@ -754,14 +754,14 @@ class DrillHole:
 
     def show_collar(self, *args, **kwargs):
         collar_mesh = self.make_collar_mesh()
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_collars(collar_mesh, *args, **kwargs)
 
         return p.show()
 
     def show_survey(self, show_collar=False, *args, **kwargs):
         survey_mesh = self.make_survey_mesh()
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_surveys(survey_mesh, *args, **kwargs)
 
         if show_collar == True:
@@ -777,7 +777,7 @@ class DrillHole:
             name = list(self.intervals.keys())[0]
 
         intervals_mesh = self.make_intervals_mesh(name)
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_intervals(
             intervals_mesh,
             name,
@@ -804,7 +804,7 @@ class DrillHole:
             name = list(self.points.keys())[0]
 
         points_mesh = self.make_points_mesh(name)
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_points(
             points_mesh,
             name,
@@ -830,7 +830,7 @@ class DrillHole:
         intervals_mesh = self.make_intervals_mesh()
         points_mesh = self.make_points_mesh()
 
-        p = DrillDownPlotter()
+        p = Plotter()
         p.add_collars(collar_mesh)
         p.add_surveys(survey_mesh)
 

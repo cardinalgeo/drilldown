@@ -3,7 +3,7 @@ from vtk import (
     vtkPropPicker,
     vtkMapper,
 )
-from pyvista import Plotter
+import pyvista as pv
 from pyvista.trame.jupyter import show_trame
 from trame.app import get_server
 
@@ -28,7 +28,7 @@ def actors_collection_to_list(actors_collection):
     return actors_list
 
 
-class DrillDownPlotter(Plotter):
+class Plotter(pv.Plotter):
     """Plotting object for displaying drillholes and related datasets."""
 
     def __init__(self, *args, **kwargs):

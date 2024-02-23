@@ -6,7 +6,7 @@ from trame_server.utils.browser import open_browser
 from pyvista.trame import PyVistaRemoteView
 from pyvista.trame.jupyter import elegantly_launch
 
-from ..plotter import DrillDownPlotter
+from ..plotter import Plotter
 from ..utils import is_jupyter
 from ..layer.layer import IntervalDataLayer, PointDataLayer
 
@@ -24,7 +24,7 @@ def ui_card(title, ui_name):
     return content
 
 
-class DrillDownTramePlotter(DrillDownPlotter):
+class DrillDownPlotter(Plotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._ui = None
@@ -152,7 +152,7 @@ class DrillDownTramePlotter(DrillDownPlotter):
         def update_controls_mesh(ctrl_mesh_name, **kwargs):
             layer = self.layers[ctrl_mesh_name]
 
-            # update active var
+            # update active array name
             state.active_array_name_visible = True
             state.array_names = layer.array_names
             state.active_array_name = layer.active_array_name
