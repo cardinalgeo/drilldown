@@ -1253,7 +1253,7 @@ class PointDataLayer(_DataLayer, _PointLayer, PointInterLayerMixin):
 
         return data
 
-    def selected_drill_log(
+    def drill_log_from_selection(
         self,
         log_array_names=[],
     ):
@@ -1399,7 +1399,7 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
 
         return data
 
-    def selected_drill_log(
+    def drill_log_from_selection(
         self,
         log_array_names=[],
     ):
