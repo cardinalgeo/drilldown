@@ -10,6 +10,7 @@ from ..plotter import Plotter
 from ..utils import is_jupyter
 from ..layer.layer import IntervalDataLayer, PointDataLayer
 from .layer_list import LayerListUI
+from .controls import ControlsUI
 
 
 def ui_card(title, ui_name):
@@ -81,75 +82,12 @@ class DrillDownPlotter(Plotter):
                 ):
                     PyVistaRemoteView(self)
 
-            with layout.drawer as drawer:
+            with layout.drawer as self.drawer:
                 with vuetify.VContainer(
                     classes="fill-height pa-0 ma-0", style="overflow: hidden;"
                 ) as self.drawer_content:
-                    with vuetify.VCard(
-                        elevation=0,
-                        style="background-color: #f5f5f5; overflow: hidden; height: 40%; width: 90%; margin-left: auto; margin-right: auto; margin-top: auto; margin-bottom: auto;",
-                    ):
-
-                        vuetify.VSlider(
-                            hide_details=True,
-                            label="opacity",
-                            v_model=("opacity",),
-                            max=1,
-                            min=0,
-                            step=0.001,
-                            style="width: 90%; margin-left: auto; margin-right: auto",
-                        )
-                        if (isinstance(self.layers[-1], IntervalDataLayer)) or (
-                            isinstance(self.layers[-1], PointDataLayer)
-                        ):
-                            vuetify.VDivider(
-                                classes="mb-2",
-                                v_show=("divider_visible", True),
-                                style="width: 90%; margin-left: auto; margin-right: auto",
-                            )
-                            visible = True
-                        else:
-                            visible = False
-
-                        vuetify.VSelect(
-                            label="active array name",
-                            v_show=("active_array_name_visible", visible),
-                            v_model=(
-                                "active_array_name",
-                                self.layers[-1].active_array_name,
-                            ),
-                            items=("array_names",),
-                            classes="pt-1",
-                            style="width: 90%; margin-left: auto; margin-right: auto",
-                            # **DROPDOWN_STYLES,
-                        )
-
-                        if (visible == False) or (
-                            self.state.active_array_name
-                            in self.layers[-1].categorical_array_names
-                        ):
-                            visible = False
-
-                        vuetify.VSelect(
-                            label="colormap",
-                            v_show=("cmap_visible", visible),
-                            v_model=("cmap",),
-                            items=("cmap_fields",),
-                            classes="pt-1",
-                            style="width: 90%; margin-left: auto; margin-right: auto",
-                        )
-
-                        vuetify.VRangeSlider(
-                            label="colormap limits",
-                            v_show=("clim_visible", visible),
-                            v_model=("clim",),
-                            min=("clim_min",),
-                            max=("clim_max",),
-                            step=("clim_step",),
-                            classes="pt-1",
-                            style="width: 90%; margin-left: auto; margin-right: auto",
-                        )
-
+                    active_layer = self.layers[-1]
+                    self.controls_ui = ControlsUI(active_layer)
                     self.layer_list_ui = LayerListUI()
 
         for layer in self.layers:
