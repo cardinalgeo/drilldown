@@ -104,34 +104,34 @@ class DrillLog:
         self.categorical_point_data = {}
         self.continuous_point_data = {}
 
-        # initialize vars
-        self.categorical_interval_vars = []
-        self.continuous_interval_vars = []
-        self.categorical_point_vars = []
-        self.continuous_point_vars = []
+        # initialize array names
+        self.categorical_interval_array_names = []
+        self.continuous_interval_array_names = []
+        self.categorical_point_array_names = []
+        self.continuous_point_array_names = []
 
         # initialize categorical mapping
         self.cat_to_color_map = {}
 
     def create_figure(self, y_axis_label=None, title=None):
-        # get total number of variables
-        self.vars = (
-            self.categorical_interval_vars
-            + self.continuous_interval_vars
-            + self.categorical_point_vars
-            + self.continuous_point_vars
+        # get total number of array_names
+        self.array_names = (
+            self.categorical_interval_array_names
+            + self.continuous_interval_array_names
+            + self.categorical_point_array_names
+            + self.continuous_point_array_names
         )
 
-        if len(self.vars) == 0:
+        if len(self.array_names) == 0:
             raise ValueError(
                 "No data has been added to the drill log. Please add data."
             )
 
         # get number of columns
-        self.n_categorical_interval_cols = len(self.categorical_interval_vars)
-        self.n_continuous_interval_cols = len(self.continuous_interval_vars)
-        self.n_categorical_point_cols = len(self.categorical_point_vars)
-        self.n_continuous_point_cols = len(self.continuous_point_vars)
+        self.n_categorical_interval_cols = len(self.categorical_interval_array_names)
+        self.n_continuous_interval_cols = len(self.continuous_interval_array_names)
+        self.n_categorical_point_cols = len(self.categorical_point_array_names)
+        self.n_continuous_point_cols = len(self.continuous_point_array_names)
 
         self.n_cols = (
             self.n_categorical_interval_cols
@@ -152,45 +152,45 @@ class DrillLog:
 
         cum_cols = 0
         if self.categorical_interval_data:
-            for col, var in enumerate(self.categorical_interval_vars):
-                name = var
-                depths = self.categorical_interval_data[var]["depths"]
-                values = self.categorical_interval_data[var]["values"]
+            for col, array_name in enumerate(self.categorical_interval_array_names):
+                name = array_name
+                depths = self.categorical_interval_data[array_name]["depths"]
+                values = self.categorical_interval_data[array_name]["values"]
                 self._add_categorical_interval_data(
                     name,
                     depths,
                     values,
-                    self.cat_to_color_map[var],
+                    self.cat_to_color_map[array_name],
                     col=cum_cols + col + 1,
                 )
             cum_cols += col + 1
 
         if self.continuous_interval_data:
-            for col, var in enumerate(self.continuous_interval_vars):
-                name = var
-                depths = self.continuous_interval_data[var]["depths"]
-                values = self.continuous_interval_data[var]["values"]
+            for col, array_name in enumerate(self.continuous_interval_array_names):
+                name = array_name
+                depths = self.continuous_interval_data[array_name]["depths"]
+                values = self.continuous_interval_data[array_name]["values"]
                 self._add_continuous_interval_data(
                     name, depths, values, col=cum_cols + col + 1
                 )
             cum_cols += col + 1
 
         if self.categorical_point_data:
-            for col, var in enumerate(self.categorical_point_vars):
-                name = var
-                depths = self.categorical_point_data[var]["depths"]
-                values = self.categorical_point_data[var]["values"]
+            for col, array_name in enumerate(self.categorical_point_array_names):
+                name = array_name
+                depths = self.categorical_point_data[array_name]["depths"]
+                values = self.categorical_point_data[array_name]["values"]
                 self._add_categorical_point_data(
                     name,
                     depths,
                     values,
-                    self.cat_to_color_map[var],
+                    self.cat_to_color_map[array_name],
                     col=cum_cols + col + 1,
                 )
             cum_cols += col + 1
 
         if self.continuous_point_data:
-            for var in self.continuous_point_data.keys():
+            for array_name in self.continuous_point_data.keys():
                 pass
 
         # set moving horizontal line
@@ -229,7 +229,7 @@ class DrillLog:
             raise ValueError("The number of columns in depths must be one or two.")
 
         self.categorical_interval_data[name] = {"depths": depths, "values": values}
-        self.categorical_interval_vars += [name]
+        self.categorical_interval_array_names += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
@@ -246,7 +246,7 @@ class DrillLog:
             raise ValueError("The number of columns in depths must be one or two.")
 
         self.continuous_interval_data[name] = {"depths": depths, "values": values}
-        self.continuous_interval_vars += [name]
+        self.continuous_interval_array_names += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
@@ -258,7 +258,7 @@ class DrillLog:
             raise ValueError("The number of columns in depths must be one or two.")
 
         self.categorical_point_data[name] = {"depths": depths, "values": values}
-        self.categorical_point_vars += [name]
+        self.categorical_point_array_names += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
@@ -275,7 +275,7 @@ class DrillLog:
             raise ValueError("The number of columns in depths must be one or two.")
 
         self.continuous_point_data[name] = {"depths": depths, "values": values}
-        self.continuous_point_vars += [name]
+        self.continuous_point_array_names += [name]
         self.subplot_titles += [name]
         self._update_depth_range(depths)
 
