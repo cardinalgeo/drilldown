@@ -3,6 +3,8 @@ import uuid
 import time
 import numpy as np
 
+from ..layer.layer import IntervalDataLayer, PointDataLayer
+
 
 class LayerUI(vuetify.VCard):
     def __init__(self, layer):
@@ -54,14 +56,32 @@ class LayerUI(vuetify.VCard):
                         )
 
                 with vuetify.VCol(
-                    cols="10",
-                    style="width: 80%;",
+                    cols="8",
+                    style="width: 70%;",
                     classes="ma-0 pa-0",
                 ):
                     vuetify.VCardText(
                         self.name,
                         classes="py-2 ma-0 pa-0 text-center",
                         style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;",
+                    )
+
+                with vuetify.VCol(
+                    cols="2",
+                    style="width: 10%;",
+                    classes="ma-0 pa-0",
+                ):
+                    if isinstance(self.layer, IntervalDataLayer):
+                        icon_name = "mdi-ladder"
+                        icon_style = "height: 50%;"
+                    elif isinstance(self.layer, PointDataLayer):
+                        icon_name = "mdi-ray-start-vertex-end"
+                        icon_style = "height: 50%; transform: rotate(90deg);"
+
+                    vuetify.VIcon(
+                        icon_name,
+                        style=icon_style,
+                        classes="ma-0 pa-0",
                     )
 
     def on_layer_click(self):
