@@ -37,16 +37,14 @@ class HoleData:
 
     def add_data(
         self,
-        array_names,
         hole_ids,
         depths,
         data,
+        array_names=[],
         image_array_names=[],
         return_data=False,
         construct_categorical_cmap=False,
     ):
-        # add array_names
-        self.array_names_all += array_names
 
         # save flag to construct categorical color map
         self.construct_categorical_cmap = construct_categorical_cmap
@@ -71,6 +69,15 @@ class HoleData:
         self.depths = depths
 
         # add data
+        if isinstance(data, pd.core.frame.DataFrame):
+            array_names = data.columns.tolist()
+            self.array_names_all += array_names
+            data = data.values
+
+        else:
+            if len(array_names) == 0:
+                raise ValueError("Array names must be provided.")
+
         data = convert_to_numpy_array(data, collapse_dim=False)
         for dataset, array_name in zip(data.T, array_names):
             dataset, _type = convert_array_type(dataset, return_type=True)
@@ -189,7 +196,6 @@ class Points(HoleData):
 
     def add_data(
         self,
-        array_names,
         hole_ids,
         depths,
         data,
@@ -198,7 +204,6 @@ class Points(HoleData):
         **kwargs,
     ):
         super().add_data(
-            array_names,
             hole_ids,
             depths,
             data,
@@ -327,7 +332,6 @@ class Intervals(HoleData):
 
     def add_data(
         self,
-        array_names,
         hole_ids,
         depths,
         data,
@@ -336,7 +340,6 @@ class Intervals(HoleData):
         **kwargs,
     ):
         super().add_data(
-            array_names,
             hole_ids,
             depths,
             data,
