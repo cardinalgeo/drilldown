@@ -9,6 +9,8 @@ from pyvista.trame.jupyter import elegantly_launch
 from ..plotter import Plotter
 from ..utils import is_jupyter
 from ..layer.layer import IntervalDataLayer, PointDataLayer
+from .layer_list import LayerListUI
+from .controls import ControlsUI
 
 
 def ui_card(title, ui_name):
@@ -28,6 +30,8 @@ class DrillDownPlotter(Plotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._ui = None
+        self.layer_list_ui = None
+        self.state.ctrl_mesh_name = 0
 
     def show(self, inline=False, return_viewer=False):
         if return_viewer == True:
@@ -78,70 +82,19 @@ class DrillDownPlotter(Plotter):
                 ):
                     PyVistaRemoteView(self)
 
-            with layout.drawer as drawer:
-                with ui_card("Controls", "controls"):
-                    vuetify.VSelect(
-                        label="controls mesh",
-                        v_model=("ctrl_mesh_name", self.layers[-1].name),
-                        items=("layer_names",),
-                        classes="pt-1",
-                    )
-                    vuetify.VDivider(classes="mb-2")
+            with layout.drawer as self.drawer:
+                with vuetify.VContainer(
+                    classes="fill-height pa-0 ma-0", style="overflow: hidden;"
+                ) as self.drawer_content:
+                    active_layer = self.layers[-1]
+                    self.controls_ui = ControlsUI(active_layer)
+                    self.layer_list_ui = LayerListUI()
 
-                    vuetify.VSlider(
-                        hide_details=True,
-                        label="opacity",
-                        v_model=("opacity",),
-                        max=1,
-                        min=0,
-                        step=0.001,
-                        style="max-width: 300px;",
-                    )
-                    if (isinstance(self.layers[-1], IntervalDataLayer)) or (
-                        isinstance(self.layers[-1], PointDataLayer)
-                    ):
-                        vuetify.VDivider(
-                            classes="mb-2", v_show=("divider_visible", True)
-                        )
-                        visible = True
-                    else:
-                        visible = False
+        for layer in self.layers:
+            self.layer_list_ui.add_layer(layer)
 
-                    vuetify.VSelect(
-                        label="active array name",
-                        v_show=("active_array_name_visible", visible),
-                        v_model=(
-                            "active_array_name",
-                            self.layers[-1].active_array_name,
-                        ),
-                        items=("array_names",),
-                        classes="pt-1",
-                        # **DROPDOWN_STYLES,
-                    )
-
-                    if (visible == False) or (
-                        self.state.active_array_name
-                        in self.layers[-1].categorical_array_names
-                    ):
-                        visible = False
-
-                    vuetify.VSelect(
-                        label="colormap",
-                        v_show=("cmap_visible", visible),
-                        v_model=("cmap",),
-                        items=("cmap_fields",),
-                        classes="pt-1",
-                    )
-
-                    vuetify.VRangeSlider(
-                        label="colormap limits",
-                        v_show=("clim_visible", visible),
-                        v_model=("clim",),
-                        min=("clim_min",),
-                        max=("clim_max",),
-                        step=("clim_step",),
-                        classes="pt-1",
-                    )
+        layout.flush_content()
+        self.state.flush()
 
         return layout
 
@@ -220,3 +173,17 @@ class DrillDownPlotter(Plotter):
                 abs(clim[1] - layer.clim[1]) > 1e-6
             ):
                 layer.clim = clim
+
+    def add_intervals(self, *args, **kwargs):
+        super().add_intervals(*args, **kwargs)
+        if self.layer_list_ui is not None:
+            self.layer_list_ui.add_layer(self.layers[-1])
+            self._ui.flush_content()
+            self.state.flush()
+
+    def add_points(self, *args, **kwargs):
+        super().add_points(*args, **kwargs)
+        if self.layer_list_ui is not None:
+            self.layer_list_ui.add_layer(self.layers[-1])
+            self._ui.flush_content()
+            self.state.flush()
