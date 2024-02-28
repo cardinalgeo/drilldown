@@ -536,6 +536,9 @@ class Surveys:
                 "Hole IDs and survey measurements must have the same length."
             )
 
+        if np.any(np.abs(dip) > 90):
+            raise ValueError("Dip values must be between -90 and 90 degrees.")
+
         self.unique_hole_ids = np.unique(hole_ids)
         self.measurements = np.c_[hole_ids, dist, azm, dip]
 
