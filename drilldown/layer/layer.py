@@ -439,7 +439,7 @@ class _IntervalLayer(_BaseLayer):
         plotter,
         pickable=True,
         accelerated_picking=False,
-        n_sides=20,
+        cells_per_interval=22,
         *args,
         **kwargs,
     ):
@@ -461,8 +461,8 @@ class _IntervalLayer(_BaseLayer):
         if self.pickable:
             self._make_pickable()
 
-        self.n_sides = n_sides
-        self.n_intervals = int(mesh.n_cells / n_sides)
+        self.cells_per_interval = cells_per_interval
+        self.n_intervals = int(mesh.n_cells / cells_per_interval)
 
     def _make_pickable(self):
         self.picker = vtkCellPicker()
@@ -521,13 +521,11 @@ class _IntervalLayer(_BaseLayer):
                 self._picked_cell = picked_cell
 
     def _make_single_selection(self, picked_cell, on_filter=False):
-        cells_per_interval = self.n_sides
-
-        selected_interval = int(np.floor(picked_cell / cells_per_interval))
+        selected_interval = int(np.floor(picked_cell / self.cells_per_interval))
 
         selected_cells = np.arange(
-            selected_interval * cells_per_interval,
-            (selected_interval + 1) * cells_per_interval,
+            selected_interval * self.cells_per_interval,
+            (selected_interval + 1) * self.cells_per_interval,
         ).tolist()
 
         if on_filter:
@@ -538,12 +536,10 @@ class _IntervalLayer(_BaseLayer):
         self._selected_cells = selected_cells
 
     def _make_discontinuous_multi_selection(self, picked_cell, on_filter=False):
-        cells_per_interval = self.n_sides
-
-        selected_interval = int(np.floor(picked_cell / cells_per_interval))
+        selected_interval = int(np.floor(picked_cell / self.cells_per_interval))
         selected_cells = np.arange(
-            selected_interval * cells_per_interval,
-            (selected_interval + 1) * cells_per_interval,
+            selected_interval * self.cells_per_interval,
+            (selected_interval + 1) * self.cells_per_interval,
         ).tolist()
 
         if on_filter:
@@ -554,8 +550,6 @@ class _IntervalLayer(_BaseLayer):
         self._selected_cells += selected_cells
 
     def _make_continuous_multi_selection(self, picked_cell, on_filter=False):
-        cells_per_interval = self.n_sides
-
         if on_filter:
             prev_picked_cell = np.where(self._filtered_cells == self._picked_cell)[0][0]
             prev_selected_intervals = np.where(
@@ -575,11 +569,11 @@ class _IntervalLayer(_BaseLayer):
             if prev_picked_cell < picked_cell:  # normal direction (down the hole)
                 selected_intervals = np.arange(
                     prev_selected_intervals[-1] + 1,
-                    int(np.floor(picked_cell / cells_per_interval)) + 1,
+                    int(np.floor(picked_cell / self.cells_per_interval)) + 1,
                 ).tolist()
                 selected_cells = np.arange(
-                    (selected_intervals[0]) * cells_per_interval,
-                    (selected_intervals[-1] + 1) * cells_per_interval,
+                    (selected_intervals[0]) * self.cells_per_interval,
+                    (selected_intervals[-1] + 1) * self.cells_per_interval,
                 ).tolist()
 
                 if on_filter:
@@ -593,12 +587,12 @@ class _IntervalLayer(_BaseLayer):
 
             else:  # reverse direction (up the hole)
                 selected_intervals = np.arange(
-                    int(np.floor(picked_cell / cells_per_interval)),
+                    int(np.floor(picked_cell / self.cells_per_interval)),
                     prev_selected_intervals[-1],
                 ).tolist()
                 selected_cells = np.arange(
-                    (selected_intervals[0] * cells_per_interval),
-                    (selected_intervals[-1] + 1) * cells_per_interval,
+                    (selected_intervals[0] * self.cells_per_interval),
+                    (selected_intervals[-1] + 1) * self.cells_per_interval,
                 ).tolist()
 
                 if on_filter:
@@ -638,11 +632,10 @@ class _IntervalLayer(_BaseLayer):
 
         intervals = intervals.tolist()
         interval_cells = []
-        cells_per_interval = self.n_sides
         for interval in intervals:
             interval_cells += np.arange(
-                interval * cells_per_interval,
-                (interval + 1) * cells_per_interval,
+                interval * self.cells_per_interval,
+                (interval + 1) * self.cells_per_interval,
             ).tolist()
 
         self._selected_intervals = intervals
@@ -723,9 +716,8 @@ class _IntervalLayer(_BaseLayer):
         self._boolean_filter = boolean_filter
         self._filtered_intervals = np.arange(self.n_intervals)[boolean_filter]
 
-        cells_per_interval = self.n_sides
-        boolean_cell_filter = np.repeat(boolean_filter, cells_per_interval)
-        self._filtered_cells = np.arange(self.n_intervals * cells_per_interval)[
+        boolean_cell_filter = np.repeat(boolean_filter, self.cells_per_interval)
+        self._filtered_cells = np.arange(self.n_intervals * self.cells_per_interval)[
             boolean_cell_filter
         ]
 
@@ -1307,8 +1299,7 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
         return self.data[key]
 
     def __setitem__(self, key, value):
-        cells_per_interval = self.n_sides
-        value = np.repeat(value, cells_per_interval)
+        value = np.repeat(value, self.cells_per_interval)
 
         value, _type = convert_array_type(value, return_type=True)
         if _type == "str":  # categorical data
@@ -1331,7 +1322,7 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
 
         self.mesh[key] = value
         if self.filter_actor is not None:
-            boolean_filter = np.repeat(self.boolean_filter, cells_per_interval)
+            boolean_filter = np.repeat(self.boolean_filter, self.cells_per_interval)
             self.filter_actor.mapper.dataset[key] = value[boolean_filter]
 
         if key not in self.array_names:
@@ -1395,7 +1386,9 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
         ]  # added by pvista; first has excess dims
         array_names = [name for name in self.mesh.array_names if name not in exclude]
 
-        data = super()._process_data_output(ids, array_names, step=self.n_sides)
+        data = super()._process_data_output(
+            ids, array_names, step=self.cells_per_interval
+        )
 
         return data
 

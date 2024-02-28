@@ -179,6 +179,10 @@ class Plotter(pv.Plotter):
 
         actor.visibility = visibility
 
+        cells_per_interval = n_sides
+        if capping == True:
+            cells_per_interval += 2
+
         layer = IntervalDataLayer(
             name,
             mesh,
@@ -186,7 +190,7 @@ class Plotter(pv.Plotter):
             self,
             visibility=visibility,
             opacity=opacity,
-            n_sides=n_sides,
+            cells_per_interval=cells_per_interval,
             selection_color=selection_color,
         )
 
