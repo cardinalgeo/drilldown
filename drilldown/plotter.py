@@ -124,7 +124,11 @@ class Plotter(pv.Plotter):
             surveys.make_mesh()
 
         mesh = surveys.mesh
-        actor = self.add_mesh(mesh, name="surveys", opacity=opacity, *args, **kwargs)
+
+        mesh = mesh.tube(radius=0.2, n_sides=10, capping=True)
+        actor = self.add_mesh(
+            mesh, name="surveys", opacity=opacity, color="black", *args, **kwargs
+        )
         self.survey_actor = actor
 
         return actor
@@ -137,6 +141,7 @@ class Plotter(pv.Plotter):
         selectable=True,
         radius=1.5,
         n_sides=20,
+        capping=True,
         active_array_name=None,
         cmap=None,
         clim=None,
@@ -156,7 +161,7 @@ class Plotter(pv.Plotter):
             intervals.make_mesh()
 
         mesh = intervals.mesh
-        mesh = mesh.tube(radius=radius, n_sides=n_sides, capping=False)
+        mesh = mesh.tube(radius=radius, n_sides=n_sides, capping=capping)
 
         kwargs = {k: v for k, v in kwargs.items() if k != "visibility"}
         actor = self.add_mesh(
