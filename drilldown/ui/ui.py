@@ -3,7 +3,7 @@ from trame.widgets import vuetify, markdown
 from trame.ui.vuetify import SinglePageWithDrawerLayout
 from trame_server.utils.browser import open_browser
 
-from pyvista.trame import PyVistaRemoteView
+from pyvista.trame import PyVistaRemoteView, get_viewer
 from pyvista.trame.jupyter import elegantly_launch
 
 from ..plotter import Plotter
@@ -33,13 +33,13 @@ class DrillDownPlotter(Plotter):
         self.layer_list_ui = None
         self.state.ctrl_mesh_name = 0
 
-    def show(self, inline=False, return_viewer=False):
+    def show(self, inline=False, menu_button=False, return_viewer=False):
         if return_viewer == True:
             viewer = super().show(return_viewer=True)
 
             return viewer
 
-        self._ui = self._initialize_ui()
+        self._ui = self._initialize_ui(menu_button=menu_button)
         self._initialize_engine()
 
         if inline == True:
@@ -67,7 +67,7 @@ class DrillDownPlotter(Plotter):
             ctrl = self.server.controller
             ctrl.on_server_ready.add(lambda **kwargs: open_browser(self.server))
 
-    def _initialize_ui(self):
+    def _initialize_ui(self, menu_button=False):
         with SinglePageWithDrawerLayout(self.server) as layout:
             layout.title.set_text("")
             with layout.footer as footer:
@@ -81,7 +81,12 @@ class DrillDownPlotter(Plotter):
                     fluid=True,
                     classes="fill-height pa-0 ma-0",
                 ):
-                    PyVistaRemoteView(self)
+                    if menu_button == True:
+                        get_viewer(self, server=self.server).ui(
+                            mode="server", collapse_menu=True
+                        )
+                    else:
+                        PyVistaRemoteView(self)
 
             with layout.drawer as self.drawer:
                 with vuetify.VContainer(
