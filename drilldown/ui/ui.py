@@ -73,8 +73,9 @@ class DrillDownPlotter(Plotter):
             with layout.footer as footer:
                 footer.clear()
                 footer.style = "z-index: 1000"
-                md = markdown.Markdown()
-                md.update("DrillDown")
+                vuetify.VCardText("DrillDown")
+                # md = markdown.Markdown()
+                # md.update("DrillDown")
             with layout.content:
                 with vuetify.VContainer(
                     fluid=True,
