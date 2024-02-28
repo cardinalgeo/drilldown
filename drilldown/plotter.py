@@ -76,7 +76,9 @@ class Plotter(pv.Plotter):
         self.server.client_type = "vue2"
         self.state.layer_names = []
 
-    def add_collars(self, collars, show_labels=True, opacity=1, *args, **kwargs):
+    def add_collars(
+        self, collars, show_labels=True, opacity=1, point_size=15, *args, **kwargs
+    ):
         from .holes import Collars
 
         if not isinstance(collars, Collars):
@@ -93,7 +95,7 @@ class Plotter(pv.Plotter):
             name=name,
             opacity=opacity,
             render_points_as_spheres=True,
-            point_size=15,
+            point_size=point_size,
             pickable=False,
             *args,
             **kwargs,
