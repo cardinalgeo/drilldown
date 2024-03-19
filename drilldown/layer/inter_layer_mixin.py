@@ -579,7 +579,20 @@ def select_hole_intervals_by_points(hole_id, from_to, depths, tolerance=0.001):
 
 # Point Mixin
 class PointInterLayerMixin:
+    """A mixin class to manager interactions between point layers and other layers"""
+
     def filter_by_selection(self, layer, tolerance=0.001):
+        """Filter points by a selection performed on another layer
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer whose selection will be used to filter the points
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         depths = self.data[["depth"]]
@@ -612,6 +625,17 @@ class PointInterLayerMixin:
         self.boolean_filter = overlap_filter
 
     def select_by_selection(self, layer, tolerance=0.001):
+        """Select points by a selection performed on another layer
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer whose selection will be used to select the points
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         depths = self.data[["depth"]]
@@ -644,6 +668,17 @@ class PointInterLayerMixin:
         self.selected_ids = selected_ids
 
     def filter_by_filter(self, layer, tolerance=0.001):
+        """Filter points by a filter applied to another layer
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer whose filter will be used to filter the points
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         depths = self.data[["depth"]]
@@ -676,6 +711,17 @@ class PointInterLayerMixin:
         self.boolean_filter = overlap_filter
 
     def select_by_filter(self, layer, tolerance=0.001):
+        """Select points by a filter applied to another layer
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer whose filter will be used to select the points
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         depths = self.data[["depth"]]
@@ -708,6 +754,17 @@ class PointInterLayerMixin:
         self.selected_ids = selected_ids
 
     def filter_by(self, layer, tolerance=0.001):
+        """Filter points by another layer
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer used to filter the points
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         depths = self.data[["depth"]]
@@ -736,6 +793,17 @@ class PointInterLayerMixin:
         self.boolean_filter = overlap_filter
 
     def select_by(self, layer, tolerance=0.001):
+        """Select points by another layer
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer used to select the points
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         depths = self.data[["depth"]]
@@ -766,7 +834,24 @@ class PointInterLayerMixin:
 
 # Interval Mixin
 class IntervalInterLayerMixin:
+    """A mixin class to manager interactions between interval layers and other layers"""
+
     def filter_by_selection(self, layer, overlap="partial", tolerance=0.001):
+        """Filter intervals by a selection performed on another layer
+
+        If the second layer is an interval layer, the filter can be applied considering "partial" overlap, for which the intervals to which the filter is applied need only be partially overlapped by the "filtering" intervals, or "complete" overlap, for which the intervals to which the filter is applied must be completely overlapped by the "filtering" intervals.
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer whose selection will be used to filter the intervals
+
+        overlap : str, optional
+            The type of overlap to consider. Must be one of "partial" or "complete", by default "partial"
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         from_to = self.data[["from", "to"]]
@@ -797,6 +882,22 @@ class IntervalInterLayerMixin:
         self.boolean_filter = overlap_filter
 
     def select_by_selection(self, layer, overlap="partial", tolerance=0.001):
+        """Select intervals by a selection performed on another layer
+
+        If the second layer is an interval layer, the selection can be performed considering "partial" overlap, for which the intervals on which the selection is performed need only be partially overlapped by the "selecting" intervals, or "complete" overlap, for which the intervals on which the selection is performed must be completely overlapped by the "selecting" intervals.
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer whose selection will be used to select the intervals
+
+        overlap : str, optional
+            The type of overlap to consider. Must be one of "partial" or "complete", by default "partial"
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         from_to = self.data[["from", "to"]]
@@ -827,6 +928,22 @@ class IntervalInterLayerMixin:
         self.selected_ids = selected_ids
 
     def filter_by_filter(self, layer, overlap="partial", tolerance=0.001):
+        """Filter intervals by a filter applied to another layer
+
+        If the second layer is an interval layer, the filter can be applied considering "partial" overlap, for which the intervals to which the filter is applied need only be partially overlapped by the "filtering" intervals, or "complete" overlap, for which the intervals to which the filter is applied must be completely overlapped by the "filtering" intervals.
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer used to filter the intervals
+
+        overlap : str, optional
+            The type of overlap to consider. Must be one of "partial" or "complete", by default "partial"
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         from_to = self.data[["from", "to"]]
@@ -857,6 +974,22 @@ class IntervalInterLayerMixin:
         self.boolean_filter = overlap_filter
 
     def select_by_filter(self, layer, overlap="partial", tolerance=0.001):
+        """Select intervals by a filter applied to another layer
+
+        If the second layer is an interval layer, the selection can be performed considering "partial" overlap, for which the intervals on which the selection is performed need only be partially overlapped by the "selecting" intervals, or "complete" overlap, for which the intervals on which the selection is performed must be completely overlapped by the "selecting" intervals.
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer used to select the intervals
+
+        overlap : str, optional
+            The type of overlap to consider. Must be one of "partial" or "complete", by default "partial"
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         from_to = self.data[["from", "to"]]
@@ -887,6 +1020,22 @@ class IntervalInterLayerMixin:
         self.selected_ids = selected_ids
 
     def filter_by(self, layer, overlap="partial", tolerance=0.001):
+        """Filter intervals by another layer
+
+        If the second layer is an interval layer, the filter can be applied considering "partial" overlap, for which the intervals to which the filter is applied need only be partially overlapped by the "filtering" intervals, or "complete" overlap, for which the intervals to which the filter is applied must be completely overlapped by the "filtering" intervals.
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer used to filter the intervals
+
+        overlap : str, optional
+            The type of overlap to consider. Must be one of "partial" or "complete", by default "partial"
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         from_to = self.data[["from", "to"]]
@@ -915,6 +1064,22 @@ class IntervalInterLayerMixin:
         self.boolean_filter = overlap_filter
 
     def select_by(self, layer, overlap="partial", tolerance=0.001):
+        """Select intervals by another layer
+
+        If the second layer is an interval layer, the selection can be performed considering "partial" overlap, for which the intervals on which the selection is performed need only be partially overlapped by the "selecting" intervals, or "complete" overlap, for which the intervals on which the selection is performed must be completely overlapped by the "selecting" intervals.
+
+        Parameters
+        ----------
+        layer : drilldown.layer.IntervalDataLayer or drilldown.layer.PointDataLayer
+            The layer used to select the intervals
+
+        overlap : str, optional
+            The type of overlap to consider. Must be one of "partial" or "complete", by default "partial"
+
+        tolerance : float, optional
+            The tolerance for identifying equivalent depths, by default 0.001.
+
+        """
         from .layer import IntervalDataLayer, PointDataLayer
 
         from_to = self.data[["from", "to"]]
