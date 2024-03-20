@@ -814,18 +814,17 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
         self._active_array_name = mesh.active_scalars_name
 
-        if self.name == self.state.ctrl_mesh_name:
-            with self.state:
-                self.state.active_array_name = self._active_array_name
+        self.state.ctrl_mesh_name = self.name
+        with self.state:
+            self.state.active_array_name = self._active_array_name
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"
         ):  # only set if active_array_name is continuous
             self._cmap = actor.mapper.lookup_table.cmap.name
 
-            if self.name == self.state.ctrl_mesh_name:
-                with self.state:
-                    self.state.cmap = self._cmap
+            with self.state:
+                self.state.cmap = self._cmap
 
             self._clim_range = self._calculate_clim_range(self._active_array_name)
 
@@ -839,30 +838,27 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
             self._clim_step = clim_step
             self._clim = actor.mapper.lookup_table.scalar_range
 
-            if self.name == self.state.ctrl_mesh_name:
-                with self.state:
-                    self.state.clim = self._clim
-                    self.state.clim_min = self._clim_range[0]
-                    self.state.clim_max = self._clim_range[1]
-                    self.state.clim_step = self._clim_step
+            with self.state:
+                self.state.clim = self._clim
+                self.state.clim_min = self._clim_range[0]
+                self.state.clim_max = self._clim_range[1]
+                self.state.clim_step = self._clim_step
 
         else:
             self._cmap = None
 
-            if self.name == self.state.ctrl_mesh_name:
-                with self.state:
-                    self.state.cmap = self._cmap
+            with self.state:
+                self.state.cmap = self._cmap
 
             self._clim_range = (0, 0)
             self._clim_step = 0
             self._clim = (0, 0)
 
-            if self.name == self.state.ctrl_mesh_name:
-                with self.state:
-                    self.state.clim = self._clim
-                    self.state.clim_min = self._clim_range[0]
-                    self.state.clim_max = self._clim_range[1]
-                    self.state.clim_step = self._clim_step
+            with self.state:
+                self.state.clim = self._clim
+                self.state.clim_min = self._clim_range[0]
+                self.state.clim_max = self._clim_range[1]
+                self.state.clim_step = self._clim_step
 
         self._cmaps = plt.colormaps()
 
