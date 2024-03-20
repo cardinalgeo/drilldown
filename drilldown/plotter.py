@@ -62,9 +62,8 @@ class Plotter(pv.Plotter):
 
         # track collar and survey actors, in absence of layer classes
         self.collar_actor = None
+        self.collar_label_actor = None
         self.survey_actor = None
-
-        self._show_collar_labels = True
 
         # pickers for pIcKiNg
         self.actor_picker = vtkPropPicker()
@@ -87,8 +86,22 @@ class Plotter(pv.Plotter):
         self.server.client_type = "vue2"
         self.state.layer_names = []
 
+        # track visibility and opacity of collars, collar labels, and surveys
+        self._collar_visibility = True
+        self._collar_opacity = 1
+        self._collar_label_visibility = False
+        self._survey_visibility = True
+        self._survey_opacity = 1
+
     def add_collars(
-        self, collars, show_labels=True, opacity=1, point_size=15, *args, **kwargs
+        self,
+        collars,
+        show_labels=True,
+        opacity=1,
+        point_size=15,
+        visibility=True,
+        *args,
+        **kwargs,
     ):
         """Add a `drilldown.Collars` object (i.e., containing the x-y-z coordinates of the tops of each hole) to the plotter.
 
@@ -156,12 +169,15 @@ class Plotter(pv.Plotter):
             **kwargs,
         )
         self.collar_actor = actor
+        self._collar_visibility = visibility
+        self._collar_opacity = opacity
 
         if show_labels == True:
             label_actor = self.add_point_labels(
                 mesh, mesh["hole ID"], shape_opacity=0.5, show_points=False
             )
             self.collar_label_actor = label_actor
+            self._collar_label_visibility = visibility
 
             return actor, label_actor
 
@@ -604,6 +620,160 @@ class Plotter(pv.Plotter):
         for layer in self.layers:
             layer._reset_selection()
             layer._reset_filter()
+
+    @property
+    def collar_visibility(self):
+        """Return the visibility of the collars
+
+        Returns
+        -------
+        bool
+            Whether the collars are visible
+
+        """
+        return self._collar_visibility
+
+    @collar_visibility.setter
+    def collar_visibility(self, value):
+        """Set the visibility of the collars
+
+        Parameters
+        ----------
+        value : bool
+            Whether the collars are visible
+
+        """
+        self.collar_actor.visibility = value
+        self.render()
+
+        self._collar_visibility = value
+
+    @property
+    def collar_opacity(self):
+        """Return the opacity of the collars
+
+        Returns
+        -------
+        float, int
+            The opacity of the collars
+
+        """
+        return self._collar_opacity
+
+    @collar_opacity.setter
+    def collar_opacity(self, value):
+        """Set the opacity of the collars
+
+        Parameters
+        ----------
+        value : float, int
+            The opacity of the collars, must be between 0 and 1
+
+        """
+        if value < 0 or value > 1:
+            raise ValueError("opacity must be between 0 and 1")
+
+        self.collar_actor.prop.opacity = value
+        self.render()
+
+        self._collar_opacity = value
+
+    @property
+    def collar_label_visibility(self):
+        """Return the visibility of the collar labels
+
+        Returns
+        -------
+        bool
+            Whether the collar labels are visible
+
+        """
+        return self._collar_label_visibility
+
+    @collar_label_visibility.setter
+    def collar_label_visibility(self, value):
+        """Set the visibility of the collar labels
+
+        Parameters
+        ----------
+        value : bool
+            Whether the collar labels are visible
+
+        """
+        if self.collar_label_actor is not None:
+            self.collar_label_actor.SetVisibility(value)
+
+        else:
+            collar_mesh = self.collar_actor.mapper.dataset
+            label_actor = self.add_point_labels(
+                collar_mesh,
+                collar_mesh["hole ID"],
+                shape_opacity=0.5,
+                show_points=False,
+            )
+            self.collar_label_actor = label_actor
+            self._collar_label_visibility = value
+
+        self.render()
+
+        self._collar_label_visibility = value
+
+    @property
+    def survey_visibility(self):
+        """Return the visibility of the surveys
+
+        Returns
+        -------
+        bool
+            Whether the surveys are visible
+
+        """
+        return self._survey_visibility
+
+    @survey_visibility.setter
+    def survey_visibility(self, value):
+        """Set the visibility of the surveys
+
+        Parameters
+        ----------
+        value : bool
+            Whether the surveys are visible
+
+        """
+        self.survey_actor.visibility = value
+        self.render()
+
+        self._survey_visibility = value
+
+    @property
+    def survey_opacity(self):
+        """Return the opacity of the surveys
+
+        Returns
+        -------
+        float, int
+            The opacity of the surveys
+
+        """
+        return self._survey_opacity
+
+    @survey_opacity.setter
+    def survey_opacity(self, value):
+        """Set the opacity of the surveys
+
+        Parameters
+        ----------
+        value : float, int
+            The opacity of the surveys, must be between 0 and 1
+
+        """
+        if value < 0 or value > 1:
+            raise ValueError("opacity must be between 0 and 1")
+
+        self.survey_actor.prop.opacity = value
+        self.render()
+
+        self._survey_opacity = value
 
     def iframe(self, w="100%", h=None):
         """Return an iframe containing the plotter."""
