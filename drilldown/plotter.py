@@ -96,7 +96,7 @@ class Plotter(pv.Plotter):
     def add_collars(
         self,
         collars,
-        show_labels=True,
+        show_labels=False,
         opacity=1,
         point_size=15,
         visibility=True,
