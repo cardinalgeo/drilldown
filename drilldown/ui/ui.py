@@ -13,19 +13,6 @@ from .layer_list import LayerListUI
 from .controls import ControlsUI
 
 
-def ui_card(title, ui_name):
-    with vuetify.VCard():
-        vuetify.VCardSubtitle(
-            title,
-            classes="grey lighten-1 py-1 grey--text text--darken-3",
-            style="user-select: none; cursor: pointer",
-            hide_details=True,
-            dense=True,
-        )
-        content = vuetify.VCardText(classes="py-2")
-    return content
-
-
 class DrillDownPlotter(Plotter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
