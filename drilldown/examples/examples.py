@@ -9,6 +9,12 @@ def load_assay_data(data_path):
     return data
 
 
+def load_interp_data(data_path):
+    data = pd.read_csv(data_path)
+
+    return data
+
+
 def load_collar_data(data_path):
     data = pd.read_csv(data_path)
 
@@ -32,6 +38,9 @@ def load_tom_zone_macpass_project():
     assay_data = load_assay_data(
         os.path.join(dir_path, "data/macpass_project/tom_zone/assay.csv")
     )
+    interp_data = load_interp_data(
+        os.path.join(dir_path, "data/macpass_project/tom_zone/interpretation.csv")
+    )
     collar_data = load_collar_data(
         os.path.join(dir_path, "data/macpass_project/tom_zone/collar.csv")
     )
@@ -44,6 +53,7 @@ def load_tom_zone_macpass_project():
 
     return {
         "assay": assay_data,
+        "interpretation": interp_data,
         "collar": collar_data,
         "survey": survey_data,
         "topo": topo_data,

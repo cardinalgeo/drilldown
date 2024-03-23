@@ -16,10 +16,12 @@ from .utils import is_jupyter
 
 
 def is_numeric_tuple(tup):
+    """Check if all elements of a tuple are numeric."""
     return all(isinstance(x, (int, float)) for x in tup)
 
 
 def actors_collection_to_list(actors_collection):
+    """Convert a vtk.vtkActorCollection to a list of vtk.vtkActor objects."""
     actors_collection.InitTraversal()
     actors_list = []
     for i in range(actors_collection.GetNumberOfItems()):
@@ -29,7 +31,16 @@ def actors_collection_to_list(actors_collection):
 
 
 class Plotter(pv.Plotter):
-    """Plotting object for displaying drillholes and related datasets."""
+    """Plotting object for displaying drillholes and related datasets. To be used by the :class:`drilldown.DrillDownPlotter` (with GUI) or on its own (without GUI).
+
+    Parameters
+    ----------
+    *args : tuple
+        Positional arguments to pass to the superclass.
+
+    **kwargs : dict
+        Keyword arguments to pass to the superclass.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize plotter."""
@@ -79,6 +90,50 @@ class Plotter(pv.Plotter):
     def add_collars(
         self, collars, show_labels=True, opacity=1, point_size=15, *args, **kwargs
     ):
+        """Add a `drilldown.Collars` object (i.e., containing the x-y-z coordinates of the tops of each hole) to the plotter.
+
+        If not already constructed, the mesh for the collars will be created by the `drilldown.Collars` object and added.
+
+        Parameters
+        ----------
+        collars : drilldown.Collars
+            The collars to add to the plotter.
+
+        show_labels : bool, optional
+            Whether to show labels (i.e., hole IDs) for the collars. Defaults to True.
+
+        opacity : float, optional
+            The opacity of the collars. Defaults to 1.
+
+        point_size : int or float, optional
+            The size of the points representing the collars. Defaults to 15.
+
+        *args : tuple
+            Positional arguments to pass to `add_mesh()`.
+
+        **kwargs : dict
+            Keyword arguments to pass to `add_mesh()`.
+
+        Returns
+        -------
+        pyvista.Actor or tuple
+            The actor representing the collars, and optionally the actor representing the labels.
+
+        Examples
+        --------
+        Create a `drilldown.Collars` object and add it to the plotter:
+
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> pl = dd.Plotter()
+        >>> pl.add_collars(collars)
+        >>> pl.show()
+
+        """
+
         from .holes import Collars
 
         if not isinstance(collars, Collars):
@@ -114,6 +169,48 @@ class Plotter(pv.Plotter):
             return actor
 
     def add_surveys(self, surveys, opacity=1, *args, **kwargs):
+        """Add a `drilldown.Surveys` object (i.e., containing the information to determine the geometry a drillhole) to the plotter.
+
+        If not already constructed, the mesh for the surveys will be created by the `drilldown.Surveys` object and added.
+
+        Parameters
+        ----------
+        surveys : drilldown.Surveys
+            The surveys (i.e., containing the azimuth, dip, and depth of each hole) to add to the plotter.
+
+        opacity : float, optional
+            The opacity of the surveys. Defaults to 1.
+
+        *args : tuple
+            Positional arguments to pass to `add_mesh()`.
+
+        **kwargs : dict
+            Keyword arguments to pass to `add_mesh()`.
+
+        Returns
+        -------
+        pyvista.Actor
+            The actor representing the surveys.
+
+        Examples
+        --------
+        Create a `drilldown.Surveys` object and add it to the plotter:
+
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> survey_data = data_dict["survey"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+        >>> surveys.locate(collars)
+        >>> pl = dd.Plotter()
+        >>> pl.add_surveys(surveys)
+        >>> pl.show()
+
+        """
+
         from .holes import Surveys
 
         if not isinstance(surveys, Surveys):
@@ -152,6 +249,89 @@ class Plotter(pv.Plotter):
         *args,
         **kwargs,
     ):
+        """Add a `drilldown.Intervals` object (i.e., containing drillhole data whose spatial extent is defined by from-to intervals) to the plotter as a data layer.
+
+        If not already constructed, the mesh for the intervals will be created by the `drilldown.Intervals` object and added.
+
+        Parameters
+        ----------
+        intervals : drilldown.Intervals
+            The intervals to add to the plotter.
+
+        name : str
+            The name of the intervals data layer.
+
+        opacity : float, optional
+            The opacity of the intervals. Defaults to 1.
+
+        selectable : bool, optional
+            Whether the intervals are selectable with a cursor. Defaults to True.
+
+        radius : float, optional
+            The radius of the tube representing the intervals. Defaults to 1.5.
+
+        n_sides : int, optional
+            The number of sides of the tube representing the intervals. Defaults to 20.
+
+        capping : bool, optional
+            Whether to cap the ends of the tube segments representing the intervals. Defaults to True.
+
+        active_array_name : str, optional
+            The name of the array to use as the active array (i.e., the array by which the intervals are colored). Defaults to None.
+
+        cmap : str, optional
+            The name of the color map to use for coloring the intervals by the active array. Must be a `matplotlib` color map. Defaults to None.
+
+        clim : tuple, optional
+            The color map limits for the active array (i.e., specifying the range of the active array that the color map is distributed over). Use the format `(min, max)`. Defaults to None.
+
+
+        selection_color : str, optional
+            The color of the intervals when selected. Colors in any format accepted by `PyVista` are accepted. Defaults to "magenta".
+
+        filter_opacity : float, optional
+            When a filter is applied, the opacity of the filtered-out portion of the intervals. Defaults to 0.1.
+
+        accelerated_selection : bool, optional
+            Cursor selection of intervals will be accelerated if True, though with lower precision picking. Defaults to False.
+
+        visibility : bool, optional
+            Whether the intervals are visible. Defaults to True.
+
+        *args : tuple
+            Positional arguments to pass to `add_mesh()`.
+
+        **kwargs : dict
+            Keyword arguments to pass to `add_mesh()`.
+
+        Returns
+        -------
+        pyvista.Actor
+            The actor representing the intervals.
+
+        Example
+        -------
+        Create a `drilldown.Intervals` object and add it to the plotter:
+
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> survey_data = data_dict["survey"]
+        >>> assay_data = data_dict["assay"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+        >>> surveys.locate(collars)
+        >>> assays = dd.Intervals()
+        >>> assays.add_data(assay_data["hole_ID"], assay_data[["depth_from", "depth_to"]], assay_data)
+        >>> assays.desurvey(surveys)
+        >>> pl = dd.Plotter()
+        >>> pl.add_intervals(assays, "assays")
+        >>> pl.show()
+
+        """
+
         from .holes import Intervals
 
         if not isinstance(intervals, Intervals):
@@ -230,6 +410,60 @@ class Plotter(pv.Plotter):
         *args,
         **kwargs,
     ):
+        """Add a `drilldown.Points` object (i.e., containing drillhole data defined as points) to the plotter as a data layer.
+
+        If not already constructed, the mesh for the points will be created by the `drilldown.Points` object and added.
+
+        Parameters
+        ----------
+        points : drilldown.Points
+            The points to add to the plotter.
+
+        name : str
+            The name of the points data layer.
+
+        opacity : float, optional
+            The opacity of the points. Defaults to 1.
+
+        selectable : bool, optional
+            Whether the points are selectable with a cursor. Defaults to True.
+
+        point_size : int or float, optional
+            The size of the points. Defaults to 10.
+
+        active_array_name : str, optional
+            The name of the array to use as the active array (i.e., the array by which the points are colored). Defaults to None.
+
+        cmap : str, optional
+            The name of the color map to use for coloring the points by the active array. Must be a `matplotlib` color map. Defaults to None.
+
+        clim : tuple, optional
+            The color map limits for the active array (i.e., specifying the range of the active array that the color map is distributed over). Use the format `(min, max)`. Defaults to None.
+
+        selection_color : str, optional
+            The color of the points when selected. Colors in any format accepted by `PyVista` are accepted. Defaults to "magenta".
+
+        filter_opacity : float, optional
+            When a filter is applied, the opacity of the filtered-out portion of the points. Defaults to 0.1.
+
+        accelerated_selection : bool, optional
+            Cursor selection of points will be accelerated if True, though with lower precision picking. Defaults to False.
+
+        visibility : bool, optional
+            Whether the points are visible. Defaults to True.
+
+        *args : tuple
+            Positional arguments to pass to `add_mesh()`.
+
+        **kwargs : dict
+            Keyword arguments to pass to `add_mesh()`.
+
+        Returns
+        -------
+        pyvista.Actor
+            The actor representing the points.
+
+        """
         from .holes import Points
 
         if not isinstance(points, Points):
@@ -286,11 +520,13 @@ class Plotter(pv.Plotter):
         return actor
 
     def _on_single_click(self, *args):
+        """Handle single click event."""
         picked_actor = self._pick()
         if picked_actor is not None:
             self._pick_on_single_click(picked_actor)
 
     def _on_double_click(self, *args):
+        """Handle double click event."""
         picked_actor = self._pick()
         if picked_actor is not None:
             self._pick_on_dbl_click(picked_actor)
@@ -305,6 +541,7 @@ class Plotter(pv.Plotter):
                 layer._reset_filter()
 
     def _pick(self):
+        """Pick an actor at the current click position."""
         pos = self.click_position
         actor_picker = self.actor_picker
         actor_picker.Pick(pos[0], pos[1], 0, self.renderer)
@@ -313,6 +550,7 @@ class Plotter(pv.Plotter):
         return picked_actor
 
     def _pick_on_single_click(self, picked_actor):
+        """Handle single click event on picked actor."""
         pos = self.click_position
         # make non-picked actors not pickable to improve performance
         self.actors_to_make_not_pickable_picker.Pick(pos[0], pos[1], 0, self.renderer)
@@ -337,6 +575,7 @@ class Plotter(pv.Plotter):
             actor.SetPickable(val)
 
     def _pick_on_dbl_click(self, picked_actor):
+        """Handle double click event on picked actor."""
         pos = self.click_position
         # make non-picked actors not pickable to improve performance
         self.actors_to_make_not_pickable_picker.Pick(pos[0], pos[1], 0, self.renderer)
@@ -361,11 +600,13 @@ class Plotter(pv.Plotter):
             actor.SetPickable(val)
 
     def _reset_data(self, *args):
+        """Reset selections and filters for all layers."""
         for layer in self.layers:
             layer._reset_selection()
             layer._reset_filter()
 
     def iframe(self, w="100%", h=None):
+        """Return an iframe containing the plotter."""
         if h is None:
             h = self.height
 
@@ -379,6 +620,7 @@ class Plotter(pv.Plotter):
         return self._iframe
 
     def _get_server(self):
+        """Return the plotter's trame server."""
         pv_viewer = show_trame(self, mode="server")
         trame_viewer = pv_viewer.viewer
         server = trame_viewer.server

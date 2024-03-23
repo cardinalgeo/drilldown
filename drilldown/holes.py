@@ -20,6 +20,8 @@ from .utils import (
 
 
 class HoleData:
+    """Base class for storing and desurveying drill hole data. Used by `DrillDown.Points` and `DrillDown.Intervals`."""
+
     def __init__(self):
         self.hole_ids = []
         self.array_names_all = []
@@ -45,7 +47,54 @@ class HoleData:
         return_data=False,
         construct_categorical_cmap=False,
     ):
+        """Add drill hole data.
 
+        Parameters
+        ----------
+        hole_ids : array-like
+            Hole IDs as 1D array with length equal to the number of data points.
+
+        depths : array-like
+            Depths along drillhole path as 1D array with length equal to the number of data points.
+
+        data : array-like or pandas DataFrame
+            Matrix of drillhole data to be added. If a pandas DataFrame is passed, the column names will be used as the array names.
+
+        array_names : list of str, optional
+            Names of the arrays in the data matrix. Required if `data` is not a pandas DataFrame.
+
+        image_array_names : list of str, optional
+            Names of the image arrays (i.e., containing paths to tiled images) in the data matrix if such arrays are present.
+
+        return_data : bool, optional
+            If True, returns the data.
+
+        construct_categorical_cmap : bool, optional
+            If True, constructs a categorical color map for the categorical array names upon displaying in Downhole plot or Plotter.
+
+        Examples
+        --------
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> survey_data = data_dict["survey"]
+        >>> assay_data = data_dict["assay"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+        >>> surveys.locate(collars)
+        >>> assays = dd.Intervals()
+        >>> assays.add_data(assay_data["hole_ID"], assay_data[["depth_from", "depth_to"]], assay_data)
+        >>> assays.desurvey(surveys)
+        >>> assays.show()
+
+        Returns
+        -------
+        dict, optional
+            If `return_data` is True, returns the data.
+
+        """
         # save flag to construct categorical color map
         self.construct_categorical_cmap = construct_categorical_cmap
 
@@ -108,6 +157,24 @@ class HoleData:
     def _construct_categorical_cmap(
         self, array_names=[], cycle=True, rng=999, pastel_factor=0.2
     ):
+        """Construct categorical color map for categorical array names.
+
+        Parameters
+        ----------
+        array_names : list of str, optional
+            Names of the categorical arrays for which to construct the categorical color map. If not provided, constructs the color map for all categorical array names.
+
+        cycle : bool, optional
+            If True, cycles through matplotlib colors to construct the categorical color map. If False, uses distinctipy to select n distinct colors, where n is the number of categories present in a given array.
+
+        rng : int, optional
+            Random number generator seed for distinctipy.
+
+        pastel_factor : float, optional
+            Factor by which to increase the pastelness of the colors. Only used by distinctpy (i.e., if cycle is True).
+
+        """
+
         if len(array_names) == 0:
             array_names = [
                 array_name
@@ -127,6 +194,38 @@ class HoleData:
             )
 
     def add_categorical_cmap(self, array_name, cmap=None, cycle=True):
+        """Add categorical color map for a given array name.
+
+        Parameters
+        ----------
+        array_name : str
+            Name of the categorical array for which a categorical color map is added.
+
+        cmap : dict, optional
+            Dictionary with keys as categories and values as colors in any format accepted by PyVista. If not provided, the color map is constructed using `self._construct_categorical_cmap`.
+
+        cycle : bool, optional
+            If no cmap is passed, cycle is passed to `self._construct_categorical_cmap`. If True, cycles through matplotlib colors to construct the categorical color map. If False, uses distinctipy to select n distinct colors, where n is the number of categories present in a given array.
+
+        Examples
+        --------
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> survey_data = data_dict["survey"]
+        >>> interpretation_data = data_dict["interpretation"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+        >>> surveys.locate(collars)
+        >>> interp = dd.Intervals()
+        >>> interp.add_data(interpretation_data["hole_ID"], interpretation_data[["from", "to"]], interpretation_data)
+        >>> interp.desurvey(surveys)
+        >>> interp.add_categorical_cmap("code", cycle=False)
+        >>> interp.show()
+        """
+
         if array_name not in self.categorical_array_names:
             raise ValueError(f"Data for {array_name} not present.")
 
@@ -177,16 +276,31 @@ class HoleData:
 
     @property
     def depths(self):
+        """Return depths along the drill hole paths.
+
+        Returns
+        -------
+        array-like
+            Depths along the drill hole paths.
+
+        """
         return self._depths
 
     @depths.setter
     def depths(self, depths):
+        """Set depths along the drill hole paths.
+
+        Should only be set within the `self.add_data` method.
+        """
+
         if depths is not None:
             depths = convert_to_numpy_array(depths)
         self._depths = depths.astype(np.float64)
 
 
 class Points(HoleData):
+    """Class for storing and desurveying drill hole point data (i.e., data at specific depths along a drill hole). Inherits from `HoleData`."""
+
     def __init__(self):
         super().__init__()
 
@@ -203,6 +317,27 @@ class Points(HoleData):
         construct_categorical_cmap=False,
         **kwargs,
     ):
+        """Add drill hole points data.
+
+        Parameters
+        ----------
+        hole_ids : array-like
+            Hole IDs as 1D array with length equal to the number of data points.
+
+        depths : array-like
+            Depths along drillhole path as 1D array with length equal to the number of data points.
+
+        data : array-like or pandas DataFrame
+            Matrix of drillhole data to be added. If a pandas DataFrame is passed, the column names will be used as the array names.
+
+        return_data : bool, optional
+            If True, returns the data.
+
+        construct_categorical_cmap : bool, optional
+            If True, constructs a categorical color map for the categorical array names upon displaying in Downhole plot or Plotter.
+
+        """
+
         super().add_data(
             hole_ids,
             depths,
@@ -213,6 +348,15 @@ class Points(HoleData):
         )
 
     def desurvey(self, surveys):
+        """Desurvey drill hole points data (i.e., determine the locations of each point in 3D space).
+
+        Parameters
+        ----------
+        surveys : Surveys
+            `drilldown.Surveys` object containing survey data for the drill holes.
+
+        """
+
         if not isinstance(surveys, Surveys):
             raise TypeError("Surveys must be a Surveys object.")
 
@@ -229,6 +373,13 @@ class Points(HoleData):
             self.depths_desurveyed[hole_filter] = depths_desurveyed
 
     def make_mesh(self):
+        """Make a mesh of the desurveyed drill hole points data.
+
+        Returns
+        -------
+        pyvista.PolyData
+            Mesh of the desurveyed drill hole points data.
+        """
         meshes = None
 
         for id in self.unique_hole_ids:
@@ -269,6 +420,16 @@ class Points(HoleData):
         return meshes
 
     def show(self, show_collars=False, show_surveys=False, *args, **kwargs):
+        """Plot the desurveyed drill hole points data.
+        Parameters
+        ----------
+        show_collars : bool, optional
+            If True, also plots the associated collars using the corresponding `drilldown.Collars` object's mesh.
+
+        show_surveys : bool, optional
+            If True, also plots the associated surveys using the corresponding `drilldown.Surveys` object's mesh.
+
+        """
         if self.mesh is None:
             self._construct_categorical_cmap()
 
@@ -285,6 +446,22 @@ class Points(HoleData):
         return p.show()
 
     def drill_log(self, hole_id, log_array_names=[]):
+        """Create a downhole plot containing points data for a given hole.
+
+        Parameters
+        ----------
+        hole_id : str
+            Hole ID corresponding to the hole for which the downhole plot is created.
+
+        log_array_names : list of str, optional
+            Names of the arrays to be plotted as subplots. If not provided, all arrays will be plotted.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure # TODO change to trame-based microapp
+
+        """
+
         if hole_id not in self.unique_hole_ids:
             raise ValueError(f"Hole ID {hole_id} not present.")
 
@@ -323,6 +500,8 @@ class Points(HoleData):
 
 
 class Intervals(HoleData):
+    """Class for storing and desurveying drill hole interval data (i.e., data between a from and to depth along a drill hole). Inherits from `HoleData`."""
+
     def __init__(self):
         super().__init__()
 
@@ -339,6 +518,48 @@ class Intervals(HoleData):
         construct_categorical_cmap=True,
         **kwargs,
     ):
+        """Add drill hole interval data.
+
+        Parameters
+        ----------
+        hole_ids : array-like
+            Hole IDs as 1D array with length equal to the number of data points.
+
+        depths : array-like
+            Depths along drillhole path as 1D array with length equal to the number of data points.
+
+        data : array-like or pandas DataFrame
+            Matrix of drillhole data to be added. If a pandas DataFrame is passed, the column names will be used as the array names.
+
+        return_data : bool, optional
+            If True, returns the data.
+
+        construct_categorical_cmap : bool, optional
+            If True, constructs a categorical color map for the categorical array names upon displaying in Downhole plot or Plotter.
+
+        Examples
+        --------
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> survey_data = data_dict["survey"]
+        >>> assay_data = data_dict["assay"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+        >>> surveys.locate(collars)
+        >>> assays = dd.Intervals()
+        >>> assays.add_data(assay_data["hole_ID"], assay_data[["from", "to"]], assay_data)
+        >>> assays.desurvey(surveys)
+        >>> assays.show()
+
+        Returns
+        -------
+        dict, optional
+            If `return_data` is True, returns the data.
+
+        """
         super().add_data(
             hole_ids,
             depths,
@@ -349,6 +570,14 @@ class Intervals(HoleData):
         )
 
     def desurvey(self, surveys):
+        """Desurvey drill hole interval data (i.e., determine the locations of each interval in 3D space).
+
+        Parameters
+        ----------
+        surveys : Surveys
+            `drilldown.Surveys` object containing survey data for the drill holes.
+
+        """
         if not isinstance(surveys, Surveys):
             raise TypeError("Surveys must be a Surveys object.")
 
@@ -377,6 +606,15 @@ class Intervals(HoleData):
             )
 
     def make_mesh(self):
+        """
+        Make a mesh of the desurveyed drill hole interval data.
+
+        Returns
+        -------
+        pyvista.PolyData
+            Mesh of the desurveyed drill hole interval data.
+
+        """
         meshes = None
 
         for id in self.unique_hole_ids:
@@ -424,6 +662,17 @@ class Intervals(HoleData):
         return meshes
 
     def show(self, show_collars=False, show_surveys=False, *args, **kwargs):
+        """Plot the desurveyed drill hole interval data.
+
+        Parameters
+        ----------
+        show_collars : bool, optional
+            If True, also plots the associated collars using the corresponding `drilldown.Collars` object's mesh.
+
+        show_surveys : bool, optional
+            If True, also plots the associated surveys using the corresponding `drilldown.Surveys` object's mesh.
+
+        """
         if self.mesh is None:
             self._construct_categorical_cmap()
 
@@ -439,6 +688,40 @@ class Intervals(HoleData):
         return p.show()
 
     def drill_log(self, hole_id, log_array_names=[]):
+        """Create a downhole plot displaying interval data for a given hole.
+
+        Parameters
+        ----------
+        hole_id : str
+            Hole ID corresponding to the hole for which the downhole plot is created.
+
+        log_array_names : list of str, optional
+            Names of the arrays to be plotted as subplots. If not provided, all arrays will be plotted.
+
+        Examples
+        --------
+        Display a downhole plot containing assay data for a given hole.
+
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> survey_data = data_dict["survey"]
+        >>> assay_data = data_dict["assay"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+        >>> surveys.locate(collars)
+        >>> assays = dd.Intervals()
+        >>> assays.add_data(assay_data["hole_ID"], assay_data[["from", "to"]], assay_data)
+        >>> assays.desurvey(surveys)
+        >>> assays.drill_log("TU001", log_array_names=["Pb_pct", "Zn_pct"])
+
+        Returns
+        -------
+        plotly.graph_objects.Figure # TODO change to trame-based microapp
+
+        """
         if hole_id not in self.unique_hole_ids:
             raise ValueError(f"Hole ID {hole_id} not present.")
 
@@ -480,12 +763,33 @@ class Intervals(HoleData):
 
 
 class Collars:
+    """Class for storing drill hole collar data."""
+
     def __init__(self):
         self.unique_hole_ids = None
         self.coords = None
         self.mesh = None
 
     def add_data(self, hole_ids, coords):
+        """Add drill hole collar data.
+
+        Parameters
+        ----------
+        hole_ids : array-like
+            Hole IDs as 1D array.
+
+        coords : array-like
+            Coordinates of the drill hole collars as 2D array with shape (n, 3), where n is the number of collars.
+
+        Examples
+        --------
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> collar_data = data_dict["collar"]
+        >>> collars = dd.Collars()
+        >>> collars.add_data(collar_data["hole_ID"], collar_data[["x", "y", "z"]])
+
+        """
         hole_ids = convert_to_numpy_array(hole_ids)
         coords = convert_to_numpy_array(coords)
 
@@ -502,12 +806,21 @@ class Collars:
         self.coords = np.c_[hole_ids, coords]
 
     def make_mesh(self):
+        """Make a mesh of the drill hole collar data.
+
+        Returns
+        -------
+        pyvista.PolyData
+            Mesh of the drill hole collar data.
+
+        """
         mesh = pv.PolyData(np.asarray(self.coords[:, 1:], dtype="float"))
         mesh["hole ID"] = self.coords[:, 0]
         self.mesh = mesh
         return mesh
 
     def show(self, *args, **kwargs):
+        """Plot the drill hole collar data."""
         p = Plotter()
         p.add_collars(self, *args, **kwargs)
 
@@ -515,6 +828,8 @@ class Collars:
 
 
 class Surveys:
+    """Class for storing drill hole survey data."""
+
     def __init__(self):
         self.unique_hole_ids = None
         self.measurements = None
@@ -523,6 +838,31 @@ class Surveys:
         self.mesh = None
 
     def add_data(self, hole_ids, dist, azm, dip):
+        """Add drill hole survey data.
+
+        Parameters
+        ----------
+        hole_ids : array-like
+            Hole IDs as 1D array with length equal to the number of survey measurements.
+
+        dist : array-like
+            Distance along drillhole path for each survey measurement, as 1D array with length equal to the number of survey measurements.
+
+        azm : array-like
+            Azimuth for each survey measurement (i.e., orientation angle in horizontal plane), as 1D array with length equal to the number of survey measurements.
+
+        dip : array-like
+            Dip for each survey measurement (i.e., orientation angle in vertical plane), as 1D array with length equal to the number of survey measurements.
+
+        Examples
+        --------
+        >>> import drilldown as dd
+        >>> data_dict = dd.examples.load_tom_zone_macpass_project()
+        >>> survey_data = data_dict["survey"]
+        >>> surveys = dd.Surveys()
+        >>> surveys.add_data(survey_data["hole_ID"], survey_data["depth"], survey_data["azimuth"], survey_data["dip"])
+
+        """
         hole_ids = convert_to_numpy_array(hole_ids)
         dist = convert_to_numpy_array(dist)
         azm = convert_to_numpy_array(azm)
@@ -546,6 +886,14 @@ class Surveys:
             self._create_holes()
 
     def locate(self, collars):
+        """Locate the drill hole survey data (i.e., position the top of each hole in 3D space) using the drill hole collar data.
+
+        Parameters
+        ----------
+        collars : Collars
+            `drilldown.Collars` object containing the drill hole collar data.
+
+        """
         self.collars = collars
         for hole_id in self.unique_hole_ids:
             hole = DrillHole()
@@ -563,6 +911,14 @@ class Surveys:
                 self._holes[hole_id] = hole
 
     def make_mesh(self):
+        """Make a mesh of the drill hole survey data.
+
+        Returns
+        -------
+        pyvista.PolyData
+            Mesh of the drill hole survey data.
+
+        """
         mesh = None
         for hole_id in self._holes.keys():
             hole = self._holes[hole_id]
@@ -579,6 +935,14 @@ class Surveys:
         return mesh
 
     def show(self, show_collars=False, *args, **kwargs):
+        """Plot the drill hole survey data.
+
+        Parameters
+        ----------
+        show_collars : bool, optional
+            If True, also plots the associated collars using the corresponding `drilldown.Collars` object's mesh.
+
+        """
         p = Plotter()
         p.add_surveys(self, *args, **kwargs)
 
