@@ -31,7 +31,7 @@ class DrillDownPlotter(Plotter):
         super().__init__(*args, **kwargs)
         self._ui = None
         self.layer_list_ui = None
-        self.state.ctrl_mesh_name = 0
+        self.state.active_layer_name = None
 
     def show(self, inline=False, menu_button=False, return_viewer=False):
         if return_viewer == True:
@@ -107,9 +107,9 @@ class DrillDownPlotter(Plotter):
     def _initialize_engine(self):
         state = self.server.state
 
-        @state.change("ctrl_mesh_name")
-        def update_controls_mesh(ctrl_mesh_name, **kwargs):
-            layer = self.layers[ctrl_mesh_name]
+        @state.change("active_layer_name")
+        def update_controls_mesh(active_layer_name, **kwargs):
+            layer = self.layers[active_layer_name]
 
             # update active array name
             state.active_array_name_visible = True
@@ -138,21 +138,21 @@ class DrillDownPlotter(Plotter):
 
         @state.change("visibility")
         def update_visibility(visibility, **kwargs):
-            layer = self.layers[state.ctrl_mesh_name]
+            layer = self.layers[state.active_layer_name]
 
             if visibility != layer.visibility:
                 layer.visibility = visibility
 
         @state.change("opacity")
         def update_opacity(opacity, **kwargs):
-            layer = self.layers[state.ctrl_mesh_name]
+            layer = self.layers[state.active_layer_name]
 
             if opacity != layer.opacity:
                 layer.opacity = opacity
 
         @state.change("active_array_name")
         def update_active_array_name(active_array_name, **kwargs):
-            layer = self.layers[state.ctrl_mesh_name]
+            layer = self.layers[state.active_layer_name]
 
             if active_array_name != layer.active_array_name:
                 layer.active_array_name = active_array_name
@@ -167,14 +167,14 @@ class DrillDownPlotter(Plotter):
 
         @state.change("cmap")
         def update_cmap(cmap, **kwargs):
-            layer = self.layers[state.ctrl_mesh_name]
+            layer = self.layers[state.active_layer_name]
 
             if cmap != layer.cmap:
                 layer.cmap = cmap
 
         @state.change("clim")
         def update_clim(clim, **kwargs):
-            layer = self.layers[state.ctrl_mesh_name]
+            layer = self.layers[state.active_layer_name]
             if (abs(clim[0] - layer.clim[0]) > 1e-6) or (
                 abs(clim[1] - layer.clim[1]) > 1e-6
             ):

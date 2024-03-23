@@ -84,7 +84,7 @@ class LayerUI(vuetify.VCard):
             abs(self.layer_click_timestamp - self.visibility_button_click_timestamp)
             > 0.1
         ):
-            self.state.ctrl_mesh_name = self.name
+            self.state.active_layer_name = self.name
 
     def on_visibility_button_click(self):
         self.visibility_button_click_timestamp = time.time()

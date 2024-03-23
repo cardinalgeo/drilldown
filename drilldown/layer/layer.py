@@ -75,7 +75,7 @@ class _BaseLayer:
 
         self._visibility = value
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.visibility = value
 
@@ -101,7 +101,7 @@ class _BaseLayer:
 
         self._opacity = value
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.opacity = value
 
@@ -814,7 +814,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
         self._active_array_name = mesh.active_scalars_name
 
-        self.state.ctrl_mesh_name = self.name
+        self.state.active_layer_name = self.name
         with self.state:
             self.state.active_array_name = self._active_array_name
 
@@ -922,7 +922,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self.plotter.render()
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.active_array_name = value
 
@@ -943,7 +943,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._cmap = value
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.cmap = value
 
@@ -979,7 +979,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._clim = value
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.clim = (
                     np.ceil(value[0] / self._clim_step) * self._clim_step,
@@ -1024,13 +1024,13 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._clim_step = clim_step
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.clim_step = self._clim_step
 
         self._clim_range = value
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.clim_min = (
                     np.floor(value[0] / self._clim_step) * self._clim_step
@@ -1070,14 +1070,14 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._clim_step = clim_step
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.clim_step = self._clim_step
 
         # reset clim_range
         self._clim_range = clim_range
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.clim_min = (
                     np.floor(clim_range[0] / self._clim_step) * self._clim_step
@@ -1097,7 +1097,7 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
 
         self._clim = clim_range
 
-        if self.name == self.state.ctrl_mesh_name:
+        if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.clim = (
                     np.ceil(clim_range[0] / self._clim_step) * self._clim_step,
@@ -1229,7 +1229,7 @@ class PointDataLayer(_DataLayer, _PointLayer, PointInterLayerMixin):
         if key not in self.array_names:
             self.array_names.append(key)
 
-            if self.name == self.state.ctrl_mesh_name:
+            if self.name == self.state.active_layer_name:
                 with self.state:
                     self.state.array_names = self.array_names
 
@@ -1324,7 +1324,7 @@ class IntervalDataLayer(_DataLayer, _IntervalLayer, IntervalInterLayerMixin):
         if key not in self.array_names:
             self.array_names.append(key)
 
-            if self.name == self.state.ctrl_mesh_name:
+            if self.name == self.state.active_layer_name:
                 with self.state:
                     self.state.array_names = self.array_names
 
