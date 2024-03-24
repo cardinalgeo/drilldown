@@ -1,10 +1,12 @@
 # DrillDown
+
 Welcome! `DrillDown` is a visualization and analysis toolkit for "drilling down" into ore deposits datasets. Check out the poster below for more info: 
+
 ![poster](media/poster.jpg)
 
 # Features
 
-## Launch from jupyter notebook
+### Launch from jupyter notebook
 
 ![launch from jupyter notebook](media/launch_from_jupyter_notebook_feature_demo.gif)
 
@@ -28,12 +30,12 @@ Welcome! `DrillDown` is a visualization and analysis toolkit for "drilling down"
 
 ![2D scatter plot with cross-filtering](media/2d_scatter_plot_with_cross_filtering_feature_demo.gif)
 
-### Core photos from selection: 
+### Core photos from selection
 
 ![core photos from selection](media/core_photos_from_selection_feature_demo.gif)
 
 
-...and more!
+### ...and more!
 
 ## Installation for development
 - Use python 3.10 (imposed by geoh5py dependency)
