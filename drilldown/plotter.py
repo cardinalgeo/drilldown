@@ -372,6 +372,7 @@ class Plotter(pv.Plotter):
             opacity=opacity,
             cells_per_interval=cells_per_interval,
             selection_color=selection_color,
+            accelerated_selection=accelerated_selection,
         )
 
         # handle categorical, continuous, and image arrays
@@ -500,6 +501,7 @@ class Plotter(pv.Plotter):
             visibility=visibility,
             opacity=opacity,
             selection_color=selection_color,
+            accelerated_selection=accelerated_selection,
         )
 
         # handle categorical, continuous, and image arrays

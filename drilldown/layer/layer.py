@@ -298,11 +298,11 @@ class _PointLayer(_BaseLayer):
     plotter : drilldown.Plotter
         The plotter to which the layer will be added
 
-    pickable : bool, optional
-        Whether the layer is pickable (i.e., selectable by coordinates, typically by clicking with a cursor), by default True
+    selectable : bool, optional
+        Whether the layer is selectable (i.e., pickable, typically by providing coordinates or clicking with a cursor), by default True
 
-    accelerated_picking : bool, optional
-        Whether to use accelerated picking, which constructs a VTK locator and selector to accelerate picking. Picking precision, however, decreases. By default False
+    accelerated_selection : bool, optional
+        Whether to use accelerated selection, which constructs a VTK locator and selector to accelerate picking. Picking precision, however, decreases. By default False
 
     point_size : int, optional
         The size of the points, by default 15
@@ -321,8 +321,8 @@ class _PointLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        pickable=True,
-        accelerated_picking=False,
+        selectable=True,
+        accelerated_selection=False,
         point_size=15,
         rel_selected_point_size=1.1,
         rel_filtered_point_size=1.1,
@@ -331,8 +331,8 @@ class _PointLayer(_BaseLayer):
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
-        self.pickable = pickable
-        self.accelerated_picking = accelerated_picking
+        self.selectable = selectable
+        self.accelerated_selection = accelerated_selection
 
         self.picker = None
         self.filter_picker = None
@@ -342,7 +342,7 @@ class _PointLayer(_BaseLayer):
         self._filtered_points = []
         self._boolean_filter = None
 
-        if self.pickable:
+        if self.selectable:
             self._make_pickable()
 
         self.point_size = point_size
@@ -359,7 +359,7 @@ class _PointLayer(_BaseLayer):
         self.filter_picker = vtkPointPicker()
         self.filter_picker.SetTolerance(0.005)
 
-        if self.accelerated_picking == True:
+        if self.accelerated_selection == True:
             for picker in [self.picker, self.filter_picker]:
                 # add locator for acceleration
                 locator = vtkPointLocator()
@@ -705,11 +705,11 @@ class _IntervalLayer(_BaseLayer):
 
     plotter : drilldown.Plotter
 
-    pickable : bool, optional
-        Whether the layer is pickable (i.e., selectable by coordinates, typically by clicking with a cursor), by default True
+    selectable : bool, optional
+        Whether the layer is selectable (i.e., pickable, typically by providing coordinates or clicking with a cursor), by default True
 
-    accelerated_picking : bool, optional
-        Whether to use accelerated picking, which constructs a VTK locator and selector to accelerate picking. Picking precision, however, decreases. By default False
+    accelerated_selection : bool, optional
+        Whether to use accelerated selection, which constructs a VTK locator and selector to accelerate picking. Picking precision, however, decreases. By default False
 
     cells_per_interval : int, optional
         The number of cells per interval, by default 22
@@ -722,16 +722,16 @@ class _IntervalLayer(_BaseLayer):
         mesh,
         actor,
         plotter,
-        pickable=True,
-        accelerated_picking=False,
+        selectable=True,
+        accelerated_selection=False,
         cells_per_interval=22,
         *args,
         **kwargs,
     ):
         super().__init__(name, mesh, actor, plotter, *args, **kwargs)
 
-        self.pickable = pickable
-        self.accelerated_picking = accelerated_picking
+        self.selectable = selectable
+        self.accelerated_selection = accelerated_selection
 
         self.picker = None
         self.filter_picker = None
@@ -743,7 +743,7 @@ class _IntervalLayer(_BaseLayer):
         self._filtered_intervals = []
         self._boolean_filter = None
 
-        if self.pickable:
+        if self.selectable:
             self._make_pickable()
 
         self.cells_per_interval = cells_per_interval
@@ -757,7 +757,7 @@ class _IntervalLayer(_BaseLayer):
         self.filter_picker = vtkCellPicker()
         self.filter_picker.SetTolerance(0.0005)
 
-        if self.accelerated_picking == True:
+        if self.accelerated_selection == True:
             for picker in [self.picker, self.filter_picker]:
                 # add locator for acceleration
                 locator = vtkCellLocator()
