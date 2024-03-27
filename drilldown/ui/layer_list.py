@@ -18,6 +18,7 @@ class LayerUI(vuetify.VCard):
         self.name = layer.name
         self.state = layer.state
         self.id = uuid.uuid4().hex
+        self.layer.ui = self
 
         self.state[f"visibility_{self.id}"] = self.layer.visibility
 
