@@ -1237,16 +1237,14 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
         self._active_array_name = mesh.active_scalars_name
 
         self.state.active_layer_name = self.name
-        with self.state:
-            self.state.active_array_name = self._active_array_name
+        self.state.active_array_name = self._active_array_name
 
         if hasattr(
             actor.mapper.lookup_table.cmap, "name"
         ):  # only set if active_array_name is continuous
             self._cmap = actor.mapper.lookup_table.cmap.name
 
-            with self.state:
-                self.state.cmap = self._cmap
+            self.state.cmap = self._cmap
 
             self._clim_range = self._calculate_clim_range(self._active_array_name)
 
@@ -1260,27 +1258,24 @@ class _DataLayer(ImageMixin, _BaseLayer, Plotting2dMixin):
             self._clim_step = clim_step
             self._clim = actor.mapper.lookup_table.scalar_range
 
-            with self.state:
-                self.state.clim = self._clim
-                self.state.clim_min = self._clim_range[0]
-                self.state.clim_max = self._clim_range[1]
-                self.state.clim_step = self._clim_step
+            self.state.clim = self._clim
+            self.state.clim_min = self._clim_range[0]
+            self.state.clim_max = self._clim_range[1]
+            self.state.clim_step = self._clim_step
 
         else:
             self._cmap = None
 
-            with self.state:
-                self.state.cmap = self._cmap
+            self.state.cmap = self._cmap
 
             self._clim_range = (0, 0)
             self._clim_step = 0
             self._clim = (0, 0)
 
-            with self.state:
-                self.state.clim = self._clim
-                self.state.clim_min = self._clim_range[0]
-                self.state.clim_max = self._clim_range[1]
-                self.state.clim_step = self._clim_step
+            self.state.clim = self._clim
+            self.state.clim_min = self._clim_range[0]
+            self.state.clim_max = self._clim_range[1]
+            self.state.clim_step = self._clim_step
 
         self._cmaps = plt.colormaps()
 
