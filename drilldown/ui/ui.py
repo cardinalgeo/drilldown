@@ -118,6 +118,8 @@ class DrillDownPlotter(Plotter):
 
             else:
                 state.cmap_visible = False
+                state.cmap_fields = []
+
                 state.clim_visible = False
 
             state.visibility = layer.visibility
