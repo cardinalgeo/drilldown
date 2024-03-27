@@ -19,16 +19,16 @@ class ImageMixin:
             else:
                 array_name = image_array_names
 
-            image_filename = data[array_name].values[0]
-            self.im_viewer.update(image_filename)
             image_filenames = data[array_name].values.tolist()
-            if len(image_filenames) > 1:
-                self.im_viewer.state.carousel = True
-            else:
-                self.im_viewer.state.carousel = False
+            if len(image_filenames) != 0:
+                image_filename = image_filenames[0]
+                self.im_viewer.update(image_filename)
+                if len(image_filenames) > 1:
+                    self.im_viewer.state.carousel = True
+                else:
+                    self.im_viewer.state.carousel = False
 
-            self.im_viewer.image_filenames = image_filenames
-            self.im_viewer.update(image_filenames[0])
+                self.im_viewer.image_filenames = image_filenames
 
     def selected_images(self, array_name=None, auto_update=True):
         from .image import ImageViewer
