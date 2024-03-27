@@ -91,6 +91,9 @@ class _BaseLayer:
         self._rel_selection_opacity = rel_selection_opacity
         self._rel_filter_opacity = rel_filter_opacity
 
+        # if UI present, the UI component corresponding to the layer
+        self.ui = None
+
     @property
     def visibility(self):
         """Return the visibility of the layer
@@ -127,6 +130,10 @@ class _BaseLayer:
         if self.name == self.state.active_layer_name:
             with self.state:
                 self.state.visibility = value
+
+        if self.ui is not None:
+            with self.state: 
+                self.state[f"visibility_{self.ui.id}"] = value
 
     @property
     def opacity(self):
