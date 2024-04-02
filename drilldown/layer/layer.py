@@ -390,8 +390,8 @@ class _PointLayer(_BaseLayer):
         selectable=True,
         accelerated_selection=False,
         point_size=15,
-        rel_selected_point_size=1.1,
-        rel_filtered_point_size=1.1,
+        rel_selected_point_size=1.001,
+        rel_filtered_point_size=1.001,
         *args,
         **kwargs,
     ):
@@ -1901,6 +1901,22 @@ class PointDataLayer(_DataLayer, _PointLayer, PointInterLayerMixin):
             if self.name == self.state.active_layer_name:
                 with self.state:
                     self.state.array_names = self.array_names
+
+    def _make_selection_by_dbl_click_pick(self, pos, actor):
+        """Make an point selection by a pick triggered by a cursor double-click
+
+        Currently disabled; treated as a single-click pick
+
+        Parameters
+        ----------
+        pos : tuple
+            The coordinates corresponding to a cursor double-click pick
+
+        actor : pyvista.PolyData
+            The actor corresponding to the main mesh
+        """
+
+        self._make_selection_by_pick(pos, actor)
 
     def _process_data_output(self, ids, array_names=[]):
         """Process layer data for output

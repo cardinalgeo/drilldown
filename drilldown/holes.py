@@ -115,6 +115,18 @@ class HoleData:
 
         # add from-to depths
         depths = convert_to_numpy_array(depths)
+
+        ## remove data corresponding to NaN depths
+        if depths.ndim > 1:
+            nan_bool = np.any(np.isnan(depths), axis=1)
+        else:
+            nan_bool = np.isnan(depths)
+
+        if np.any(nan_bool):
+            depths = depths[~nan_bool]
+            self.hole_ids = self.hole_ids[~nan_bool]
+            data = data[~nan_bool]
+
         self.depths = depths
 
         # add data
