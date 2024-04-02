@@ -50,11 +50,11 @@ class _BaseLayer:
     selection_color : str, optional
         The color of the selection actor, by default "magenta"
 
-    rel_selection_opacity : float, optional
-        The opacity of the actor corresponding to the non-selected subset of the layer dataset, relative to the opacity of the actor corresponding to the selected subset. Must be between 0 and 1. By default 1
+    selection_opacity : float, optional
+        The opacity of the actor corresponding to the non-selected subset of the layer dataset. Must be between 0 and the value for `opacity`, the opacity of the actor corresponding to the main mesh, which is used also for the actor corresponding to the selected subset of the layer dataset if a selection is made. By default the latter.
 
-    rel_filter_opacity : float, optional
-        The opacity of the actor corresponding to the filtered-out subset of the layer dataset, relative to the opacity of the actor corresponding to the filtered-in subset. Must be between 0 and 1. By default 0.1.
+    filter_opacity : float, optional
+        When a filter is applied, the opacity of the actor corresponding to the filtered out subset of the layer dataset. Must be between 0 and the value for `opacity`, the opacity of the actor corresponding to the main mesh, which is used also for the actor corresponding to the filtered in subset of the layer dataset if a filter is applied. By default 0.05 * the value for `opacity`.
 
     """
 
@@ -67,8 +67,8 @@ class _BaseLayer:
         visibility=True,
         opacity=1,
         selection_color="magenta",
-        rel_selection_opacity=1,
-        rel_filter_opacity=0.1,
+        selection_opacity=None,
+        filter_opacity=None,
     ):
         self.plotter = plotter
         self.state = self.plotter.state
@@ -88,8 +88,37 @@ class _BaseLayer:
         self._filter_actor = None
 
         self._selection_color = selection_color
-        self._rel_selection_opacity = rel_selection_opacity
-        self._rel_filter_opacity = rel_filter_opacity
+
+        # set selection and filter opacities
+        if selection_opacity is None:
+            self._rel_selection_opacity = 1
+            self._selection_opacity = self._rel_selection_opacity * opacity
+        else:
+            try:
+                if (selection_opacity < 0) or (selection_opacity > opacity):
+                    raise ValueError(
+                        "selection_opacity must be between 0 and the value for opacity."
+                    )
+                else:
+                    self._rel_selection_opacity = selection_opacity / opacity
+                    self._selection_opacity = selection_opacity
+            except:
+                raise TypeError("selection_opacity must be a float or int.")
+
+        if filter_opacity is None:
+            self._rel_filter_opacity = 0.05
+            self._filter_opacity = self._rel_filter_opacity * opacity
+        else:
+            try:
+                if (filter_opacity < 0) or (filter_opacity > opacity):
+                    raise ValueError(
+                        "filter_opacity must be between 0 and the value for opacity."
+                    )
+                else:
+                    self._rel_filter_opacity = filter_opacity / opacity
+                    self._filter_opacity = filter_opacity
+            except:
+                raise TypeError("filter_opacity must be a float or int.")
 
         # if UI present, the UI component corresponding to the layer
         self.ui = None
@@ -132,7 +161,7 @@ class _BaseLayer:
                 self.state.visibility = value
 
         if self.ui is not None:
-            with self.state: 
+            with self.state:
                 self.state[f"visibility_{self.ui.id}"] = value
 
     @property
@@ -160,18 +189,22 @@ class _BaseLayer:
         if value < 0 or value > 1:
             raise ValueError("opacity must be between 0 and 1")
 
+        filter_opacity = value * self._rel_filter_opacity
         if self._filter_actor is not None:
-            self.actor.prop.opacity = value * self._rel_filter_opacity
+            self.actor.prop.opacity = filter_opacity
             self._filter_actor.prop.opacity = value
         else:
             self.actor.prop.opacity = value
 
+        selection_opacity = value * self._rel_selection_opacity
         if self._selection_actor is not None:
-            self._selection_actor.prop.opacity = value * self._rel_selection_opacity
+            self._selection_actor.prop.opacity = selection_opacity
 
         self.plotter.render()
 
         self._opacity = value
+        self._filter_opacity = filter_opacity
+        self._selection_opacity = selection_opacity
 
         if self.name == self.state.active_layer_name:
             with self.state:
@@ -218,6 +251,35 @@ class _BaseLayer:
         self._selection_color = value
 
     @property
+    def selection_opacity(self):
+        """Return the opacity of the actor corresponding to the non-selected subset of the layer dataset
+
+        Returns
+        -------
+        float, int
+            The opacity of the actor corresponding to the non-selected subset of the layer dataset
+
+        """
+        return self._selection_opacity
+
+    @selection_opacity.setter
+    def selection_opacity(self, value):
+        """Set the opacity of the actor corresponding to the non-selected subset of the layer dataset
+
+        Parameters
+        ----------
+        value : float, int
+            The opacity of the actor corresponding to the non-selected subset of the layer dataset. Must be between 0 and the value for `opacity`, the opacity of the actor corresponding to the main mesh, which is used also for the actor corresponding to the selected subset of the layer dataset if a selection is made
+
+        """
+        if self._selection_actor is not None:
+            self._selection_actor.prop.opacity = value
+            self.plotter.render()
+
+        self._selection_opacity = value
+        self._rel_selection_opacity = value / self._opacity
+
+    @property
     def rel_selection_opacity(self):
         """Return the opacity of the actor corresponding to the non-selected subset of the layer dataset, relative to the opacity of the actor corresponding to the selected subset
 
@@ -228,22 +290,6 @@ class _BaseLayer:
 
         """
         return self._rel_selection_opacity
-
-    @rel_selection_opacity.setter
-    def rel_selection_opacity(self, value):
-        """Set the opacity of the actor corresponding to the non-selected subset of the layer dataset, relative to the opacity of the actor corresponding to the selected subset
-
-        Parameters
-        ----------
-        value : float, int
-            The opacity of the actor corresponding to the non-selected subset of the layer dataset, relative to the opacity of the actor corresponding to the selected subset. Must be between 0 and 1.
-
-        """
-        if self._selection_actor is not None:
-            self._selection_actor.prop.opacity = self._opacity * value
-            self.plotter.render()
-
-        self._rel_selection_opacity = value
 
     @property
     def filter_actor(self):
@@ -258,6 +304,35 @@ class _BaseLayer:
         return self._filter_actor
 
     @property
+    def filter_opacity(self):
+        """Return the opacity of the actor corresponding to the filtered-out subset of the layer dataset
+
+        Returns
+        -------
+        float, int
+            The opacity of the actor corresponding to the filtered-out subset of the layer dataset
+
+        """
+        return self._filter_opacity
+
+    @filter_opacity.setter
+    def filter_opacity(self, value):
+        """Set the opacity of the actor corresponding to the filtered-out subset of the layer dataset
+
+        Parameters
+        ----------
+        value : float, int
+            The opacity of the actor corresponding to the filtered-out subset of the layer dataset. Must be between 0 and the value for `opacity`, the opacity of the actor corresponding to the main mesh, which is used also for the actor corresponding to the filtered-in subset of the layer dataset if a filter is applied
+
+        """
+        if self._filter_actor is not None:
+            self.actor.prop.opacity = value
+            self.plotter.render()
+
+        self._filter_opacity = value
+        self._rel_filter_opacity = value / self._opacity
+
+    @property
     def rel_filter_opacity(self):
         """Return the opacity of the actor corresponding to the filtered-out subset of the layer dataset, relative to the opacity of the actor corresponding to the filtered-in subset
 
@@ -268,22 +343,6 @@ class _BaseLayer:
 
         """
         return self._rel_filter_opacity
-
-    @rel_filter_opacity.setter
-    def rel_filter_opacity(self, value):
-        """Set the opacity of the actor corresponding to the filtered-out subset of the layer dataset, relative to the opacity of the actor corresponding to the filtered-in subset
-
-        Parameters
-        ----------
-        value : float, int
-            The opacity of the actor corresponding to the filtered-out subset of the layer dataset, relative to the opacity of the actor corresponding to the filtered-in subset. Must be between 0 and 1
-
-        """
-        if self._filter_actor is not None:
-            self.actor.prop.opacity = self._opacity * value
-            self.plotter.render()
-
-        self._rel_filter_opacity = value
 
 
 class _PointLayer(_BaseLayer):
@@ -1029,7 +1088,7 @@ class _IntervalLayer(_BaseLayer):
                     selection_mesh,
                     name=self.name + " selection",
                     color=self.selection_color,
-                    opacity=self.opacity * self.rel_selection_opacity,
+                    opacity=self.selection_opacity,
                     reset_camera=False,
                     pickable=False,
                 )
