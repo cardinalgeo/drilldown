@@ -390,8 +390,8 @@ class _PointLayer(_BaseLayer):
         selectable=True,
         accelerated_selection=False,
         point_size=15,
-        rel_selected_point_size=1.1,
-        rel_filtered_point_size=1.1,
+        rel_selected_point_size=1.001,
+        rel_filtered_point_size=1.001,
         *args,
         **kwargs,
     ):
