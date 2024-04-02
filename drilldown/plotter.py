@@ -259,7 +259,8 @@ class Plotter(pv.Plotter):
         cmap=None,
         clim=None,
         selection_color="magenta",
-        filter_opacity=0.1,
+        selection_opacity=None,
+        filter_opacity=None,
         accelerated_selection=False,
         visibility=True,
         *args,
@@ -305,8 +306,11 @@ class Plotter(pv.Plotter):
         selection_color : str, optional
             The color of the intervals when selected. Colors in any format accepted by `PyVista` are accepted. Defaults to "magenta".
 
+        selection_opacity : float, optional
+            When a selection is made, the opacity of the actor corresponding to the non-selected subset of the layer dataset. Must be between 0 and the value for `opacity`, the opacity of the actor corresponding to the main mesh, which is used also for the actor corresponding to the selected subset of the layer dataset if a selection is made. By default the value for `opacity`.
+
         filter_opacity : float, optional
-            When a filter is applied, the opacity of the filtered-out portion of the intervals. Defaults to 0.1.
+            When a filter is applied, the opacity of the actor corresponding to the filtered out subset of the layer dataset. Must be between 0 and the value for `opacity`, the opacity of the actor corresponding to the main mesh, which is used also for the actor corresponding to the filtered in subset of the layer dataset if a filter is applied. By default 0.05 * the value for `opacity`.
 
         accelerated_selection : bool, optional
             Cursor selection of intervals will be accelerated if True, though with lower precision picking. Defaults to False.
@@ -379,6 +383,31 @@ class Plotter(pv.Plotter):
         if capping == True:
             cells_per_interval += 2
 
+        # set selection and filter opacities
+        if selection_opacity is None:
+            rel_selection_opacity = 1
+            selection_opacity = rel_selection_opacity * opacity
+        else:
+            try:
+                if (selection_opacity < 0) or (selection_opacity > opacity):
+                    raise ValueError(
+                        "selection_opacity must be between 0 and the value for opacity."
+                    )
+            except:
+                raise TypeError("selection_opacity must be float or int.")
+
+        if filter_opacity is None:
+            rel_filter_opacity = 0.05
+            filter_opacity = rel_filter_opacity * opacity
+        else:
+            try:
+                if (filter_opacity < 0) or (filter_opacity > opacity):
+                    raise ValueError(
+                        "filter_opacity must be between 0 and the value for opacity."
+                    )
+            except:
+                raise TypeError("filter_opacity must be float or int.")
+
         layer = IntervalDataLayer(
             name,
             mesh,
@@ -388,6 +417,8 @@ class Plotter(pv.Plotter):
             opacity=opacity,
             cells_per_interval=cells_per_interval,
             selection_color=selection_color,
+            selection_opacity=selection_opacity,
+            filter_opacity=filter_opacity,
             accelerated_selection=accelerated_selection,
         )
 
