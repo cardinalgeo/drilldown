@@ -2,6 +2,7 @@ distinctipy==1.2.3
 geoh5py==0.8.0rc3
 ipykernel==6.27.1
 jupyter==1.0.0
+pandas==2.2.3
 plotly==5.18.0
 pyvista==0.43.0
 trame==3.4.0
